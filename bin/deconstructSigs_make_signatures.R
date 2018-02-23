@@ -3,8 +3,6 @@ args <- commandArgs(T)
 
 sampleID <- args[1]
 vcf_file <- args[2]
-# vcf_file <- "pipeline_output/VCF-GATK-HC/SC-SERACARE.vcf"
-
 
 message(sprintf("vcf_file: %s", vcf_file))
 message(sprintf("sampleID: %s", sampleID))

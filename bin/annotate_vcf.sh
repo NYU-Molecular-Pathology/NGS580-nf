@@ -85,4 +85,4 @@ set -x
 [ ! "$( cat "${avinput_file}" | wc -l )" -eq "$(grep -v '^#' "${input_vcf}" | wc -l)" ] && echo "ERROR: number of entries does not match between files ${input_vcf} and ${avinput_file}" && exit 1 || :
 
 # annovate
-"${annovar_dir}/table_annovar.pl" "${avinput_file}" "${annovar_db_dir}" --buildver "${build_version}" --remove --protocol "${annovar_protocol}" --operation "${annovar_operation}" --nastring . --outfile "${sample_ID}" # --thread ${NSLOTS:-1}
+"${annovar_dir}/table_annovar.pl" "${avinput_file}" "${annovar_db_dir}" --buildver "${build_version}" --remove --protocol "${annovar_protocol}" --operation "${annovar_operation}" --nastring . --outfile "${sample_ID}"

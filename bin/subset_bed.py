@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 """
 Retrieves entries from a .bed file that match the provided chromosome.
 Prints each matching line to stdout
@@ -29,4 +28,3 @@ def parse():
 
 if __name__ == '__main__':
     parse()
-

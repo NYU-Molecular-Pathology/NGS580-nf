@@ -15,7 +15,6 @@
 # License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
-#
 # Written by Ulrich Drepper, Scott Miller, and David Madore.
 
 # using md5 version from macOS 10.12.5
