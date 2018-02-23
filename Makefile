@@ -1,3 +1,5 @@
+# Makefile to run the pipeline
+
 SHELL:=/bin/bash
 none:
 
