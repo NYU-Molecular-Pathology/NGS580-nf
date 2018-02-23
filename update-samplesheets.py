@@ -23,7 +23,7 @@ r1_colname = 'R1'
 r2_colname = 'R2'
 sample_colname = 'Sample'
 
-# ~~~~~ FUNCTIONS ~~~~~ # 
+# ~~~~~ FUNCTIONS ~~~~~ #
 def update_samples(old_data, tumor_normal_samples):
     """
     Updates the old data read in from the analysis files with the new tumor normal samples values
@@ -117,7 +117,7 @@ def main():
             sample_dict = {tumor_colname: row[tumor_colname], normal_colname: row[normal_colname]}
             tumor_normal_samples.append(sample_dict)
 
-    update_analysis_json(input_json = samples_analysis_json, tumor_normal_samples = tumor_normal_samples)
+    # update_analysis_json(input_json = samples_analysis_json, tumor_normal_samples = tumor_normal_samples)
     update_analysis_tsv(input_tsv = samples_analysis_tsv, tumor_normal_samples = tumor_normal_samples)
 
 if __name__ == '__main__':

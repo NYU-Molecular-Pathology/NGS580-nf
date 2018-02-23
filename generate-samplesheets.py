@@ -108,15 +108,15 @@ def main(search_dirs, output_prefix = None, NA_value = "NA", tumor_colname = 'Tu
         samples.append(sample_dict)
 
     # save long version of the table; one line per R1 R2 pair
-    with open(samples_fastq_long_tsv, 'w') as f:
-        writer = csv.DictWriter(f, delimiter= '\t', fieldnames=[str(sample_colname), str(r1_colname), str(r2_colname)])
-        writer.writeheader()
-        for item in samples:
-            writer.writerow(item)
+    # with open(samples_fastq_long_tsv, 'w') as f:
+    #     writer = csv.DictWriter(f, delimiter= '\t', fieldnames=[str(sample_colname), str(r1_colname), str(r2_colname)])
+    #     writer.writeheader()
+    #     for item in samples:
+    #         writer.writerow(item)
 
     # save a JSON
-    with open(samples_fastq_long_json, 'w') as f:
-        json.dump(samples, f, sort_keys = True, indent = 4)
+    # with open(samples_fastq_long_json, 'w') as f:
+    #     json.dump(samples, f, sort_keys = True, indent = 4)
 
     # reduce to condensed version; one entry per sample with all R1 and R2
     samples_collapsed = collapse.collapse(dicts = samples, collapse_key = str(sample_colname))
@@ -127,8 +127,8 @@ def main(search_dirs, output_prefix = None, NA_value = "NA", tumor_colname = 'Tu
         sample_dict[str(normal_colname)] = str(NA_value)
 
     # save a JSON
-    with open(samples_analysis_json, 'w') as f:
-        json.dump(samples_collapsed, f, sort_keys = True, indent = 4)
+    # with open(samples_analysis_json, 'w') as f:
+    #     json.dump(samples_collapsed, f, sort_keys = True, indent = 4)
 
     # prepare dicts for .tsv printing
     samples_to_print = []
