@@ -1213,7 +1213,7 @@ process multiqc {
     export PS=\${PS:-''} # needed for virtualenv bug
     export PS1=\${PS1:-''}
     unset PYTHONPATH
-    source activate
+    source multiqc-activate
     multiqc "${output_dir}"
     """
 }
