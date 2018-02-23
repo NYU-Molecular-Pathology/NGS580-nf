@@ -4,3 +4,5 @@ samples.analysis.tsv
 samples.tumor.normal.csv
 *.dot
 fastq
+bin/multiqc-activate
+bin/multiqc-venv/
