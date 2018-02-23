@@ -1,7 +1,7 @@
-// NGS580 Target exome analysis for 580 gene panel 
+// NGS580 Target exome analysis for 580 gene panel
 
 // pipeline settings; overriden by nextflow.config and CLI args
-params.output_dir = "output-${params.workflow_label}"
+params.output_dir = "output"
 
 // summary collectFile's
 params.qc_coverage_gatk_file_basename = "qc_coverage_gatk.csv"
