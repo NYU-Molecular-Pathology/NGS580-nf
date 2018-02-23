@@ -12,15 +12,17 @@ none:
 
 install: ./nextflow
 
-# setup: 
-# 	./generate-samplesheets.py example-data/ && ./update-samplesheets.py
+bin/multiqc-venv/bin/activate: 
+	cd bin && \
+	make -f multiqc.makefile setup
 
+setup: install bin/multiqc-venv/bin/activate
 
-NGS580: install
+NGS580: setup
 	./nextflow run main.nf  -with-dag flowchart-NGS580.dot && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
-NGS580r: install
+NGS580r: setup
 	./nextflow run main.nf -resume -with-dag flowchart-NGS580.dot && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
