@@ -6,3 +6,4 @@ samples.tumor.normal.csv
 fastq
 bin/multiqc-activate
 bin/multiqc-venv/
+ref
