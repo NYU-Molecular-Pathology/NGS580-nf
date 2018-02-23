@@ -1,6 +1,8 @@
 # Makefile to run the pipeline
 
 SHELL:=/bin/bash
+
+# no default action
 none:
 
 # ~~~~~ NEXTFLOW PIPELINE ~~~~~ #
@@ -10,8 +12,8 @@ none:
 
 install: ./nextflow
 
-setup: 
-	./generate-samplesheets.py example-data/ && ./update-samplesheets.py
+# setup: 
+# 	./generate-samplesheets.py example-data/ && ./update-samplesheets.py
 
 
 NGS580: install
@@ -21,9 +23,6 @@ NGS580: install
 NGS580r: install
 	./nextflow run main.nf -resume -with-dag flowchart-NGS580.dot && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
-
-# entire pipeline
-run: NGS580
 
 
 # ~~~~~ CLEANUP ~~~~~ #
