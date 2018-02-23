@@ -1,1 +1,6 @@
 *.pyc
+nextflow
+samples.analysis.tsv
+samples.tumor.normal.csv
+*.dot
+fastq
