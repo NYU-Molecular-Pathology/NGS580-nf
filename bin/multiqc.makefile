@@ -15,7 +15,7 @@ install: multiqc-venv/bin/activate multiqc-activate
 	source multiqc-venv/bin/activate && \
 	pip install -r multiqc.requirements.txt
 
-setup: install
+setup: install multiqc-activate
 
 clean:
 	[ -d multiqc-venv ] && mv multiqc-venv multiqc-venvold && rm -rf multiqc-venvold &
