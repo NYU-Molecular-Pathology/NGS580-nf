@@ -1,0 +1,65 @@
+ref
+|-- BWA
+|   `-- hg19
+|       |-- genome.fa -> ../../iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa
+|       |-- genome.fa.amb
+|       |-- genome.fa.ann
+|       |-- genome.fa.bwt
+|       |-- genome.fa.pac
+|       `-- genome.fa.sa
+|-- Illumina
+|   `-- hg19
+|       `-- chrom.sizes
+|-- contaminants
+|   |-- README.contaminants.txt
+|   |-- TruSeq3-PE.fa
+|   |-- TruSeq3-SE.fa
+|   |-- adapters-131028
+|   |   |-- adapters.1.bt2
+|   |   |-- adapters.2.bt2
+|   |   |-- adapters.3.bt2
+|   |   |-- adapters.4.bt2
+|   |   |-- adapters.fa
+|   |   |-- adapters.fa.fai
+|   |   |-- adapters.rev.1.bt2
+|   |   `-- adapters.rev.2.bt2
+|   |-- adapters.1.bt2
+|   |-- adapters.2.bt2
+|   |-- adapters.3.bt2
+|   |-- adapters.4.bt2
+|   |-- adapters.fa
+|   |-- adapters.fa.fai
+|   |-- adapters.rev.1.bt2
+|   |-- adapters.rev.2.bt2
+|   |-- contaminant_list.txt
+|   `-- trimmomatic.fa
+|-- gatk-bundle
+|   |-- 1000G_phase1.indels.hg19.vcf
+|   |-- 1000G_phase1.indels.hg19.vcf.idx
+|   |-- Homo_sapiens_assembly38.dict
+|   |-- Homo_sapiens_assembly38.fasta.fai
+|   |-- Homo_sapiens_assembly38.fasta.gz
+|   |-- Mills_and_1000G_gold_standard.indels.hg19.vcf
+|   |-- Mills_and_1000G_gold_standard.indels.hg19.vcf.idx
+|   |-- dbsnp_137.hg19.vcf
+|   |-- dbsnp_137.hg19.vcf.idx
+|   |-- dbsnp_138.hg19.vcf
+|   |-- dbsnp_138.hg19.vcf.idx
+|   |-- ucsc.hg19.dict
+|   `-- ucsc.hg19.fasta.fai
+|-- hg19
+|   `-- CosmicCodingMuts_v73.hg19.vcf
+|-- iGenomes
+|   `-- Homo_sapiens
+|       `-- UCSC
+|           `-- hg19
+|               `-- Sequence
+|                   `-- WholeGenomeFasta
+|                       |-- genome.dict
+|                       |-- genome.fa
+|                       `-- genome.fa.fai
+`-- msisensor
+    `-- hg19
+        `-- microsatellites.list
+
+16 directories, 46 files
