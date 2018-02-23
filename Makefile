@@ -1,6 +1,7 @@
 # Makefile to run the pipeline
 SHELL:=/bin/bash
 REFDIR:=/ifs/data/sequence/results/external/NYU/snuderllab/ref
+EP:=
 
 # no default action
 none:
@@ -22,11 +23,11 @@ setup: install ref bin/multiqc-venv/bin/activate
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
 NGS580: setup
-	./nextflow run main.nf  -with-dag flowchart-NGS580.dot && \
+	./nextflow run main.nf  -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
 NGS580r: setup
-	./nextflow run main.nf -resume -with-dag flowchart-NGS580.dot && \
+	./nextflow run main.nf -resume -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
 
