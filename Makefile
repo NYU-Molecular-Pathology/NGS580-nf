@@ -1,12 +1,11 @@
 # Makefile to run the pipeline
-
 SHELL:=/bin/bash
+REFDIR:=/ifs/data/sequence/results/external/NYU/snuderllab/ref
 
 # no default action
 none:
 
-# ~~~~~ NEXTFLOW PIPELINE ~~~~~ #
-# NextFlow setup & run commands
+# ~~~~~ SETUP PIPELINE ~~~~~ #
 ./nextflow:
 	curl -fsSL get.nextflow.io | bash
 
@@ -16,8 +15,12 @@ bin/multiqc-venv/bin/activate:
 	cd bin && \
 	make -f multiqc.makefile setup
 
-setup: install bin/multiqc-venv/bin/activate
+ref: 
+	[ -d "$(REFDIR)" ] && ln -fs $(REFDIR) ref || make -f ref.makefile ref
 
+setup: install ref bin/multiqc-venv/bin/activate
+
+# ~~~~~ RUN PIPELINE ~~~~~ #
 NGS580: setup
 	./nextflow run main.nf  -with-dag flowchart-NGS580.dot && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
@@ -25,6 +28,7 @@ NGS580: setup
 NGS580r: setup
 	./nextflow run main.nf -resume -with-dag flowchart-NGS580.dot && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
+
 
 
 # ~~~~~ CLEANUP ~~~~~ #
