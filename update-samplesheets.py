@@ -4,10 +4,14 @@
 This script will update the samplesheets ``samples.analysis.json`` and ``samples.analysis.tsv`` output by the ``generate-samplesheets.py`` script.
 Use this script to update those files with tumor-normal pairs sample metadata, from the file ``samples.tumor.normal.csv`` (output by Excel)
 
+Example command for updating from an sns samples.pairs.csv samplesheet:
+
+    ./update-samplesheets.py --tumor-normal-sheet samples.pairs.csv --pairs-tumor-colname "#SAMPLE-T" --pairs-normal-colname "#SAMPLE-N"
 
 """
 import csv
 import json
+import argparse
 
 # ~~~~~ CONFIGS ~~~~~ #
 NA_value = "NA"
@@ -22,6 +26,7 @@ normal_colname = 'Normal'
 r1_colname = 'R1'
 r2_colname = 'R2'
 sample_colname = 'Sample'
+
 
 # ~~~~~ FUNCTIONS ~~~~~ #
 def update_samples(old_data, tumor_normal_samples):
@@ -105,20 +110,42 @@ def update_analysis_tsv(input_tsv, tumor_normal_samples, overwrite = True, outpu
         for item in data:
             writer.writerow(item)
 
-def main():
+def main(**kwargs):
     """
     Main control function for the script
     """
-    # load input sheet to update with
+    # get args
+    pairs_tumor_colname = kwargs.pop('pairs_tumor_colname', 'Tumor')
+    pairs_normal_colname = kwargs.pop('pairs_normal_colname', 'Normal')
+    tumor_normal_sheet = kwargs.pop('tumor_normal_sheet', 'samples.tumor.normal.csv')
+    analysis_sheet = kwargs.pop('analysis_sheet', 'samples.analysis.tsv')
+
+    # load samples.tumor.normal.csv sheet
     tumor_normal_samples = []
     with open(tumor_normal_sheet) as f:
         reader = csv.DictReader(f, delimiter = tumor_normal_samples_delim)
         for row in reader:
-            sample_dict = {tumor_colname: row[tumor_colname], normal_colname: row[normal_colname]}
+            sample_dict = {tumor_colname: row[pairs_tumor_colname], normal_colname: row[pairs_normal_colname]}
             tumor_normal_samples.append(sample_dict)
 
     # update_analysis_json(input_json = samples_analysis_json, tumor_normal_samples = tumor_normal_samples)
     update_analysis_tsv(input_tsv = samples_analysis_tsv, tumor_normal_samples = tumor_normal_samples)
 
+def parse():
+    """
+    Parses script arguments
+    """
+    parser = argparse.ArgumentParser(description='This script will update samples.analysis.tsv sheet for the analysis based on values in the supplied samples.tumor.normal.csv')
+
+    parser.add_argument("--tumor-normal-sheet", default = 'samples.tumor.normal.csv', dest = 'tumor_normal_sheet', help="File to use for the samples.tumor.normal.csv sheet to read updates from")
+    parser.add_argument("--analysis-sheet", default = 'samples.analysis.tsv', dest = 'analysis_sheet', help="File to use for the samples.analysis.tsv sheet to be updated")
+
+    parser.add_argument("--pairs-tumor-colname", default = 'Tumor', dest = 'pairs_tumor_colname', help="Column header for the Tumor value in the samples.tumor.normal.csv sheet")
+    parser.add_argument("--pairs-normal-colname", default = 'Normal', dest = 'pairs_normal_colname', help="Column header for the Normal value in the samples.tumor.normal.csv sheet")
+
+    args = parser.parse_args()
+    main(**vars(args))
+
+
 if __name__ == '__main__':
-    main()
+    parse()
