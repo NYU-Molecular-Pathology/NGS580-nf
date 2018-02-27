@@ -247,13 +247,24 @@ process sambamba_dedup {
     output:
     set val(sample_ID), file("${sample_ID}.dd.bam") into samples_dd_bam, samples_dd_bam2, samples_dd_bam3, samples_dd_bam4, samples_dd_bam5, samples_dd_bam6, samples_dd_bam7
     file("${sample_ID}.dd.bam.bai")
+    file("${sample_ID}.dd.log")
+    file("${sample_ID}.dd.reads.log") into samples_dd_reads_log
 
     script:
     """
     "${params.sambamba_bin}" markdup --remove-duplicates --nthreads \${NSLOTS:-1} --hash-table-size 525000 --overflow-list-size 525000 "${sample_bam}" "${sample_ID}.dd.bam"
-    samtools view "${sample_ID}.dd.bam"
+
+    # make a copy of the .command.err Nextflow log file for parsing
+    cat .command.err > "${sample_ID}.dd.log"
+
+    # get values for log output
+    reads_duplicates="\$(cat .command.err | grep -m 1 "found.*duplicates" | tr -d -c 0-9)"
+    printf "Sample\tDuplicates\n%s\t%s\n" "${sample_ID}" "\${reads_duplicates}" > "${sample_ID}.dd.reads.log"
+
+    samtools index "${sample_ID}.dd.bam"
     """
 }
+samples_dd_reads_log.collectFile(name: "samples_dd_reads.tsv", storeDir: "${params.output_dir}", keepHeader: true)
 
 process sambamba_dedup_flagstat {
     tag { "${sample_ID}" }
