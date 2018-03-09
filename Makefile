@@ -2,6 +2,7 @@
 SHELL:=/bin/bash
 REFDIR:=/ifs/data/sequence/results/external/NYU/snuderllab/ref
 EP:=
+.PHONY: containers
 
 # no default action
 none:
@@ -12,14 +13,17 @@ none:
 
 install: ./nextflow
 
-bin/multiqc-venv/bin/activate: 
+bin/multiqc-venv/bin/activate:
 	cd bin && \
 	make -f multiqc.makefile setup
 
-ref: 
+ref:
 	[ -d "$(REFDIR)" ] && ln -fs $(REFDIR) ref || make -f ref.makefile ref
 
 setup: install ref bin/multiqc-venv/bin/activate
+
+containers:
+	cd containers && make build
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
 NGS580: setup
@@ -46,14 +50,14 @@ clean-flowcharts:
 	rm -f *.dot.*
 
 clean-output:
-	[ -d output ] && mv output oldoutput && rm -rf oldoutput &	
+	[ -d output ] && mv output oldoutput && rm -rf oldoutput &
 
 clean-work:
 	[ -d work ] && mv work oldwork && rm -rf oldwork &
 
 clean: clean-logs clean-traces clean-reports clean-flowcharts
 
-clean-all: clean clean-output clean-work 
+clean-all: clean clean-output clean-work
 	[ -d .nextflow ] && mv .nextflow .nextflowold && rm -rf .nextflowold &
 	rm -f .nextflow.log
 	rm -f *.png
