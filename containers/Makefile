@@ -9,6 +9,9 @@ main: base
 gatk:
 	docker pull broadinstitute/gatk
 
+bwa: base
+	cd ngs580-bwa && docker build -t stevekm/ngs580-bwa .
+
 build: main gatk
 
 test: base
@@ -16,3 +19,6 @@ test: base
 
 test-main: main
 	docker run --rm -ti stevekm/ngs580-main bash
+
+test-bwa: bwa
+	docker run --rm -ti stevekm/ngs580-bwa bash
