@@ -14,4 +14,6 @@ ENV PATH="/opt/htslib-1.7:${PATH}"
 RUN cd /opt/ && wget http://www.openbioinformatics.org/annovar/download/0wgxR2rIVP/annovar.revision150617.tar.gz && tar -vzxf annovar.revision150617.tar.gz && rm -f annovar.revision150617.tar.gz
 # location to mount reference database dir:
 RUN mkdir /opt/annovar/db
+# easy script for annotating:
+ADD annotate_vcf.sh /opt/annovar/annotate_vcf.sh
 ENV PATH="/opt/annovar:${PATH}"

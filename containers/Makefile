@@ -25,12 +25,16 @@ bedtools:
 	cd ngs580-bedtools && docker build -t stevekm/ngs580-bedtools .
 
 variant-calling:
+	/bin/cp ../bin/annotate_vcf.sh ngs580-variant-calling/
 	cd ngs580-variant-calling && docker build -t stevekm/ngs580-variant-calling .
 
+multiqc:
+	/bin/cp ../bin/multiqc.requirements.txt ngs580-multiqc
+	cd ngs580-multiqc && docker build -t stevekm/ngs580-multiqc .
 
 
 
-all: base gatk bwa fastqc trimmomatic sambamba bedtools
+all: base gatk bwa fastqc trimmomatic sambamba bedtools variant-calling multiqc
 
 
 
@@ -61,3 +65,6 @@ test-bedtools: bedtools
 
 test-variant-calling: variant-calling
 	docker run --rm -ti stevekm/ngs580-variant-calling bash
+
+test-multiqc: multiqc
+	docker run --rm -ti stevekm/ngs580-multiqc bash

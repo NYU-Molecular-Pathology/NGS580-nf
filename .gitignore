@@ -8,3 +8,4 @@ bin/multiqc-activate
 bin/multiqc-venv/
 ref
 .DS_Store
+containers/ngs580-variant-calling/annotate_vcf.sh
