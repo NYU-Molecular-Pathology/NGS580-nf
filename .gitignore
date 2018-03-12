@@ -7,3 +7,4 @@ fastq
 bin/multiqc-activate
 bin/multiqc-venv/
 ref
+.DS_Store
