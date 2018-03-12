@@ -1,13 +1,9 @@
 # NGS580 container for BWA
-FROM debian:jessie
+FROM stevekm/ngs580-base
 
 MAINTAINER Stephen M. Kelly
 
 # ~~~~~ BASIC SETUP ~~~~~ #
-# location for apps and data
-RUN mkdir /opt/bin
-ENV PATH="/opt/bin:${PATH}"
-
 RUN apt-get update
 RUN apt-get install -y wget
 RUN apt-get install -y bzip2

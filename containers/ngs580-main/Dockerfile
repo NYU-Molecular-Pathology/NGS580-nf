@@ -2,6 +2,18 @@ FROM stevekm/ngs580-base
 
 MAINTAINER Stephen M. Kelly
 
+RUN apt-get update
+RUN apt-get install -y wget
+RUN apt-get install -y git
+RUN apt-get install -y unzip
+RUN apt-get install -y make
+RUN apt-get install -y bzip2
+RUN apt-get install -y gcc
+RUN apt-get install -y libncurses5-dev
+RUN apt-get install -y zlib1g-dev
+RUN apt-get install -y g++
+RUN apt-get install -y libbz2-dev
+RUN apt-get install -y liblzma-dev
 
 # ~~~~~ hstlib ~~~~~ #
 RUN cd /opt/bin && wget https://github.com/samtools/htslib/releases/download/1.3.1/htslib-1.3.1.tar.bz2 && tar xvfj htslib-1.3.1.tar.bz2 && rm -f htslib-1.3.1.tar.bz2

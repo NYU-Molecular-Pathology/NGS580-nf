@@ -18,11 +18,24 @@ fastqc:
 trimmomatic:
 	cd ngs580-Trimmomatic && docker build -t stevekm/ngs580-trimmomatic .
 
+sambamba:
+	cd ngs580-sambamba && docker build -t stevekm/ngs580-sambamba .
+
+bedtools:
+	cd ngs580-bedtools && docker build -t stevekm/ngs580-bedtools .
+
+variant-calling:
+	cd ngs580-variant-calling && docker build -t stevekm/ngs580-variant-calling .
 
 
-build: main gatk bwa
 
-test: base
+
+all: base gatk bwa fastqc trimmomatic sambamba bedtools
+
+
+
+
+test-base: base
 	docker run --rm -ti stevekm/ngs580-base bash
 
 test-main: main
@@ -39,3 +52,12 @@ test-gatk: gatk
 
 test-trimmomatic: trimmomatic
 	docker run --rm -ti stevekm/ngs580-trimmomatic bash
+
+test-sambamba: sambamba
+	docker run --rm -ti stevekm/ngs580-sambamba bash
+
+test-bedtools: bedtools
+	docker run --rm -ti stevekm/ngs580-bedtools bash
+
+test-variant-calling: variant-calling
+	docker run --rm -ti stevekm/ngs580-variant-calling bash
