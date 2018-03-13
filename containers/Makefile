@@ -3,6 +3,7 @@ none:
 base:
 	cd ngs580-base && docker build -t stevekm/ngs580-base .
 
+# deprecated ...
 main: base
 	cd ngs580-main && docker build -t stevekm/ngs580-main .
 

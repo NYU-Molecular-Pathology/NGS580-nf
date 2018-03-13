@@ -1,4 +1,4 @@
-# NGS580 container for Trimmomatic
+# NGS580 container for Sambamba and Samtools
 FROM stevekm/ngs580-base
 
 MAINTAINER Stephen M. Kelly

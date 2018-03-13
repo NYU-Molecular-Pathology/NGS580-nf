@@ -17,3 +17,7 @@ RUN mkdir /opt/annovar/db
 # easy script for annotating:
 ADD annotate_vcf.sh /opt/annovar/annotate_vcf.sh
 ENV PATH="/opt/annovar:${PATH}"
+
+# ~~~~~ vcflib ~~~~~ #
+RUN cd /opt/ && git clone --recursive https://github.com/ekg/vcflib.git && cd vcflib && make
+ENV PATH="/opt/vcflib/bin:${PATH}"
