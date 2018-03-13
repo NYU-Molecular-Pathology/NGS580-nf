@@ -1,7 +1,7 @@
 none:
 
 base:
-	cd ngs580-base && docker build -t stevekm/ngs580-base .
+	cd ngs580-base && docker build -t stevekm/ngs580-nf:ngs580-base .
 
 # deprecated ...
 main: base
@@ -13,23 +13,23 @@ gatk:
 bwa:
 	cd ngs580-bwa && docker build -t stevekm/ngs580-bwa .
 
-fastqc:
+fastqc: base
 	cd ngs580-FastQC && docker build -t stevekm/ngs580-fastqc .
 
-trimmomatic:
+trimmomatic: base
 	cd ngs580-Trimmomatic && docker build -t stevekm/ngs580-trimmomatic .
 
-sambamba:
+sambamba: base
 	cd ngs580-sambamba && docker build -t stevekm/ngs580-sambamba .
 
-bedtools:
+bedtools: base
 	cd ngs580-bedtools && docker build -t stevekm/ngs580-bedtools .
 
 variant-calling:
 	/bin/cp ../bin/annotate_vcf.sh ngs580-variant-calling/
 	cd ngs580-variant-calling && docker build -t stevekm/ngs580-variant-calling .
 
-multiqc:
+multiqc: base
 	/bin/cp ../bin/multiqc.requirements.txt ngs580-multiqc
 	cd ngs580-multiqc && docker build -t stevekm/ngs580-multiqc .
 

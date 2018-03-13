@@ -1,4 +1,4 @@
-FROM stevekm/ngs580-base
+FROM stevekm/ngs580-nf:ngs580-base
 
 MAINTAINER Stephen M. Kelly
 
