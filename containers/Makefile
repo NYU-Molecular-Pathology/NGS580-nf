@@ -1,6 +1,7 @@
+# building Docker cotainers
 none:
 
-.PHONY: base fastqc trimmomatic sambamba bwa bedtools gatk
+.PHONY: base fastqc trimmomatic sambamba bwa bedtools
 
 base:
 	cd base && docker build -t stevekm/ngs580-nf:base .
@@ -15,7 +16,7 @@ fastqc: base
 	cd fastqc && docker build -t stevekm/ngs580-nf:fastqc .
 
 trimmomatic: base
-	cd trimmomatic && docker build -t stevekm/ngs580-nf:trimmomatic  .
+	cd trimmomatic && docker build -t stevekm/ngs580-nf:trimmomatic .
 
 sambamba: base
 	cd sambamba && docker build -t stevekm/ngs580-nf:sambamba .
@@ -33,8 +34,18 @@ multiqc: base
 
 
 
-all: base gatk bwa fastqc trimmomatic sambamba bedtools variant-calling multiqc
+build: base gatk bwa fastqc trimmomatic sambamba bedtools variant-calling multiqc
 
+pull:
+	docker pull broadinstitute/gatk:4.0.1.2
+	docker pull stevekm/ngs580-nf:base
+	docker pull stevekm/ngs580-nf:bwa
+	docker pull stevekm/ngs580-nf:fastqc
+	docker pull stevekm/ngs580-nf:trimmomatic
+	docker pull stevekm/ngs580-nf:sambamba
+	docker pull stevekm/ngs580-nf:bedtools
+	docker pull stevekm/ngs580-nf:variant-calling
+	docker pull stevekm/ngs580-nf:multiqc
 
 
 
