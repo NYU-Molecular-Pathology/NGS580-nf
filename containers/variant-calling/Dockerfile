@@ -1,5 +1,5 @@
 # NGS580 container for variant calling and downstream processing
-FROM broadinstitute/gatk
+FROM broadinstitute/gatk:4.0.1.2
 
 # ~~~~~ LOFREQ ~~~~~ #
 RUN cd /opt/ && wget https://raw.githubusercontent.com/CSB5/lofreq/master/dist/lofreq_star-2.1.2_linux-x86-64.tgz && tar -vzxf lofreq_star-2.1.2_linux-x86-64.tgz && rm -f lofreq_star-2.1.2_linux-x86-64.tgz

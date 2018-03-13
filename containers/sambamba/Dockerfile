@@ -1,5 +1,5 @@
 # NGS580 container for Sambamba and Samtools
-FROM stevekm/ngs580-base
+FROM stevekm/ngs580-nf:base
 
 MAINTAINER Stephen M. Kelly
 

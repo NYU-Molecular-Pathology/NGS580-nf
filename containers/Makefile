@@ -1,19 +1,15 @@
 none:
 
-.PHONY: base fastqc trimmomatic
+.PHONY: base fastqc trimmomatic sambamba bwa bedtools gatk
 
 base:
 	cd base && docker build -t stevekm/ngs580-nf:base .
 
-# deprecated ...
-main: base
-	cd ngs580-main && docker build -t stevekm/ngs580-main .
-
 gatk:
-	docker pull broadinstitute/gatk
+	docker pull broadinstitute/gatk:4.0.1.2
 
-bwa:
-	cd ngs580-bwa && docker build -t stevekm/ngs580-bwa .
+bwa: base
+	cd bwa && docker build -t stevekm/ngs580-nf:bwa .
 
 fastqc: base
 	cd fastqc && docker build -t stevekm/ngs580-nf:fastqc .
@@ -22,18 +18,18 @@ trimmomatic: base
 	cd trimmomatic && docker build -t stevekm/ngs580-nf:trimmomatic  .
 
 sambamba: base
-	cd ngs580-sambamba && docker build -t stevekm/ngs580-sambamba .
+	cd sambamba && docker build -t stevekm/ngs580-nf:sambamba .
 
 bedtools: base
-	cd ngs580-bedtools && docker build -t stevekm/ngs580-bedtools .
+	cd bedtools && docker build -t stevekm/ngs580-nf:bedtools .
 
-variant-calling:
-	/bin/cp ../bin/annotate_vcf.sh ngs580-variant-calling/
-	cd ngs580-variant-calling && docker build -t stevekm/ngs580-variant-calling .
+variant-calling: gatk
+	/bin/cp ../bin/annotate_vcf.sh variant-calling/
+	cd variant-calling && docker build -t stevekm/ngs580-nf:variant-calling .
 
 multiqc: base
-	/bin/cp ../bin/multiqc.requirements.txt ngs580-multiqc
-	cd ngs580-multiqc && docker build -t stevekm/ngs580-multiqc .
+	/bin/cp ../bin/multiqc.requirements.txt multiqc
+	cd multiqc && docker build -t stevekm/ngs580-nf:multiqc .
 
 
 
@@ -45,11 +41,8 @@ all: base gatk bwa fastqc trimmomatic sambamba bedtools variant-calling multiqc
 test-base: base
 	docker run --rm -ti stevekm/ngs580-base bash
 
-test-main: main
-	docker run --rm -ti stevekm/ngs580-main bash
-
 test-bwa: bwa
-	docker run --rm -ti stevekm/ngs580-bwa bash
+	docker run --rm -ti stevekm/ngs580-nf:bwa bash
 
 test-fastqc: fastqc
 	docker run --rm -ti stevekm/ngs580-nf:fastqc bash
@@ -61,13 +54,13 @@ test-trimmomatic: trimmomatic
 	docker run --rm -ti stevekm/ngs580-nf:trimmomatic bash
 
 test-sambamba: sambamba
-	docker run --rm -ti stevekm/ngs580-sambamba bash
+	docker run --rm -ti stevekm/ngs580-nf:sambamba bash
 
 test-bedtools: bedtools
-	docker run --rm -ti stevekm/ngs580-bedtools bash
+	docker run --rm -ti stevekm/ngs580-nf:bedtools bash
 
 test-variant-calling: variant-calling
-	docker run --rm -ti stevekm/ngs580-variant-calling bash
+	docker run --rm -ti stevekm/ngs580-nf:variant-calling bash
 
 test-multiqc: multiqc
 	docker run --rm -ti stevekm/ngs580-multiqc bash
