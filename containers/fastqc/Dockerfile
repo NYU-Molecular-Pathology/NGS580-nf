@@ -1,5 +1,5 @@
 # NGS580 container for FastQC
-FROM stevekm/ngs580-nf:ngs580-base
+FROM stevekm/ngs580-nf:base
 
 MAINTAINER Stephen M. Kelly
 
@@ -31,5 +31,5 @@ RUN \
 
 # ~~~~~ FastQC ~~~~~ #
 RUN cd /opt/bin && wget http://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.7.zip && unzip fastqc_v0.11.7.zip && rm -f fastqc_v0.11.7.zip
-RUN cd /opt/bin/FastQC && chmod 755 fastqc
+RUN chmod +x /opt/bin/FastQC/fastqc
 ENV PATH="/opt/bin/FastQC:${PATH}"
