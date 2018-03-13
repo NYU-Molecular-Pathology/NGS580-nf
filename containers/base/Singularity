@@ -1,0 +1,6 @@
+BootStrap: docker
+From: stevekm/ngs580-nf:base
+
+%post
+    # storage location for NYULMC phoenix
+    mkdir /ifs

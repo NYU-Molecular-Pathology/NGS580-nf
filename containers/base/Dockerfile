@@ -9,6 +9,3 @@ ENV PATH="/opt/bin:${PATH}"
 
 # location for data
 RUN mkdir /data
-
-# location for NYULMC phoenix HPC storage
-RUN mkdir /ifs
