@@ -32,7 +32,8 @@ multiqc: base
 	/bin/cp ../bin/multiqc.requirements.txt multiqc
 	cd multiqc && docker build -t stevekm/ngs580-nf:multiqc .
 
-
+msisensor: base
+	cd msisensor && docker build -t stevekm/ngs580-nf:msisensor .
 
 build: base gatk bwa fastqc trimmomatic sambamba bedtools variant-calling multiqc
 
@@ -74,4 +75,7 @@ test-variant-calling: variant-calling
 	docker run --rm -ti stevekm/ngs580-nf:variant-calling bash
 
 test-multiqc: multiqc
-	docker run --rm -ti stevekm/ngs580-multiqc bash
+	docker run --rm -ti stevekm/ngs580-nf:multiqc bash
+
+test-msisensor: msisensor
+	docker run --rm -ti stevekm/ngs580-nf:msisensor bash
