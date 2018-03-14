@@ -4,10 +4,10 @@ FROM stevekm/ngs580-nf:base
 MAINTAINER Stephen M. Kelly
 
 # ~~~~~ BASIC SETUP ~~~~~ #
-RUN apt-get update
-RUN apt-get install -y wget
-RUN apt-get install -y unzip
-RUN apt-get install -y perl-modules
+RUN apt-get update && \
+apt-get install -y wget \
+unzip \
+perl-modules
 
 # ~~~~~ JAVA ~~~~~ #
 RUN \
@@ -30,6 +30,9 @@ RUN \
     rm -rf /var/lib/apt/lists/*
 
 # ~~~~~ FastQC ~~~~~ #
-RUN cd /opt/bin && wget http://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.7.zip && unzip fastqc_v0.11.7.zip && rm -f fastqc_v0.11.7.zip
-RUN chmod +x /opt/bin/FastQC/fastqc
-ENV PATH="/opt/bin/FastQC:${PATH}"
+RUN cd /opt && \
+wget http://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.7.zip && \
+unzip fastqc_v0.11.7.zip && \
+rm -f fastqc_v0.11.7.zip && \
+chmod +x /opt/FastQC/fastqc
+ENV PATH="/opt/FastQC:${PATH}"

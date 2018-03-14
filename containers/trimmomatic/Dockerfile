@@ -4,9 +4,9 @@ FROM stevekm/ngs580-nf:base
 MAINTAINER Stephen M. Kelly
 
 # ~~~~~ BASIC SETUP ~~~~~ #
-RUN apt-get update
-RUN apt-get install -y wget
-RUN apt-get install -y unzip
+RUN apt-get update && \
+apt-get install -y wget \
+unzip
 
 # ~~~~~ JAVA ~~~~~ #
 RUN \
@@ -30,6 +30,9 @@ RUN \
 
 
 # ~~~~~ TRIMMOMATIC ~~~~~ #
-RUN cd /opt/bin && wget http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-0.36.zip && unzip Trimmomatic-0.36.zip && rm -f Trimmomatic-0.36.zip
-RUN chmod +x /opt/bin/Trimmomatic-0.36/trimmomatic-0.36.jar
-ENV PATH="/opt/bin/Trimmomatic-0.36:${PATH}"
+RUN cd /opt && \
+wget http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-0.36.zip && \
+unzip Trimmomatic-0.36.zip && \
+rm -f Trimmomatic-0.36.zip && \
+chmod +x /opt/Trimmomatic-0.36/trimmomatic-0.36.jar
+ENV PATH="/opt/Trimmomatic-0.36:${PATH}"
