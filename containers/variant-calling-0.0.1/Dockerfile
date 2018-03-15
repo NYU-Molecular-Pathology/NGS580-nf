@@ -1,9 +1,17 @@
 # NGS580 container for variant calling and downstream processing
 FROM broadinstitute/gatk:4.0.1.2
+# - samtools Version: 0.1.19-96b5f2294a
 
 # ~~~~~ BASIC SETUP ~~~~~ #
 # mount point for for NYULMC phoenix (Singluarity)
 RUN mkdir /ifs
+
+# location for misc data
+RUN mkdir /data
+
+# location for misc scripts
+RUN mkdir /opt/bin
+ENV PATH="/opt/bin:${PATH}"
 
 # ~~~~~ LOFREQ ~~~~~ #
 RUN cd /opt/ && \
