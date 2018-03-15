@@ -52,7 +52,7 @@ pull:
 	docker pull stevekm/ngs580-nf:bedtools-2.26.0
 	docker pull stevekm/ngs580-nf:variant-calling-0.0.1
 	docker pull stevekm/ngs580-nf:multiqc-1.4
-	docker pull stevekm/ngs580-nf:R-3.2.3
+	# docker pull stevekm/ngs580-nf:R-3.2.3
 	docker pull stevekm/ngs580-nf:msisensor-0.2
 
 

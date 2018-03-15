@@ -34,5 +34,10 @@ RUN cd /opt && \
 wget http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-0.36.zip && \
 unzip Trimmomatic-0.36.zip && \
 rm -f Trimmomatic-0.36.zip && \
-chmod +x /opt/Trimmomatic-0.36/trimmomatic-0.36.jar
+chmod +x /opt/Trimmomatic-0.36/trimmomatic-0.36.jar && \
+cd /opt/Trimmomatic-0.36 && \
+ln -s trimmomatic-0.36.jar trimmomatic.jar
+ADD trimmomatic.sh /opt/Trimmomatic-0.36/trimmomatic.sh
+RUN chmod +x /opt/Trimmomatic-0.36/trimmomatic.sh
+WORKDIR /opt/Trimmomatic-0.36/
 ENV PATH="/opt/Trimmomatic-0.36:${PATH}"
