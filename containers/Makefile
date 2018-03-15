@@ -72,7 +72,7 @@ test-gatk: gatk
 test-trimmomatic: trimmomatic
 	docker run --rm -ti stevekm/ngs580-nf:trimmomatic-0.36 bash
 
-l: sambamba
+test-sambamba: sambamba
 	docker run --rm -ti stevekm/ngs580-nf:sambamba-0.6.6 bash
 
 test-bedtools: bedtools
