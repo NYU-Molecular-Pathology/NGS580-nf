@@ -1,2 +1,2 @@
 BootStrap: docker
-From: stevekm/ngs580-nf:trimmomatic
+From: stevekm/ngs580-nf:trimmomatic-0.36

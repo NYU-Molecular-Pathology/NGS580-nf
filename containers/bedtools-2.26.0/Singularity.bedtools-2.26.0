@@ -1,2 +1,2 @@
 BootStrap: docker
-From: stevekm/ngs580-nf:bedtools
+From: stevekm/ngs580-nf:bedtools-2.26.0
