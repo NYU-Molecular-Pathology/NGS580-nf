@@ -12,6 +12,4 @@ ref/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa: ref
 	bin/compare_md5.sh ref/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa "$(HG19_GENOME_FA_MD5)"
 
 clean-ref:
-	[ -d ref ] && \
-	mv ref oldref && \
-	&& rm -rf oldref &
+	[ -d ref ] && mv ref oldref && rm -rf oldref &
