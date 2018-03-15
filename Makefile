@@ -25,15 +25,25 @@ setup: install ref bin/multiqc-venv/bin/activate
 containers:
 	cd containers && make build
 
+demo:
+	git clone https://github.com/NYU-Molecular-Pathology/NGS580-demo-data.git
+
 # ~~~~~ RUN PIPELINE ~~~~~ #
-NGS580: setup
+NGS580: setup ref
 	./nextflow run main.nf  -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
-NGS580r: setup
+NGS580r: setup ref
 	./nextflow run main.nf -resume -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
+NGS580l: install ref
+	./nextflow run test.nf -profile local -with-dag flowchart-NGS580.dot $(EP) && \
+	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
+
+NGS580lr: install ref
+	./nextflow run test.nf -profile local -resume -with-dag flowchart-NGS580.dot $(EP) && \
+	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
 
 # ~~~~~ CLEANUP ~~~~~ #
