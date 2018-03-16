@@ -12,6 +12,11 @@ RUN mkdir /data
 RUN mkdir /opt/bin
 ENV PATH="/opt/bin:/opt:${PATH}"
 
+# GATK shortcut script
+ADD gatk.sh /usr/gatk.sh
+RUN chmod +x /usr/gatk.sh
+ENV PATH="/usr:${PATH}"
+
 RUN apt-get update && \
 \
 apt-get install -y wget \
