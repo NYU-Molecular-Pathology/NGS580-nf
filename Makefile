@@ -31,7 +31,8 @@ containers:
 	cd containers && make build
 
 demo:
-	git clone https://github.com/NYU-Molecular-Pathology/NGS580-demo-data.git
+	git clone https://github.com/NYU-Molecular-Pathology/NGS580-demo-data.git && \
+	./generate-samplesheets.py NGS580-demo-data/tiny/fastq/
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
 # run on phoenix default settings
