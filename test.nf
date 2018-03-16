@@ -135,7 +135,6 @@ process trimmomatic {
     beforeScript "${params.beforeScript_str}"
     afterScript "${params.afterScript_str}"
     container "${params.trimmomatic_container}"
-    // cpus params.num_cpus_mid
 
     input:
     set val(sample_ID), file(read1), file(read2), file(trimmomatic_contaminant_fa) from samples_fastq_merged.combine(trimmomatic_contaminant_fa)
