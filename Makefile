@@ -17,8 +17,13 @@ bin/multiqc-venv/bin/activate:
 	cd bin && \
 	make -f multiqc.makefile setup
 
-ref:
-	[ -d "$(REFDIR)" ] && ln -fs $(REFDIR) ref || make -f ref.makefile ref
+ref: ref-clean
+	[ -d "$(REFDIR)" ] && ln -fs $(REFDIR) ref || wget https://genome.med.nyu.edu/results/external/NYU/snuderllab/ref.tar.gz && \
+	tar -vxzf ref.tar.gz && \
+	rm -f ref.tar.gz
+
+ref-clean:
+	rm -f ref.tar.gz*
 
 setup: install ref bin/multiqc-venv/bin/activate
 
