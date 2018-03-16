@@ -24,9 +24,15 @@ sambamba: base
 bedtools: base
 	cd bedtools-2.26.0 && docker build -t stevekm/ngs580-nf:bedtools-2.26.0 .
 
-variant-calling: gatk
+variant-calling1: gatk
 	/bin/cp ../bin/annotate_vcf.sh variant-calling-0.0.1/
 	cd variant-calling-0.0.1 && docker build -t stevekm/ngs580-nf:variant-calling-0.0.1 .
+
+variant-calling2:
+	/bin/cp ../bin/annotate_vcf.sh variant-calling-0.0.2/
+	cd variant-calling-0.0.2 && docker build -t stevekm/ngs580-nf:variant-calling-0.0.2 .
+
+variant-calling: variant-calling2
 
 multiqc: base
 	/bin/cp ../bin/multiqc.requirements.txt multiqc-1.4/
@@ -43,17 +49,17 @@ R: base
 build: base gatk bwa fastqc trimmomatic sambamba bedtools variant-calling multiqc R msisensor
 
 pull:
-	docker pull broadinstitute/gatk:4.0.1.2
 	docker pull stevekm/ngs580-nf:base
 	docker pull stevekm/ngs580-nf:bwa-0.7.17
 	docker pull stevekm/ngs580-nf:fastqc-0.11.7
 	docker pull stevekm/ngs580-nf:trimmomatic-0.36
 	docker pull stevekm/ngs580-nf:sambamba-0.6.6
 	docker pull stevekm/ngs580-nf:bedtools-2.26.0
-	docker pull stevekm/ngs580-nf:variant-calling-0.0.1
+	docker pull stevekm/ngs580-nf:variant-calling-0.0.2
 	docker pull stevekm/ngs580-nf:multiqc-1.4
-	# docker pull stevekm/ngs580-nf:R-3.2.3
 	docker pull stevekm/ngs580-nf:msisensor-0.2
+	# docker pull broadinstitute/gatk:4.0.1.2
+	# docker pull stevekm/ngs580-nf:R-3.2.3
 
 
 
@@ -78,8 +84,13 @@ test-sambamba: sambamba
 test-bedtools: bedtools
 	docker run --rm -ti stevekm/ngs580-nf:bedtools-2.26.0 bash
 
-test-variant-calling: variant-calling
+test-variant-calling1: variant-calling1
 	docker run --rm -ti stevekm/ngs580-nf:variant-calling-0.0.1 bash
+
+test-variant-calling2: variant-calling2
+	docker run --rm -ti stevekm/ngs580-nf:variant-calling-0.0.2 bash
+
+test-variant-calling: test-variant-calling2
 
 test-multiqc: multiqc
 	docker run --rm -ti stevekm/ngs580-nf:multiqc-1.4 bash
