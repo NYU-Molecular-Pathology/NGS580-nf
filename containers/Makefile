@@ -1,8 +1,9 @@
-# building Docker cotainers
 none:
 
 .PHONY: base fastqc trimmomatic sambamba bwa bedtools msisensor R-3.3.0
 
+
+# ~~~~~ BUILD DOCKER CONTAINERS ~~~~~ #
 base:
 	cd base && docker build -t stevekm/ngs580-nf:base .
 
@@ -51,6 +52,12 @@ R-3.3.2: base
 
 R: R-3.3.2
 
+
+
+
+
+
+# ~~~~~~~ SETUP DOCKER CONTAINERS ~~~~~ #
 build: base gatk bwa fastqc trimmomatic sambamba bedtools variant-calling multiqc R msisensor
 
 pull:
@@ -67,7 +74,33 @@ pull:
 	# docker pull stevekm/ngs580-nf:R-3.2.3
 
 
+# ~~~~~ CONVERT DOCKER CONTAINER TO SINGULARITY CONTAINER LOCALLY ~~~~~ #
+REMOTE_CONTAINER_DIR:=/ifs/data/molecpathlab/containers/Singularity
+USERNAME:=$(shell whoami)
+SERVER:=phoenix.med.nyu.edu
 
+docker2singularity: clean-singularity-imagefiles base bedtools bwa fastqc msisensor multiqc sambamba trimmomatic variant-calling R
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/base:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:base
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/bedtools-2.26.0:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:bedtools-2.26.0
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/bwa-0.7.17:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:bwa-0.7.17
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/fastqc-0.11.7:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:fastqc-0.11.7
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/msisensor-0.2:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:msisensor-0.2
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/multiqc-1.4:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:multiqc-1.4
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/sambamba-0.6.6:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:sambamba-0.6.6
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/trimmomatic-0.36:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:trimmomatic-0.36
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/variant-calling-0.0.2:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:variant-calling-0.0.2
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/R-3.3.2:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:R-3.3.2
+
+clean-singularity-imagefiles:
+	find . -maxdepth 2 -type f -name "*.img" -delete
+
+upload-imagefiles:
+	rsync -vrthcPlz -e ssh ./ $(USERNAME)@$(SERVER):$(REMOTE_CONTAINER_DIR) --include="*/" --include="*.img" --exclude="*" --prune-empty-dirs
+
+
+
+
+# ~~~~~~ TEST CONTAINERS ~~~~~ #
 test-base: base
 	docker run --rm -ti stevekm/ngs580-base bash
 
