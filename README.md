@@ -3,7 +3,22 @@ Target exome analysis for 580 gene panel
 
 # Installation
 
-[ Coming Soon... ]
+- clone this repository
+
+```
+git clone https://github.com/NYU-Molecular-Pathology/NGS580-nf.git
+cd NGS580-nf
+```
+
+- load Singularity / Docker containers
+
+... [ coming soon ] ...
+
+- download reference data
+
+```
+make ref
+```
 
 # Usage
 

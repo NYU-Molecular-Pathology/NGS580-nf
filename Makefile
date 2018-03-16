@@ -17,7 +17,7 @@ bin/multiqc-venv/bin/activate:
 	cd bin && \
 	make -f multiqc.makefile setup
 
-ref: ref-clean
+ref:
 	[ -d "$(REFDIR)" ] && ln -fs $(REFDIR) ref || wget https://genome.med.nyu.edu/results/external/NYU/snuderllab/ref.tar.gz && \
 	tar -vxzf ref.tar.gz && \
 	rm -f ref.tar.gz
@@ -34,19 +34,23 @@ demo:
 	git clone https://github.com/NYU-Molecular-Pathology/NGS580-demo-data.git
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
-NGS580: setup ref
+# run on phoenix default settings
+run: setup ref
 	./nextflow run main.nf  -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
-NGS580r: setup ref
+# run on phoenix resume
+runr: setup ref
 	./nextflow run main.nf -resume -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
-NGS580l: install ref
+# run locally default settings
+runl: install ref
 	./nextflow run test.nf -profile local -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
-NGS580lr: install ref
+# run locally resume
+runlr: install ref
 	./nextflow run test.nf -profile local -resume -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
