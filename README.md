@@ -37,10 +37,10 @@ make ref
 - Run the pipeline:
 
 ```bash
-make NGS580
+make run
 ```
 __NOTE:__ This should be run in a `screen` session, or submitted to the HPC with the following script:
 
 ```bash
-./submit.sh NGS580
+./submit.sh run
 ```
