@@ -29,7 +29,12 @@ libncurses5-dev \
 zlib1g-dev \
 libbz2-dev \
 liblzma-dev \
-git
+git \
+libxml2-dev \
+gfortran \
+libcurl4-openssl-dev \
+libssl-dev \
+libcairo2-dev
 
 # ~~~~~ SAMTOOLS ~~~~~ #
 RUN cd /opt && \
@@ -76,3 +81,6 @@ git clone --recursive https://github.com/ekg/vcflib.git && \
 cd vcflib && \
 make
 ENV PATH="/opt/vcflib/bin:${PATH}"
+
+# ~~~~~ R Libs ~~~~~ #
+RUN Rscript -e "install.packages(c('curl', 'ggplot2', 'gsalib', 'gplots', 'reshape', 'plyr'), repos='http://cran.us.r-project.org', dependencies = TRUE)"
