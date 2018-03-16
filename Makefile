@@ -45,6 +45,17 @@ runr: setup ref
 	./nextflow run main.nf -resume -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
+# run on phoenix demo
+rundp: demo
+	./nextflow run test.nf -with-dag flowchart-NGS580.dot $(EP) && \
+	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
+
+# run on phoenix demo head node
+rundph: demo
+	./nextflow run test.nf -profile headnode -with-dag flowchart-NGS580.dot $(EP) && \
+	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
+
+
 # run locally default settings
 runl: install ref
 	./nextflow run test.nf -profile local -with-dag flowchart-NGS580.dot $(EP) && \
