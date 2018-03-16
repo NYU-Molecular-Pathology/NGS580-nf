@@ -30,9 +30,13 @@ setup: install ref bin/multiqc-venv/bin/activate
 containers:
 	cd containers && make build
 
-demo:
-	git clone https://github.com/NYU-Molecular-Pathology/NGS580-demo-data.git && \
+NGS580-demo-data:
+	git clone https://github.com/NYU-Molecular-Pathology/NGS580-demo-data.git
+
+samples.analysis.tsv: NGS580-demo-data
 	./generate-samplesheets.py NGS580-demo-data/tiny/fastq/
+
+demo: samples.analysis.tsv
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
 # run on phoenix default settings
@@ -46,12 +50,12 @@ runr: setup ref
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
 # run on phoenix demo
-rundp: demo
+rundp: setup ref demo
 	./nextflow run test.nf -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
 # run on phoenix demo head node
-rundph: demo
+rundph: setup ref demo
 	./nextflow run test.nf -profile headnode -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
