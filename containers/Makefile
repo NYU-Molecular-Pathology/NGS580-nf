@@ -1,7 +1,7 @@
 # building Docker cotainers
 none:
 
-.PHONY: base fastqc trimmomatic sambamba bwa bedtools msisensor
+.PHONY: base fastqc trimmomatic sambamba bwa bedtools msisensor R-3.3.0
 
 base:
 	cd base && docker build -t stevekm/ngs580-nf:base .
@@ -41,10 +41,15 @@ multiqc: base
 msisensor: base
 	cd msisensor-0.2 && docker build -t stevekm/ngs580-nf:msisensor-0.2 .
 
-R: base
+R-3.2.3: base
 	/bin/cp ../bin/install.R R-3.2.3/
 	cd R-3.2.3 && docker build -t stevekm/ngs580-nf:R-3.2.3 .
 
+R-3.3.2: base
+	/bin/cp ../bin/install.R R-3.3.2/
+	cd R-3.3.2 && docker build -t stevekm/ngs580-nf:R-3.3.2 .
+
+R: R-3.3.2
 
 build: base gatk bwa fastqc trimmomatic sambamba bedtools variant-calling multiqc R msisensor
 
@@ -99,4 +104,4 @@ test-msisensor: msisensor
 	docker run --rm -ti stevekm/ngs580-nf:msisensor-0.2 bash
 
 test-R: R
-	docker run --rm -ti stevekm/ngs580-nf:R-3.2.3 bash
+	docker run --rm -ti stevekm/ngs580-nf:R-3.3.2 bash
