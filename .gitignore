@@ -12,3 +12,5 @@ containers/ngs580-variant-calling/annotate_vcf.sh
 *.img
 NGS580-demo-data/
 old
+annovar
+annovar_db/

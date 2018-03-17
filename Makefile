@@ -48,14 +48,18 @@ demo: samples.analysis.tsv
 annovar_db: annovar
 	[ -d "$(ANNOVAR_DB_DIR)" ] && ln -fs $(ANNOVAR_DB_DIR) annovar_db || { \
 	mkdir -p annovar_db && \
-	export PATH="annovar:$${PATH}" && \
-	for item in $$( echo "$(ANNOVAR_PROTOCOL)" | tr ',' ' '); \
+	for item in $$( echo "$(ANNOVAR_PROTOCOL)" | tr ',' ' ' ) ; do \
 	( \
+	export PATH="annovar:$${PATH}" ; \
 	downdb_param="$$(grep "$$item" annovar_key.tsv | cut -f1)" ; \
+	echo "$$downdb_param" ; \
 	annotate_variation.pl -downdb -buildver $(ANNOVAR_BUILD_VERSION) -webfrom annovar "$$downdb_param" annovar_db ; \
 	) ; \
 	done; \
 	}
+
+
+
 
 annovar:
 	wget http://www.openbioinformatics.org/annovar/download/0wgxR2rIVP/annovar.revision150617.tar.gz && \
