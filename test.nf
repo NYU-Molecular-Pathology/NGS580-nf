@@ -138,7 +138,7 @@ process trimmomatic {
 
     script:
     """
-    trimmomatic.sh PE -threads \${NSLOTS:-1} \
+    trimmomatic.sh PE -threads \${NSLOTS:-${NTHREADS:-1}} \
     "${read1}" "${read2}" \
     "${sample_ID}_R1.trim.fastq.gz" "${sample_ID}_R1.unpaired.fastq.gz" \
     "${sample_ID}_R2.trim.fastq.gz" "${sample_ID}_R2.unpaired.fastq.gz" \
@@ -188,7 +188,7 @@ process bwa_mem {
 
     script:
     """
-    bwa mem -M -v 1 -t \${NSLOTS:-1} -R '@RG\\tID:${sample_ID}\\tSM:${sample_ID}\\tLB:${sample_ID}\\tPL:ILLUMINA' "${ref_fa_bwa_dir}/genome.fa" "${fastq_R1_trim}" "${fastq_R2_trim}" -o "${sample_ID}.sam"
+    bwa mem -M -v 1 -t \${NSLOTS:-${NTHREADS:-1}} -R '@RG\\tID:${sample_ID}\\tSM:${sample_ID}\\tLB:${sample_ID}\\tPL:ILLUMINA' "${ref_fa_bwa_dir}/genome.fa" "${fastq_R1_trim}" "${fastq_R2_trim}" -o "${sample_ID}.sam"
     """
 }
 
@@ -206,8 +206,8 @@ process sambamba_view_sort {
 
     script:
     """
-    sambamba view --sam-input --nthreads=\${NSLOTS:-1} --filter='mapping_quality>=10' --format=bam --compression-level=0 "${sample_sam}" | \
-    sambamba sort --nthreads=\${NSLOTS:-1} --memory-limit="${params.sambamba_mem_limit}" --out="${sample_ID}.bam" /dev/stdin
+    sambamba view --sam-input --nthreads=\${NSLOTS:-${NTHREADS:-1}} --filter='mapping_quality>=10' --format=bam --compression-level=0 "${sample_sam}" | \
+    sambamba sort --nthreads=\${NSLOTS:-${NTHREADS:-1}} --memory-limit="${params.sambamba_mem_limit}" --out="${sample_ID}.bam" /dev/stdin
     """
 }
 
@@ -245,7 +245,7 @@ process sambamba_dedup {
 
     script:
     """
-    sambamba markdup --remove-duplicates --nthreads \${NSLOTS:-1} --hash-table-size 525000 --overflow-list-size 525000 "${sample_bam}" "${sample_ID}.dd.bam"
+    sambamba markdup --remove-duplicates --nthreads \${NSLOTS:-${NTHREADS:-1}} --hash-table-size 525000 --overflow-list-size 525000 "${sample_bam}" "${sample_ID}.dd.bam"
 
     # make a copy of the .command.err Nextflow log file for parsing
     cat .command.err > "${sample_ID}.dd.log"
@@ -322,7 +322,7 @@ process qc_target_reads_gatk_genome {
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-1} \
+    -nt \${NSLOTS:-${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -356,7 +356,7 @@ process qc_target_reads_gatk_pad500 {
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-1} \
+    -nt \${NSLOTS:-${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -391,7 +391,7 @@ process qc_target_reads_gatk_pad100 {
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-1} \
+    -nt \${NSLOTS:-${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -426,7 +426,7 @@ process qc_target_reads_gatk_bed {
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-1} \
+    -nt \${NSLOTS:-${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -468,7 +468,7 @@ process bam_ra_rc_gatk {
     gatk.sh -T RealignerTargetCreator \
     -dt NONE \
     --logging_level ERROR \
-    -nt \${NSLOTS:-1} \
+    -nt \${NSLOTS:-${NTHREADS:-1}} \
     --reference_sequence "${ref_fasta}" \
     -known "${gatk_1000G_phase1_indels_vcf}" \
     -known "${mills_and_1000G_gold_standard_indels_vcf}" \
@@ -490,7 +490,7 @@ process bam_ra_rc_gatk {
 
     gatk.sh -T BaseRecalibrator \
     --logging_level ERROR \
-    -nct \${NSLOTS:-1} \
+    -nct \${NSLOTS:-${NTHREADS:-1}} \
     -rf BadCigar \
     --reference_sequence "${ref_fasta}" \
     -knownSites "${gatk_1000G_phase1_indels_vcf}" \
@@ -503,7 +503,7 @@ process bam_ra_rc_gatk {
 
     gatk.sh -T BaseRecalibrator \
     --logging_level ERROR \
-    -nct \${NSLOTS:-1} \
+    -nct \${NSLOTS:-${NTHREADS:-1}} \
     -rf BadCigar \
     --reference_sequence "${ref_fasta}" \
     -knownSites "${gatk_1000G_phase1_indels_vcf}" \
@@ -525,7 +525,7 @@ process bam_ra_rc_gatk {
 
     gatk.sh -T PrintReads \
     --logging_level ERROR \
-    -nct \${NSLOTS:-1} \
+    -nct \${NSLOTS:-${NTHREADS:-1}} \
     -rf BadCigar \
     --reference_sequence "${ref_fasta}" \
     -BQSR "${sample_ID}.table1.txt" \
@@ -646,7 +646,7 @@ process lofreq {
     """
     lofreq call-parallel \
     --call-indels \
-    --pp-threads \${NSLOTS:-1} \
+    --pp-threads \${NSLOTS:-${NTHREADS:-1}} \
     --ref "${ref_fasta}" \
     --bed "${targets_bed_file}" \
     --out "${sample_ID}.vcf" \
@@ -711,7 +711,7 @@ process gatk_hc {
     gatk.sh -T HaplotypeCaller \
     -dt NONE \
     --logging_level ERROR \
-    -nct \${NSLOTS:-1} \
+    -nct \${NSLOTS:-${NTHREADS:-1}} \
     --max_alternate_alleles 3 \
     --standard_min_confidence_threshold_for_calling 50 \
     --reference_sequence "${ref_fasta}" \
@@ -738,7 +738,7 @@ process gatk_hc {
     # add a column with the sample ID
     paste_col.py -i "${sample_ID}.norm.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
 
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T VariantEval \
+    gatk.sh -T VariantEval \
     -R "${ref_fasta}" \
     -o "${sample_ID}.eval.grp" \
     --dbsnp "${dbsnp_ref_vcf}" \
@@ -875,8 +875,8 @@ process delly2_insertions {
 
     script:
     """
-    ${params.delly2_bin} call -t INS -g ${ref_fasta} -o "${sample_ID}.insertions.bcf" "${sample_bam}"
-    ${params.delly2_bcftools_bin} view "${sample_ID}.insertions.bcf" > "${sample_ID}.insertions.vcf"
+    delly call -t INS -g ${ref_fasta} -o "${sample_ID}.insertions.bcf" "${sample_bam}"
+    bcftools view "${sample_ID}.insertions.bcf" > "${sample_ID}.insertions.vcf"
 
     # annotate the vcf
     annotate_vcf.sh "${sample_ID}.insertions.vcf" "${sample_ID}.insertions"
@@ -1120,7 +1120,7 @@ process msisensor {
 
     script:
     """
-    msisensor msi -d "${microsatellites}" -n "${normalBam}" -t "${tumorBam}" -e "${targets_bed}" -o "${comparisonID}.msisensor" -l 1 -q 1 -b \${NSLOTS:-1}
+    msisensor msi -d "${microsatellites}" -n "${normalBam}" -t "${tumorBam}" -e "${targets_bed}" -o "${comparisonID}.msisensor" -l 1 -q 1 -b \${NSLOTS:-${NTHREADS:-1}}
     """
 }
 
