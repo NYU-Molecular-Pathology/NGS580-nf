@@ -84,7 +84,6 @@ samples_pairs2.subscribe { println "samples_pairs2: ${it}" }
 // PREPROCESSING
 process fastqc_raw {
     tag { "${fastq}" }
-    container "${params.fastqc_container}"
     publishDir "${params.output_dir}/fastqc-raw", mode: 'copy', overwrite: true
 
     input:
@@ -128,7 +127,6 @@ process trimmomatic {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/fastq-trim", mode: 'copy', overwrite: true
     clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=5G'
-    container "${params.trimmomatic_container}"
 
     input:
     set val(sample_ID), file(read1), file(read2), file(trimmomatic_contaminant_fa) from samples_fastq_merged.combine(trimmomatic_contaminant_fa)
@@ -138,7 +136,7 @@ process trimmomatic {
 
     script:
     """
-    trimmomatic.sh PE -threads \${NSLOTS:-${NTHREADS:-1}} \
+    trimmomatic.sh PE -threads \${NSLOTS:-\${NTHREADS:-1}} \
     "${read1}" "${read2}" \
     "${sample_ID}_R1.trim.fastq.gz" "${sample_ID}_R1.unpaired.fastq.gz" \
     "${sample_ID}_R2.trim.fastq.gz" "${sample_ID}_R2.unpaired.fastq.gz" \
@@ -149,7 +147,6 @@ process trimmomatic {
 
 process fastqc_trim {
     tag { "${sample_ID}" }
-    container "${params.fastqc_container}"
     publishDir "${params.output_dir}/fastqc-trim", mode: 'copy', overwrite: true
 
     input:
@@ -178,7 +175,6 @@ process bwa_mem {
     // first pass alignment with BWA
     tag { "${sample_ID}" }
     clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
-    container "${params.bwa_container}"
 
     input:
     set val(sample_ID), file(fastq_R1_trim), file(fastq_R2_trim), file(ref_fa_bwa_dir) from samples_fastq_trimmed.combine(ref_fa_bwa_dir)
@@ -188,7 +184,7 @@ process bwa_mem {
 
     script:
     """
-    bwa mem -M -v 1 -t \${NSLOTS:-${NTHREADS:-1}} -R '@RG\\tID:${sample_ID}\\tSM:${sample_ID}\\tLB:${sample_ID}\\tPL:ILLUMINA' "${ref_fa_bwa_dir}/genome.fa" "${fastq_R1_trim}" "${fastq_R2_trim}" -o "${sample_ID}.sam"
+    bwa mem -M -v 1 -t \${NSLOTS:-\${NTHREADS:-1}} -R '@RG\\tID:${sample_ID}\\tSM:${sample_ID}\\tLB:${sample_ID}\\tPL:ILLUMINA' "${ref_fa_bwa_dir}/genome.fa" "${fastq_R1_trim}" "${fastq_R2_trim}" -o "${sample_ID}.sam"
     """
 }
 
@@ -196,7 +192,6 @@ process bwa_mem {
 process sambamba_view_sort {
     tag { "${sample_ID}" }
     clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=4G'
-    container "${params.sambamba_container}"
 
     input:
     set val(sample_ID), file(sample_sam) from samples_bwa_sam
@@ -206,15 +201,14 @@ process sambamba_view_sort {
 
     script:
     """
-    sambamba view --sam-input --nthreads=\${NSLOTS:-${NTHREADS:-1}} --filter='mapping_quality>=10' --format=bam --compression-level=0 "${sample_sam}" | \
-    sambamba sort --nthreads=\${NSLOTS:-${NTHREADS:-1}} --memory-limit="${params.sambamba_mem_limit}" --out="${sample_ID}.bam" /dev/stdin
+    sambamba view --sam-input --nthreads=\${NSLOTS:-\${NTHREADS:-1}} --filter='mapping_quality>=10' --format=bam --compression-level=0 "${sample_sam}" | \
+    sambamba sort --nthreads=\${NSLOTS:-\${NTHREADS:-1}} --memory-limit="${params.sambamba_mem_limit}" --out="${sample_ID}.bam" /dev/stdin
     """
 }
 
 process sambamba_flagstat {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/sambamba-flagstat", mode: 'copy', overwrite: true
-    container "${params.sambamba_container}"
 
     input:
     set val(sample_ID), file(sample_bam) from samples_bam
@@ -232,7 +226,6 @@ process sambamba_dedup {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/bam-bwa-dd", mode: 'copy', overwrite: true
     clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=4G'
-    container "${params.sambamba_container}"
 
     input:
     set val(sample_ID), file(sample_bam) from samples_bam2
@@ -245,7 +238,7 @@ process sambamba_dedup {
 
     script:
     """
-    sambamba markdup --remove-duplicates --nthreads \${NSLOTS:-${NTHREADS:-1}} --hash-table-size 525000 --overflow-list-size 525000 "${sample_bam}" "${sample_ID}.dd.bam"
+    sambamba markdup --remove-duplicates --nthreads \${NSLOTS:-\${NTHREADS:-1}} --hash-table-size 525000 --overflow-list-size 525000 "${sample_bam}" "${sample_ID}.dd.bam"
 
     # make a copy of the .command.err Nextflow log file for parsing
     cat .command.err > "${sample_ID}.dd.log"
@@ -262,7 +255,7 @@ samples_dd_reads_log.collectFile(name: "samples_dd_reads.tsv", storeDir: "${para
 process sambamba_dedup_flagstat {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/sambamba-dd-flagstat", mode: 'copy', overwrite: true
-    container "${params.sambamba_container}"
+
 
     input:
     set val(sample_ID), file(sample_bam) from samples_dd_bam2
@@ -308,7 +301,7 @@ process qc_target_reads_gatk_genome {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
     clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
-    container "${params.variant_calling_container}"
+
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict) from samples_dd_bam_ref
@@ -322,7 +315,7 @@ process qc_target_reads_gatk_genome {
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-${NTHREADS:-1}} \
+    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -342,7 +335,6 @@ process qc_target_reads_gatk_pad500 {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
     clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
-    container "${params.variant_calling_container}"
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref2
@@ -356,7 +348,7 @@ process qc_target_reads_gatk_pad500 {
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-${NTHREADS:-1}} \
+    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -377,7 +369,6 @@ process qc_target_reads_gatk_pad100 {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
     clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
-    container "${params.variant_calling_container}"
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref3
@@ -391,7 +382,7 @@ process qc_target_reads_gatk_pad100 {
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-${NTHREADS:-1}} \
+    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -412,7 +403,6 @@ process qc_target_reads_gatk_bed {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
     clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
-    container "${params.variant_calling_container}"
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref4
@@ -426,7 +416,7 @@ process qc_target_reads_gatk_bed {
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-${NTHREADS:-1}} \
+    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -448,9 +438,6 @@ process bam_ra_rc_gatk {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/bam_dd_ra_rc_gatk", mode: 'copy', overwrite: true
     clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
-    container "${params.variant_calling_container}"
-    // module 'samtools/1.3'
-
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from samples_dd_bam_ref_gatk
@@ -468,7 +455,7 @@ process bam_ra_rc_gatk {
     gatk.sh -T RealignerTargetCreator \
     -dt NONE \
     --logging_level ERROR \
-    -nt \${NSLOTS:-${NTHREADS:-1}} \
+    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --reference_sequence "${ref_fasta}" \
     -known "${gatk_1000G_phase1_indels_vcf}" \
     -known "${mills_and_1000G_gold_standard_indels_vcf}" \
@@ -490,7 +477,7 @@ process bam_ra_rc_gatk {
 
     gatk.sh -T BaseRecalibrator \
     --logging_level ERROR \
-    -nct \${NSLOTS:-${NTHREADS:-1}} \
+    -nct \${NSLOTS:-\${NTHREADS:-1}} \
     -rf BadCigar \
     --reference_sequence "${ref_fasta}" \
     -knownSites "${gatk_1000G_phase1_indels_vcf}" \
@@ -503,7 +490,7 @@ process bam_ra_rc_gatk {
 
     gatk.sh -T BaseRecalibrator \
     --logging_level ERROR \
-    -nct \${NSLOTS:-${NTHREADS:-1}} \
+    -nct \${NSLOTS:-\${NTHREADS:-1}} \
     -rf BadCigar \
     --reference_sequence "${ref_fasta}" \
     -knownSites "${gatk_1000G_phase1_indels_vcf}" \
@@ -525,7 +512,7 @@ process bam_ra_rc_gatk {
 
     gatk.sh -T PrintReads \
     --logging_level ERROR \
-    -nct \${NSLOTS:-${NTHREADS:-1}} \
+    -nct \${NSLOTS:-\${NTHREADS:-1}} \
     -rf BadCigar \
     --reference_sequence "${ref_fasta}" \
     -BQSR "${sample_ID}.table1.txt" \
@@ -573,7 +560,6 @@ process qc_coverage_gatk {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc_coverage_gatk", mode: 'copy', overwrite: true
     clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
-    container "${params.variant_calling_container}"
 
     input:
     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref
@@ -612,7 +598,6 @@ qc_coverage_gatk_summary.collectFile(name: "${params.qc_coverage_gatk_file_basen
 
 process pad_bed {
     publishDir "${params.output_dir}/targets", mode: 'copy', overwrite: true
-    container "${params.bedtools_container}"
 
     input:
     set file(targets_bed_file), file(ref_chrom_sizes) from targets_bed3.combine(ref_chrom_sizes)
@@ -630,7 +615,6 @@ process lofreq {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/vcf_lofreq", mode: 'copy', overwrite: true
     clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
-    container "${params.variant_calling_container}"
 
     input:
     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp
@@ -646,7 +630,7 @@ process lofreq {
     """
     lofreq call-parallel \
     --call-indels \
-    --pp-threads \${NSLOTS:-${NTHREADS:-1}} \
+    --pp-threads \${NSLOTS:-\${NTHREADS:-1}} \
     --ref "${ref_fasta}" \
     --bed "${targets_bed_file}" \
     --out "${sample_ID}.vcf" \
@@ -711,7 +695,7 @@ process gatk_hc {
     gatk.sh -T HaplotypeCaller \
     -dt NONE \
     --logging_level ERROR \
-    -nct \${NSLOTS:-${NTHREADS:-1}} \
+    -nct \${NSLOTS:-\${NTHREADS:-1}} \
     --max_alternate_alleles 3 \
     --standard_min_confidence_threshold_for_calling 50 \
     --reference_sequence "${ref_fasta}" \
@@ -1120,7 +1104,7 @@ process msisensor {
 
     script:
     """
-    msisensor msi -d "${microsatellites}" -n "${normalBam}" -t "${tumorBam}" -e "${targets_bed}" -o "${comparisonID}.msisensor" -l 1 -q 1 -b \${NSLOTS:-${NTHREADS:-1}}
+    msisensor msi -d "${microsatellites}" -n "${normalBam}" -t "${tumorBam}" -e "${targets_bed}" -o "${comparisonID}.msisensor" -l 1 -q 1 -b \${NSLOTS:-\${NTHREADS:-1}}
     """
 }
 
@@ -1228,7 +1212,7 @@ workflow.onComplete {
         Workflow revision : ${workflow.repository ? "$workflow.revision ($workflow.commitId)" : '-'}
         Workflow profile  : ${workflow.profile ?: '-'}
         Workflow container: ${workflow.container ?: '-'}
-        Container engine  : ${workflow.containerEngine?:'-'}
+        container engine  : ${workflow.containerEngine?:'-'}
         Nextflow run name : ${workflow.runName}
         Nextflow version  : ${workflow.nextflow.version}, build ${workflow.nextflow.build} (${workflow.nextflow.timestamp})
 

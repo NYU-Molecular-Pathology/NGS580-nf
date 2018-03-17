@@ -1,6 +1,6 @@
 none:
 
-.PHONY: base fastqc trimmomatic sambamba bwa bedtools msisensor R-3.3.0
+.PHONY: base fastqc trimmomatic sambamba bwa bedtools msisensor R-3.3.0 delly2-0.7.7
 
 
 # ~~~~~ BUILD DOCKER CONTAINERS ~~~~~ #
@@ -52,8 +52,10 @@ R-3.3.2: base
 
 R: R-3.3.2
 
+delly2-0.7.7: base
+	cd delly2-0.7.7 && docker build -t stevekm/ngs580-nf:delly2-0.7.7 .
 
-
+delly2: delly2-0.7.7
 
 
 
@@ -138,3 +140,6 @@ test-msisensor: msisensor
 
 test-R: R
 	docker run --rm -ti stevekm/ngs580-nf:R-3.3.2 bash
+
+test-delly2: delly2
+	docker run --rm -ti stevekm/ngs580-nf:delly2-0.7.7 bash
