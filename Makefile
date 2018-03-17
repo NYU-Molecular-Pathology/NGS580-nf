@@ -34,7 +34,9 @@ NGS580-demo-data:
 	git clone https://github.com/NYU-Molecular-Pathology/NGS580-demo-data.git
 
 samples.analysis.tsv: NGS580-demo-data
-	./generate-samplesheets.py NGS580-demo-data/tiny/fastq/
+	./generate-samplesheets.py NGS580-demo-data/tiny/fastq/ && \
+	mv targets.bed targets.bed.old && \
+	/bin/cp NGS580-demo-data/tiny/targets.bed .
 
 demo: samples.analysis.tsv
 
@@ -52,6 +54,10 @@ runr: setup ref
 # run on phoenix demo
 rundp: setup ref demo
 	./nextflow run test.nf -with-dag flowchart-NGS580.dot $(EP) && \
+	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
+
+rundpr: setup ref demo
+	./nextflow run test.nf -resume -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
 # run on phoenix demo head node

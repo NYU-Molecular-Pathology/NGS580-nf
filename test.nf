@@ -108,8 +108,6 @@ process fastqc_raw {
 process fastq_merge {
     // merge the R1 and R2 fastq files into a single fastq each
     tag { "${sample_ID}" }
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     publishDir "${params.output_dir}/fastq-merge", mode: 'copy', overwrite: true
 
     input:
@@ -127,13 +125,9 @@ process fastq_merge {
 
 
 process trimmomatic {
-    // Illumina read trimming
-    // http://www.usadellab.org/cms/?page=trimmomatic
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/fastq-trim", mode: 'copy', overwrite: true
     clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=5G'
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     container "${params.trimmomatic_container}"
 
     input:
@@ -184,8 +178,6 @@ process bwa_mem {
     // first pass alignment with BWA
     tag { "${sample_ID}" }
     clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     container "${params.bwa_container}"
 
     input:
@@ -204,8 +196,6 @@ process bwa_mem {
 process sambamba_view_sort {
     tag { "${sample_ID}" }
     clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=4G'
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     container "${params.sambamba_container}"
 
     input:
@@ -224,8 +214,6 @@ process sambamba_view_sort {
 process sambamba_flagstat {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/sambamba-flagstat", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     container "${params.sambamba_container}"
 
     input:
@@ -244,8 +232,6 @@ process sambamba_dedup {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/bam-bwa-dd", mode: 'copy', overwrite: true
     clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=4G'
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     container "${params.sambamba_container}"
 
     input:
@@ -276,8 +262,6 @@ samples_dd_reads_log.collectFile(name: "samples_dd_reads.tsv", storeDir: "${para
 process sambamba_dedup_flagstat {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/sambamba-dd-flagstat", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     container "${params.sambamba_container}"
 
     input:
@@ -323,8 +307,6 @@ samples_dd_bam.combine(ref_fasta)
 process qc_target_reads_gatk_genome {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
     container "${params.variant_calling_container}"
 
@@ -359,8 +341,6 @@ process qc_target_reads_gatk_genome {
 process qc_target_reads_gatk_pad500 {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
     container "${params.variant_calling_container}"
 
@@ -396,8 +376,6 @@ process qc_target_reads_gatk_pad500 {
 process qc_target_reads_gatk_pad100 {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
     container "${params.variant_calling_container}"
 
@@ -433,8 +411,6 @@ process qc_target_reads_gatk_pad100 {
 process qc_target_reads_gatk_bed {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
     container "${params.variant_calling_container}"
 
@@ -471,8 +447,6 @@ process qc_target_reads_gatk_bed {
 process bam_ra_rc_gatk {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/bam_dd_ra_rc_gatk", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
     container "${params.variant_calling_container}"
     // module 'samtools/1.3'
@@ -598,8 +572,6 @@ samples_dd_ra_rc_bam_ref2.combine( dbsnp_ref_vcf3 )
 process qc_coverage_gatk {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc_coverage_gatk", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
     container "${params.variant_calling_container}"
 
@@ -640,8 +612,6 @@ qc_coverage_gatk_summary.collectFile(name: "${params.qc_coverage_gatk_file_basen
 
 process pad_bed {
     publishDir "${params.output_dir}/targets", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     container "${params.bedtools_container}"
 
     input:
@@ -659,10 +629,7 @@ process pad_bed {
 process lofreq {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/vcf_lofreq", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
-    // module 'samtools/1.3'
     container "${params.variant_calling_container}"
 
     input:
@@ -720,598 +687,582 @@ process lofreq {
 }
 lofreq_annotations.collectFile(name: "${params.annotations_lofreq_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
 
-//
-//
-//
-// process gatk_hc {
-//     tag { "${sample_ID}" }
-//     publishDir "${params.output_dir}/vcf_hc", mode: 'copy', overwrite: true
-//     beforeScript "${params.beforeScript_str}"
-//     afterScript "${params.afterScript_str}"
-//     clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
-//     module 'samtools/1.3'
-//
-//     input:
-//     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp2
-//
-//     output:
-//     file("${sample_ID}.vcf")
-//     set val(sample_ID), file("${sample_ID}.norm.vcf") into sample_vcf_hc
-//     file("${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt") into gatk_hc_annotations
-//     set val(sample_ID), file("${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt") into gatk_hc_annotations2
-//     file("${sample_ID}.eval.grp")
-//     val(sample_ID) into sample_gatk_hc_done
-//
-//     script:
-//     """
-//     java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T HaplotypeCaller \
-//     -dt NONE \
-//     --logging_level ERROR \
-//     -nct \${NSLOTS:-1} \
-//     --max_alternate_alleles 3 \
-//     --standard_min_confidence_threshold_for_calling 50 \
-//     --reference_sequence "${ref_fasta}" \
-//     --intervals "${targets_bed_file}" \
-//     --interval_padding 10 \
-//     --input_file "${sample_bam}" \
-//     --out "${sample_ID}.vcf"
-//
-//     cat "${sample_ID}.vcf" | \
-//     bcftools norm \
-//     --multiallelics \
-//     -both \
-//     --output-type v - | \
-//     bcftools norm \
-//     --fasta-ref "${ref_fasta}" \
-//     --output-type v - | \
-//     bcftools view \
-//     --exclude 'DP<5' \
-//     --output-type v > "${sample_ID}.norm.vcf"
-//
-//     # annotate the vcf
-//     annotate_vcf.sh "${sample_ID}.norm.vcf" "${sample_ID}.norm"
-//
-//     # add a column with the sample ID
-//     paste_col.py -i "${sample_ID}.norm.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
-//
-//     java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T VariantEval \
-//     -R "${ref_fasta}" \
-//     -o "${sample_ID}.eval.grp" \
-//     --dbsnp "${dbsnp_ref_vcf}" \
-//     --eval "${sample_ID}.norm.vcf"
-//     """
-// }
-// gatk_hc_annotations.collectFile(name: "${params.annotations_hc_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-//
-//
-//
-//
-//
-//
-// //
-// // DOWNSTREAM TASKS
-// //
-// // DELLY2 SNV STEPS
-// process delly2_deletions {
-//     tag { "${sample_ID}" }
-//     publishDir "${params.output_dir}/snv-deletions-Delly2", mode: 'copy', overwrite: true
-//
-//     input:
-//     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref4
-//
-//     output:
-//     file "${sample_ID}.deletions.vcf"
-//     file "${sample_ID}.deletions.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_deletions_annotations
-//
-//     script:
-//     """
-//     "${params.delly2_bin}" call -t DEL -g "${ref_fasta}" -o "${sample_ID}.deletions.bcf" "${sample_bam}"
-//     "${params.delly2_bcftools_bin}" view "${sample_ID}.deletions.bcf" > "${sample_ID}.deletions.vcf"
-//
-//     # annotate the vcf
-//     annotate_vcf.sh "${sample_ID}.deletions.vcf" "${sample_ID}.deletions"
-//
-//     # add a column with the sample ID
-//     paste_col.py -i "${sample_ID}.deletions.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.deletions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
-//     """
-// }
-// delly2_deletions_annotations.collectFile(name: "${params.annotations_deletions_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-//
-//
-// process delly2_duplications {
-//     tag { "${sample_ID}" }
-//     publishDir "${params.output_dir}/snv-duplications-Delly2", mode: 'copy', overwrite: true
-//
-//     input:
-//     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref5
-//
-//     output:
-//     file "${sample_ID}.duplications.vcf"
-//     file "${sample_ID}.duplications.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_duplications_annotations
-//
-//     script:
-//     """
-//     "${params.delly2_bin}" call -t DUP -g "${ref_fasta}" -o "${sample_ID}.duplications.bcf" "${sample_bam}"
-//     "${params.delly2_bcftools_bin}" view "${sample_ID}.duplications.bcf" > "${sample_ID}.duplications.vcf"
-//
-//     # annotate the vcf
-//     annotate_vcf.sh "${sample_ID}.duplications.vcf" "${sample_ID}.duplications"
-//
-//     # add a column with the sample ID
-//     paste_col.py -i "${sample_ID}.duplications.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.duplications.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
-//     """
-// }
-// delly2_duplications_annotations.collectFile(name: "${params.annotations_duplications_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-//
-//
-//
-// process delly2_inversions {
-//     tag { "${sample_ID}" }
-//     publishDir "${params.output_dir}/snv-inversions-Delly2", mode: 'copy', overwrite: true
-//
-//     input:
-//     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref6
-//
-//     output:
-//     file "${sample_ID}.inversions.bcf"
-//     file "${sample_ID}.inversions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_inversions_annotations
-//
-//     script:
-//     """
-//     "${params.delly2_bin}" call -t INV -g "${ref_fasta}" -o "${sample_ID}.inversions.bcf" "${sample_bam}"
-//     "${params.delly2_bcftools_bin}" view "${sample_ID}.inversions.bcf" > "${sample_ID}.inversions.vcf"
-//
-//     # annotate the vcf
-//     annotate_vcf.sh "${sample_ID}.inversions.vcf" "${sample_ID}.inversions"
-//
-//     # add a column with the sample ID
-//     paste_col.py -i "${sample_ID}.inversions.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.inversions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
-//     """
-// }
-// delly2_inversions_annotations.collectFile(name: "${params.annotations_inversion_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-//
-//
-//
-// process delly2_translocations {
-//     tag { "${sample_ID}" }
-//     publishDir "${params.output_dir}/snv-translocations-Delly2", mode: 'copy', overwrite: true
-//
-//     input:
-//     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref7
-//
-//     output:
-//     file "${sample_ID}.translocations.vcf"
-//     file "${sample_ID}.translocations.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_translocations_annotations
-//
-//     script:
-//     """
-//     ${params.delly2_bin} call -t BND -g ${ref_fasta} -o "${sample_ID}.translocations.bcf" "${sample_bam}"
-//     ${params.delly2_bcftools_bin} view "${sample_ID}.translocations.bcf" > "${sample_ID}.translocations.vcf"
-//
-//     # annotate the vcf
-//     annotate_vcf.sh "${sample_ID}.translocations.vcf" "${sample_ID}.translocations"
-//
-//     # add a column with the sample ID
-//     paste_col.py -i "${sample_ID}.translocations.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.translocations.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
-//     """
-// }
-// delly2_translocations_annotations.collectFile(name: "${params.annotations_translocations_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-//
-//
-// process delly2_insertions {
-//     tag { "${sample_ID}" }
-//     publishDir "${params.output_dir}/snv-insertions-Delly2", mode: 'copy', overwrite: true
-//
-//     input:
-//     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref8
-//
-//     output:
-//     file "${sample_ID}.insertions.vcf"
-//     file "${sample_ID}.insertions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_insertions_annotations
-//
-//     script:
-//     """
-//     ${params.delly2_bin} call -t INS -g ${ref_fasta} -o "${sample_ID}.insertions.bcf" "${sample_bam}"
-//     ${params.delly2_bcftools_bin} view "${sample_ID}.insertions.bcf" > "${sample_ID}.insertions.vcf"
-//
-//     # annotate the vcf
-//     annotate_vcf.sh "${sample_ID}.insertions.vcf" "${sample_ID}.insertions"
-//
-//     # add a column with the sample ID
-//     paste_col.py -i "${sample_ID}.insertions.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.insertions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
-//     """
-// }
-// delly2_insertions_annotations.collectFile(name: "${params.annotations_insertions_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-//
-//
-//
-// // Genomic Signatures
-// process deconstructSigs_signatures {
-//     tag { "${sample_ID}" }
-//     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-//     errorStrategy 'ignore'
-//     beforeScript "${params.beforeScript_str}"
-//     afterScript "${params.afterScript_str}"
-//     publishDir "${params.output_dir}/signatures_hc", mode: 'copy', overwrite: true
-//
-//     input:
-//     set val(sample_ID), file(sample_vcf) from sample_vcf_hc
-//
-//     output:
-//     file "${sample_ID}_signatures.Rds"
-//     file "${sample_ID}_signatures.pdf" into signatures_plots
-//     file "${sample_ID}_signatures_pie.pdf" into signatures_pie_plots
-//
-//     script:
-//     """
-//     deconstructSigs_make_signatures.R "${sample_ID}" "${sample_vcf}"
-//     """
-// }
-//
-//
-// process merge_signatures_plots {
-//     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-//     errorStrategy 'ignore'
-//     executor "local"
-//     publishDir "${params.output_dir}", mode: 'copy', overwrite: true
-//
-//     input:
-//     file '*' from signatures_plots.toList()
-//
-//     output:
-//     file "signatures.pdf"
-//
-//     script:
-//     """
-//     if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
-//         gs -dBATCH -dNOPAUSE -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile=genomic_signatures.pdf *
-//     else
-//         exit 11
-//     fi
-//     """
-// }
-//
-//
-// process merge_signatures_pie_plots {
-//     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-//     errorStrategy 'ignore'
-//     executor "local"
-//     publishDir "${params.output_dir}", mode: 'copy', overwrite: true
-//
-//     input:
-//     file '*' from signatures_pie_plots.toList()
-//
-//     output:
-//     file "signatures_pie.pdf"
-//
-//     script:
-//     """
-//     if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
-//         gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=genomic_signatures_pie.pdf *
-//     else
-//         exit 11
-//     fi
-//     """
-// }
-//
-//
-// // // REQUIRES ANNOTATIONS FOR DBSNP FILTERING
-// process vaf_distribution_plot {
-//     tag { "${sample_ID}" }
-//     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-//     errorStrategy 'ignore'
-//     publishDir "${params.output_dir}/vaf-distribution-hc", mode: 'copy', overwrite: true
-//
-//     input:
-//     set val(sample_ID), file(sample_vcf_annot) from gatk_hc_annotations2
-//
-//     output:
-//     file "${sample_ID}_vaf_dist.pdf" into vaf_distribution_plots
-//
-//     script:
-//     """
-//     VAF-distribution-plot.R "${sample_ID}" "${sample_vcf_annot}"
-//     """
-//
-// }
-//
-// process merge_VAF_plots {
-//     executor "local"
-//     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-//     errorStrategy 'ignore'
-//     publishDir "${params.output_dir}/", mode: 'copy', overwrite: true
-//
-//     input:
-//     file '*' from vaf_distribution_plots.toList()
-//
-//     output:
-//     file "vaf_distributions.pdf"
-//
-//     script:
-//     """
-//     if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
-//         gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=vaf_distributions.pdf *
-//     else
-//         exit 11
-//     fi
-//     """
-// }
-//
-//
-//
-//
-// // SETUP CHANNELS FOR PAIRED TUMOR-NORMAL STEPS
-// // samples_dd_ra_rc_bam2 // set val(sample_ID), file("${sample_ID}.dd.ra.rc.bam"), file("${sample_ID}.dd.ra.rc.bam.bai")
-// // samples_pairs // [ tumorID, normalID ]
-// // get all the combinations of samples & pairs
-// samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai, tumorID, normalID ]
-//                     .filter { item -> // only keep combinations where sample is same as tumor pair sample
-//                         def sampleID = item[0]
-//                         def sampleBam = item[1]
-//                         def sampleBai = item[2]
-//                         def tumorID = item[3]
-//                         sampleID == tumorID
-//                     }
-//                     .map { item -> // re-order the elements
-//                         def sampleID = item[0]
-//                         def sampleBam = item[1]
-//                         def sampleBai = item[2]
-//                         def tumorID = item[3]
-//                         def normalID = item[4]
-//
-//                         def tumorBam = sampleBam
-//                         def tumorBai = sampleBai
-//
-//                         return [ tumorID, tumorBam, tumorBai, normalID ]
-//                     }
-//                     .combine(samples_dd_ra_rc_bam3) // combine again to get the samples & files again
-//                     .filter { item -> // keep only combinations where the normal ID matches the new sample ID
-//                         def tumorID = item[0]
-//                         def tumorBam = item[1]
-//                         def tumorBai = item[2]
-//                         def normalID = item[3]
-//                         def sampleID = item[4]
-//                         def sampleBam = item[5]
-//                         def sampleBai = item[6]
-//                         normalID == sampleID
-//                     }
-//                     .map {item -> // re arrange the elements
-//                         def tumorID = item[0]
-//                         def tumorBam = item[1]
-//                         def tumorBai = item[2]
-//                         def normalID = item[3]
-//                         def sampleID = item[4]
-//                         def sampleBam = item[5]
-//                         def sampleBai = item[6]
-//
-//                         def normalBam = sampleBam
-//                         def normalBai = sampleBai
-//                         def comparisonID = "${tumorID}_${normalID}"
-//                         return [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai ]
-//                     }
-//                     .tap { samples_dd_ra_rc_bam_pairs } // make a channel for just this set of data
-//                     .combine(ref_fasta3) // add reference genome and targets
-//                     .combine(ref_fai3)
-//                     .combine(ref_dict3)
-//                     .combine(targets_bed4)
-//                     .tap {  samples_dd_ra_rc_bam_pairs_ref; // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) ]
-//                             samples_dd_ra_rc_bam_pairs2;
-//                             samples_dd_ra_rc_bam_pairs_ref3;
-//                             samples_dd_ra_rc_bam_pairs_ref4 }
-//                     .combine(microsatellites) // add MSI ref
-//                     .tap { samples_dd_ra_rc_bam_pairs_ref_msi }
-//
-//
-//
-//
-// // get the unique chromosomes in the targets bed file
-// //  for per-chrom paired variant calling
-// Channel.fromPath( params.targets_bed )
-//             .splitCsv(sep: '\t')
-//             .map{row ->
-//                 row[0]
-//             }
-//             .unique()
-//             .set{ chroms }
-//
-// // add the reference .vcf
-// samples_dd_ra_rc_bam_pairs_ref.combine(dbsnp_ref_vcf2)
-//                             .combine(cosmic_ref_vcf2)
-//                             .tap { samples_dd_ra_rc_bam_pairs_ref_gatk } // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), dbsnp, cosmic ]
-//                             // add the chroms
-//                             .combine( chroms ) // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), dbsnp, cosmic, chrom ]
-//                             .set { samples_dd_ra_rc_bam_pairs_ref_gatk_chrom }
-//
-//
-//
-// samples_dd_ra_rc_bam_pairs2.subscribe { println "samples_dd_ra_rc_bam_pairs2: ${it}" }
-//
-// process tumor_normal_compare {
-//     tag { "${comparisonID}" }
-//     echo true
-//     executor "local"
-//     beforeScript "${params.beforeScript_str}"
-//     afterScript "${params.afterScript_str}"
-//
-//     input:
-//     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) from samples_dd_ra_rc_bam_pairs_ref3
-//
-//     script:
-//     """
-//     echo "[tumor_normal_compare] comparisonID: ${comparisonID}, tumorID: ${tumorID}, tumorBam: ${tumorBam}, tumorBai: ${tumorBai}, normalID: ${normalID}, normalBam: ${normalBam}, normalBai: ${normalBai}, ref_fasta: ${ref_fasta}, ref_fai: ${ref_fai}, ref_dict: ${ref_dict}, targets_bed: ${targets_bed}, "
-//     """
-// }
-//
-//
-// // REQUIRES PAIRED SAMPLES BAM FILES
-// process msisensor {
-//     tag { "${comparisonID}" }
-//     module 'samtools/1.3'
-//     clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=5G'
-//     publishDir "${params.output_dir}/microsatellites", mode: 'copy', overwrite: true
-//
-//
-//     input:
-//     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(microsatellites) from samples_dd_ra_rc_bam_pairs_ref_msi
-//
-//     output:
-//     file "${comparisonID}.msisensor"
-//     file "${comparisonID}.msisensor_dis"
-//     file "${comparisonID}.msisensor_germline"
-//     file "${comparisonID}.msisensor_somatic"
-//
-//     script:
-//     """
-//     "${params.msisensor_bin}" msi -d "${microsatellites}" -n "${normalBam}" -t "${tumorBam}" -e "${targets_bed}" -o "${comparisonID}.msisensor" -l 1 -q 1 -b \${NSLOTS:-1}
-//     """
-// }
-//
-//
-// process mutect2 {
-//     tag { "${comparisonID}:${chrom}" }
-//     publishDir "${params.output_dir}/vcf_mutect2", mode: 'copy', overwrite: true
-//     beforeScript "${params.beforeScript_str}"
-//     afterScript "${params.afterScript_str}"
-//     clusterOptions '-l mem_free=150G -hard'
-//     module 'samtools/1.3'
-//     module 'java/1.8'
-//
-//     input:
-//     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf), file(cosmic_ref_vcf), val(chrom) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
-//
-//     output:
-//     file("${comparisonID}.${chrom}.vcf")
-//     file("${comparisonID}.${chrom}.sample.chrom.${params.ANNOVAR_BUILD_VERSION}_multianno.txt") into mutect2_annotations
-//     val(comparisonID) into mutect2_sampleIDs
-//
-//     script:
-//     """
-//     subset_bed.py "${chrom}" "${targets_bed}" > "${comparisonID}.${chrom}.bed"
-//
-//     java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T MuTect2 \
-//     -dt NONE \
-//     --logging_level WARN \
-//     --standard_min_confidence_threshold_for_calling 30 \
-//     --max_alt_alleles_in_normal_count 10 \
-//     --max_alt_allele_in_normal_fraction 0.05 \
-//     --max_alt_alleles_in_normal_qscore_sum 40 \
-//     --reference_sequence "${ref_fasta}" \
-//     --dbsnp "${dbsnp_ref_vcf}" \
-//     --cosmic "${cosmic_ref_vcf}" \
-//     --intervals "${comparisonID}.${chrom}.bed" \
-//     --interval_padding 10 \
-//     --input_file:tumor "${tumorBam}" \
-//     --input_file:normal "${normalBam}" \
-//     --out "${comparisonID}.${chrom}.vcf"
-//
-//     # annotate the vcf
-//     annotate_vcf.sh "${comparisonID}.${chrom}.vcf" "${comparisonID}.${chrom}"
-//
-//     # add a column with the sample ID
-//     paste_col.py -i "${comparisonID}.${chrom}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${comparisonID}.${chrom}.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${comparisonID}" -d "\t"
-//
-//     # add the col for this chrom
-//     paste_col.py -i "${comparisonID}.${chrom}.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${comparisonID}.${chrom}.sample.chrom.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "SampleChrom" -v "${chrom}" -d "\t"
-//     """
-// }
-// mutect2_annotations.collectFile(name: "${params.annotations_mutect2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-//
-//
-// process multiqc {
-//     publishDir "${params.output_dir}", mode: 'copy', overwrite: true
-//     beforeScript "${params.beforeScript_str}"
-//     afterScript "${params.afterScript_str}"
-//     executor "local"
-//     module 'python/2.7.3'
-//
-//     input:
-//     val(comparisonID) from mutect2_sampleIDs.mix(sample_gatk_hc_done)
-//                                             .mix(sample_lofreq_done)
-//                                             .collect() // force it to wait for all steps to finish
-//     file(output_dir) from Channel.fromPath("${params.output_dir}")
-//
-//     output:
-//     file "multiqc_report.html" into email_files
-//     file "multiqc_data"
-//
-//     script:
-//     """
-//     export PS=\${PS:-''} # needed for virtualenv bug
-//     export PS1=\${PS1:-''}
-//     unset PYTHONPATH
-//     source multiqc-activate
-//     multiqc "${output_dir}"
-//     """
-// }
-//
-//
-//
-//
-//
-// // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
-// workflow.onComplete {
-//
-//     def status = "NA"
-//
-//     if(workflow.success) {
-//         status = "SUCCESS"
-//     } else {
-//         status = "FAILED"
-//     }
-//
-//     def msg = """
-//         Pipeline execution summary
-//         ---------------------------
-//         Success           : ${workflow.success}
-//         exit status       : ${workflow.exitStatus}
-//         Launch time       : ${workflow.start.format('dd-MMM-yyyy HH:mm:ss')}
-//         Ending time       : ${workflow.complete.format('dd-MMM-yyyy HH:mm:ss')} (duration: ${workflow.duration})
-//         Total CPU-Hours   : ${workflow.stats.getComputeTimeString() ?: '-'}
-//         Launch directory  : ${workflow.launchDir}
-//         Work directory    : ${workflow.workDir.toUriString()}
-//         Project directory : ${workflow.projectDir}
-//         Script name       : ${workflow.scriptName ?: '-'}
-//         Script ID         : ${workflow.scriptId ?: '-'}
-//         Workflow session  : ${workflow.sessionId}
-//         Workflow repo     : ${workflow.repository ?: '-' }
-//         Workflow revision : ${workflow.repository ? "$workflow.revision ($workflow.commitId)" : '-'}
-//         Workflow profile  : ${workflow.profile ?: '-'}
-//         Workflow container: ${workflow.container ?: '-'}
-//         Container engine  : ${workflow.containerEngine?:'-'}
-//         Nextflow run name : ${workflow.runName}
-//         Nextflow version  : ${workflow.nextflow.version}, build ${workflow.nextflow.build} (${workflow.nextflow.timestamp})
-//
-//
-//         The command used to launch the workflow was as follows:
-//
-//         ${workflow.commandLine}
-//
-//         --
-//         This email was sent by Nextflow
-//         cite doi:10.1038/nbt.3820
-//         http://nextflow.io
-//         """
-//         .stripIndent()
-//
-//     if(params.pipeline_email) {
-//         sendMail {
-//             to "${params.email_to}"
-//             from "${params.email_from}"
-//             // files from process channels
-//             attach email_files.toList().getVal()
-//             // files from collectFile
-//             // attach ["${params.output_dir}/${params.annotations_mutect2_file_basename}",
-//             //         "${params.output_dir}/${params.qc_coverage_gatk_file_basename}",
-//             //         "${params.output_dir}/${params.annotations_hc_file_basename}",
-//             //         "${params.output_dir}/${params.annotations_lofreq_file_basename}"]
-//
-//             subject "[${params.workflow_label}] Pipeline Completion: ${status}"
-//
-//             body
-//             """
-//             ${msg}
-//             """
-//             .stripIndent()
-//         }
-//     }
-// }
+
+
+
+process gatk_hc {
+    tag { "${sample_ID}" }
+    publishDir "${params.output_dir}/vcf_hc", mode: 'copy', overwrite: true
+    clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
+
+    input:
+    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp2
+
+    output:
+    file("${sample_ID}.vcf")
+    set val(sample_ID), file("${sample_ID}.norm.vcf") into sample_vcf_hc
+    file("${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt") into gatk_hc_annotations
+    set val(sample_ID), file("${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt") into gatk_hc_annotations2
+    file("${sample_ID}.eval.grp")
+    val(sample_ID) into sample_gatk_hc_done
+
+    script:
+    """
+    gatk.sh -T HaplotypeCaller \
+    -dt NONE \
+    --logging_level ERROR \
+    -nct \${NSLOTS:-1} \
+    --max_alternate_alleles 3 \
+    --standard_min_confidence_threshold_for_calling 50 \
+    --reference_sequence "${ref_fasta}" \
+    --intervals "${targets_bed_file}" \
+    --interval_padding 10 \
+    --input_file "${sample_bam}" \
+    --out "${sample_ID}.vcf"
+
+    cat "${sample_ID}.vcf" | \
+    bcftools norm \
+    --multiallelics \
+    -both \
+    --output-type v - | \
+    bcftools norm \
+    --fasta-ref "${ref_fasta}" \
+    --output-type v - | \
+    bcftools view \
+    --exclude 'DP<5' \
+    --output-type v > "${sample_ID}.norm.vcf"
+
+    # annotate the vcf
+    annotate_vcf.sh "${sample_ID}.norm.vcf" "${sample_ID}.norm"
+
+    # add a column with the sample ID
+    paste_col.py -i "${sample_ID}.norm.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
+
+    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T VariantEval \
+    -R "${ref_fasta}" \
+    -o "${sample_ID}.eval.grp" \
+    --dbsnp "${dbsnp_ref_vcf}" \
+    --eval "${sample_ID}.norm.vcf"
+    """
+}
+gatk_hc_annotations.collectFile(name: "${params.annotations_hc_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
+
+
+
+
+
+
+//
+// DOWNSTREAM TASKS
+//
+// DELLY2 SNV STEPS
+process delly2_deletions {
+    tag { "${sample_ID}" }
+    publishDir "${params.output_dir}/snv-deletions-Delly2", mode: 'copy', overwrite: true
+
+    input:
+    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref4
+
+    output:
+    file "${sample_ID}.deletions.vcf"
+    file "${sample_ID}.deletions.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_deletions_annotations
+
+    script:
+    """
+    delly call -t DEL -g "${ref_fasta}" -o "${sample_ID}.deletions.bcf" "${sample_bam}"
+    bcftools view "${sample_ID}.deletions.bcf" > "${sample_ID}.deletions.vcf"
+
+    # annotate the vcf
+    annotate_vcf.sh "${sample_ID}.deletions.vcf" "${sample_ID}.deletions"
+
+    # add a column with the sample ID
+    paste_col.py -i "${sample_ID}.deletions.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.deletions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
+    """
+}
+delly2_deletions_annotations.collectFile(name: "${params.annotations_deletions_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
+
+
+process delly2_duplications {
+    tag { "${sample_ID}" }
+    publishDir "${params.output_dir}/snv-duplications-Delly2", mode: 'copy', overwrite: true
+
+    input:
+    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref5
+
+    output:
+    file "${sample_ID}.duplications.vcf"
+    file "${sample_ID}.duplications.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_duplications_annotations
+
+    script:
+    """
+    delly call -t DUP -g "${ref_fasta}" -o "${sample_ID}.duplications.bcf" "${sample_bam}"
+    bcftools view "${sample_ID}.duplications.bcf" > "${sample_ID}.duplications.vcf"
+
+    # annotate the vcf
+    annotate_vcf.sh "${sample_ID}.duplications.vcf" "${sample_ID}.duplications"
+
+    # add a column with the sample ID
+    paste_col.py -i "${sample_ID}.duplications.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.duplications.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
+    """
+}
+delly2_duplications_annotations.collectFile(name: "${params.annotations_duplications_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
+
+
+
+process delly2_inversions {
+    tag { "${sample_ID}" }
+    publishDir "${params.output_dir}/snv-inversions-Delly2", mode: 'copy', overwrite: true
+
+    input:
+    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref6
+
+    output:
+    file "${sample_ID}.inversions.bcf"
+    file "${sample_ID}.inversions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_inversions_annotations
+
+    script:
+    """
+    delly call -t INV -g "${ref_fasta}" -o "${sample_ID}.inversions.bcf" "${sample_bam}"
+    bcftools view "${sample_ID}.inversions.bcf" > "${sample_ID}.inversions.vcf"
+
+    # annotate the vcf
+    annotate_vcf.sh "${sample_ID}.inversions.vcf" "${sample_ID}.inversions"
+
+    # add a column with the sample ID
+    paste_col.py -i "${sample_ID}.inversions.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.inversions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
+    """
+}
+delly2_inversions_annotations.collectFile(name: "${params.annotations_inversion_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
+
+
+
+process delly2_translocations {
+    tag { "${sample_ID}" }
+    publishDir "${params.output_dir}/snv-translocations-Delly2", mode: 'copy', overwrite: true
+
+    input:
+    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref7
+
+    output:
+    file "${sample_ID}.translocations.vcf"
+    file "${sample_ID}.translocations.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_translocations_annotations
+
+    script:
+    """
+    delly call -t BND -g ${ref_fasta} -o "${sample_ID}.translocations.bcf" "${sample_bam}"
+    bcftools view "${sample_ID}.translocations.bcf" > "${sample_ID}.translocations.vcf"
+
+    # annotate the vcf
+    annotate_vcf.sh "${sample_ID}.translocations.vcf" "${sample_ID}.translocations"
+
+    # add a column with the sample ID
+    paste_col.py -i "${sample_ID}.translocations.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.translocations.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
+    """
+}
+delly2_translocations_annotations.collectFile(name: "${params.annotations_translocations_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
+
+
+process delly2_insertions {
+    tag { "${sample_ID}" }
+    publishDir "${params.output_dir}/snv-insertions-Delly2", mode: 'copy', overwrite: true
+
+    input:
+    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref8
+
+    output:
+    file "${sample_ID}.insertions.vcf"
+    file "${sample_ID}.insertions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_insertions_annotations
+
+    script:
+    """
+    ${params.delly2_bin} call -t INS -g ${ref_fasta} -o "${sample_ID}.insertions.bcf" "${sample_bam}"
+    ${params.delly2_bcftools_bin} view "${sample_ID}.insertions.bcf" > "${sample_ID}.insertions.vcf"
+
+    # annotate the vcf
+    annotate_vcf.sh "${sample_ID}.insertions.vcf" "${sample_ID}.insertions"
+
+    # add a column with the sample ID
+    paste_col.py -i "${sample_ID}.insertions.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.insertions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
+    """
+}
+delly2_insertions_annotations.collectFile(name: "${params.annotations_insertions_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
+
+
+
+// Genomic Signatures
+process deconstructSigs_signatures {
+    tag { "${sample_ID}" }
+    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
+    errorStrategy 'ignore'
+    publishDir "${params.output_dir}/signatures_hc", mode: 'copy', overwrite: true
+
+    input:
+    set val(sample_ID), file(sample_vcf) from sample_vcf_hc
+
+    output:
+    file "${sample_ID}_signatures.Rds"
+    file "${sample_ID}_signatures.pdf" into signatures_plots
+    file "${sample_ID}_signatures_pie.pdf" into signatures_pie_plots
+
+    script:
+    """
+    deconstructSigs_make_signatures.R "${sample_ID}" "${sample_vcf}"
+    """
+}
+
+
+process merge_signatures_plots {
+    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
+    errorStrategy 'ignore'
+    executor "local"
+    publishDir "${params.output_dir}", mode: 'copy', overwrite: true
+
+    input:
+    file '*' from signatures_plots.toList()
+
+    output:
+    file "signatures.pdf"
+
+    script:
+    """
+    if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
+        gs -dBATCH -dNOPAUSE -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile=genomic_signatures.pdf *
+    else
+        exit 11
+    fi
+    """
+}
+
+
+process merge_signatures_pie_plots {
+    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
+    errorStrategy 'ignore'
+    executor "local"
+    publishDir "${params.output_dir}", mode: 'copy', overwrite: true
+
+    input:
+    file '*' from signatures_pie_plots.toList()
+
+    output:
+    file "signatures_pie.pdf"
+
+    script:
+    """
+    if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
+        gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=genomic_signatures_pie.pdf *
+    else
+        exit 11
+    fi
+    """
+}
+
+
+// // REQUIRES ANNOTATIONS FOR DBSNP FILTERING
+process vaf_distribution_plot {
+    tag { "${sample_ID}" }
+    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
+    errorStrategy 'ignore'
+    publishDir "${params.output_dir}/vaf-distribution-hc", mode: 'copy', overwrite: true
+
+    input:
+    set val(sample_ID), file(sample_vcf_annot) from gatk_hc_annotations2
+
+    output:
+    file "${sample_ID}_vaf_dist.pdf" into vaf_distribution_plots
+
+    script:
+    """
+    VAF-distribution-plot.R "${sample_ID}" "${sample_vcf_annot}"
+    """
+
+}
+
+process merge_VAF_plots {
+    executor "local"
+    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
+    errorStrategy 'ignore'
+    publishDir "${params.output_dir}/", mode: 'copy', overwrite: true
+
+    input:
+    file '*' from vaf_distribution_plots.toList()
+
+    output:
+    file "vaf_distributions.pdf"
+
+    script:
+    """
+    if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
+        gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=vaf_distributions.pdf *
+    else
+        exit 11
+    fi
+    """
+}
+
+
+
+
+// SETUP CHANNELS FOR PAIRED TUMOR-NORMAL STEPS
+// samples_dd_ra_rc_bam2 // set val(sample_ID), file("${sample_ID}.dd.ra.rc.bam"), file("${sample_ID}.dd.ra.rc.bam.bai")
+// samples_pairs // [ tumorID, normalID ]
+// get all the combinations of samples & pairs
+samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai, tumorID, normalID ]
+                    .filter { item -> // only keep combinations where sample is same as tumor pair sample
+                        def sampleID = item[0]
+                        def sampleBam = item[1]
+                        def sampleBai = item[2]
+                        def tumorID = item[3]
+                        sampleID == tumorID
+                    }
+                    .map { item -> // re-order the elements
+                        def sampleID = item[0]
+                        def sampleBam = item[1]
+                        def sampleBai = item[2]
+                        def tumorID = item[3]
+                        def normalID = item[4]
+
+                        def tumorBam = sampleBam
+                        def tumorBai = sampleBai
+
+                        return [ tumorID, tumorBam, tumorBai, normalID ]
+                    }
+                    .combine(samples_dd_ra_rc_bam3) // combine again to get the samples & files again
+                    .filter { item -> // keep only combinations where the normal ID matches the new sample ID
+                        def tumorID = item[0]
+                        def tumorBam = item[1]
+                        def tumorBai = item[2]
+                        def normalID = item[3]
+                        def sampleID = item[4]
+                        def sampleBam = item[5]
+                        def sampleBai = item[6]
+                        normalID == sampleID
+                    }
+                    .map {item -> // re arrange the elements
+                        def tumorID = item[0]
+                        def tumorBam = item[1]
+                        def tumorBai = item[2]
+                        def normalID = item[3]
+                        def sampleID = item[4]
+                        def sampleBam = item[5]
+                        def sampleBai = item[6]
+
+                        def normalBam = sampleBam
+                        def normalBai = sampleBai
+                        def comparisonID = "${tumorID}_${normalID}"
+                        return [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai ]
+                    }
+                    .tap { samples_dd_ra_rc_bam_pairs } // make a channel for just this set of data
+                    .combine(ref_fasta3) // add reference genome and targets
+                    .combine(ref_fai3)
+                    .combine(ref_dict3)
+                    .combine(targets_bed4)
+                    .tap {  samples_dd_ra_rc_bam_pairs_ref; // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) ]
+                            samples_dd_ra_rc_bam_pairs2;
+                            samples_dd_ra_rc_bam_pairs_ref3;
+                            samples_dd_ra_rc_bam_pairs_ref4 }
+                    .combine(microsatellites) // add MSI ref
+                    .tap { samples_dd_ra_rc_bam_pairs_ref_msi }
+
+
+
+
+// get the unique chromosomes in the targets bed file
+//  for per-chrom paired variant calling
+Channel.fromPath( params.targets_bed )
+            .splitCsv(sep: '\t')
+            .map{row ->
+                row[0]
+            }
+            .unique()
+            .set{ chroms }
+
+// add the reference .vcf
+samples_dd_ra_rc_bam_pairs_ref.combine(dbsnp_ref_vcf2)
+                            .combine(cosmic_ref_vcf2)
+                            .tap { samples_dd_ra_rc_bam_pairs_ref_gatk } // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), dbsnp, cosmic ]
+                            // add the chroms
+                            .combine( chroms ) // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), dbsnp, cosmic, chrom ]
+                            .set { samples_dd_ra_rc_bam_pairs_ref_gatk_chrom }
+
+
+
+samples_dd_ra_rc_bam_pairs2.subscribe { println "samples_dd_ra_rc_bam_pairs2: ${it}" }
+
+process tumor_normal_compare {
+    tag { "${comparisonID}" }
+    echo true
+    executor "local"
+
+    input:
+    set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) from samples_dd_ra_rc_bam_pairs_ref3
+
+    script:
+    """
+    echo "[tumor_normal_compare] comparisonID: ${comparisonID}, tumorID: ${tumorID}, tumorBam: ${tumorBam}, tumorBai: ${tumorBai}, normalID: ${normalID}, normalBam: ${normalBam}, normalBai: ${normalBai}, ref_fasta: ${ref_fasta}, ref_fai: ${ref_fai}, ref_dict: ${ref_dict}, targets_bed: ${targets_bed}, "
+    """
+}
+
+
+// REQUIRES PAIRED SAMPLES BAM FILES
+process msisensor {
+    tag { "${comparisonID}" }
+    clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=5G'
+    publishDir "${params.output_dir}/microsatellites", mode: 'copy', overwrite: true
+
+    input:
+    set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(microsatellites) from samples_dd_ra_rc_bam_pairs_ref_msi
+
+    output:
+    file "${comparisonID}.msisensor"
+    file "${comparisonID}.msisensor_dis"
+    file "${comparisonID}.msisensor_germline"
+    file "${comparisonID}.msisensor_somatic"
+
+    script:
+    """
+    msisensor msi -d "${microsatellites}" -n "${normalBam}" -t "${tumorBam}" -e "${targets_bed}" -o "${comparisonID}.msisensor" -l 1 -q 1 -b \${NSLOTS:-1}
+    """
+}
+
+
+process mutect2 {
+    tag { "${comparisonID}:${chrom}" }
+    publishDir "${params.output_dir}/vcf_mutect2", mode: 'copy', overwrite: true
+    clusterOptions '-l mem_free=150G -hard'
+
+    input:
+    set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf), file(cosmic_ref_vcf), val(chrom) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
+
+    output:
+    file("${comparisonID}.${chrom}.vcf")
+    file("${comparisonID}.${chrom}.sample.chrom.${params.ANNOVAR_BUILD_VERSION}_multianno.txt") into mutect2_annotations
+    val(comparisonID) into mutect2_sampleIDs
+
+    script:
+    """
+    subset_bed.py "${chrom}" "${targets_bed}" > "${comparisonID}.${chrom}.bed"
+
+    gatk.sh -T MuTect2 \
+    -dt NONE \
+    --logging_level WARN \
+    --standard_min_confidence_threshold_for_calling 30 \
+    --max_alt_alleles_in_normal_count 10 \
+    --max_alt_allele_in_normal_fraction 0.05 \
+    --max_alt_alleles_in_normal_qscore_sum 40 \
+    --reference_sequence "${ref_fasta}" \
+    --dbsnp "${dbsnp_ref_vcf}" \
+    --cosmic "${cosmic_ref_vcf}" \
+    --intervals "${comparisonID}.${chrom}.bed" \
+    --interval_padding 10 \
+    --input_file:tumor "${tumorBam}" \
+    --input_file:normal "${normalBam}" \
+    --out "${comparisonID}.${chrom}.vcf"
+
+    # annotate the vcf
+    annotate_vcf.sh "${comparisonID}.${chrom}.vcf" "${comparisonID}.${chrom}"
+
+    # add a column with the sample ID
+    paste_col.py -i "${comparisonID}.${chrom}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${comparisonID}.${chrom}.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${comparisonID}" -d "\t"
+
+    # add the col for this chrom
+    paste_col.py -i "${comparisonID}.${chrom}.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${comparisonID}.${chrom}.sample.chrom.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "SampleChrom" -v "${chrom}" -d "\t"
+    """
+}
+mutect2_annotations.collectFile(name: "${params.annotations_mutect2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
+
+
+process multiqc {
+    publishDir "${params.output_dir}", mode: 'copy', overwrite: true
+    executor "local"
+
+    input:
+    val(comparisonID) from mutect2_sampleIDs.mix(sample_gatk_hc_done)
+                                            .mix(sample_lofreq_done)
+                                            .collect() // force it to wait for all steps to finish
+    file(output_dir) from Channel.fromPath("${params.output_dir}")
+
+    output:
+    file "multiqc_report.html" into email_files
+    file "multiqc_data"
+
+    script:
+    """
+    export PS=\${PS:-''} # needed for virtualenv bug
+    export PS1=\${PS1:-''}
+    unset PYTHONPATH
+    source multiqc-activate
+    multiqc "${output_dir}"
+    """
+}
+
+
+
+
+
+// ~~~~~~~~~~~~~~~ PIPELINE COMPLETION EVENTS ~~~~~~~~~~~~~~~~~~~ //
+workflow.onComplete {
+
+    def status = "NA"
+
+    if(workflow.success) {
+        status = "SUCCESS"
+    } else {
+        status = "FAILED"
+    }
+
+    def msg = """
+        Pipeline execution summary
+        ---------------------------
+        Success           : ${workflow.success}
+        exit status       : ${workflow.exitStatus}
+        Launch time       : ${workflow.start.format('dd-MMM-yyyy HH:mm:ss')}
+        Ending time       : ${workflow.complete.format('dd-MMM-yyyy HH:mm:ss')} (duration: ${workflow.duration})
+        Total CPU-Hours   : ${workflow.stats.getComputeTimeString() ?: '-'}
+        Launch directory  : ${workflow.launchDir}
+        Work directory    : ${workflow.workDir.toUriString()}
+        Project directory : ${workflow.projectDir}
+        Script name       : ${workflow.scriptName ?: '-'}
+        Script ID         : ${workflow.scriptId ?: '-'}
+        Workflow session  : ${workflow.sessionId}
+        Workflow repo     : ${workflow.repository ?: '-' }
+        Workflow revision : ${workflow.repository ? "$workflow.revision ($workflow.commitId)" : '-'}
+        Workflow profile  : ${workflow.profile ?: '-'}
+        Workflow container: ${workflow.container ?: '-'}
+        Container engine  : ${workflow.containerEngine?:'-'}
+        Nextflow run name : ${workflow.runName}
+        Nextflow version  : ${workflow.nextflow.version}, build ${workflow.nextflow.build} (${workflow.nextflow.timestamp})
+
+
+        The command used to launch the workflow was as follows:
+
+        ${workflow.commandLine}
+
+        --
+        This email was sent by Nextflow
+        cite doi:10.1038/nbt.3820
+        http://nextflow.io
+        """
+        .stripIndent()
+
+    if(params.pipeline_email) {
+        sendMail {
+            to "${params.email_to}"
+            from "${params.email_from}"
+            // files from process channels
+            attach email_files.toList().getVal()
+            // files from collectFile
+            // attach ["${params.output_dir}/${params.annotations_mutect2_file_basename}",
+            //         "${params.output_dir}/${params.qc_coverage_gatk_file_basename}",
+            //         "${params.output_dir}/${params.annotations_hc_file_basename}",
+            //         "${params.output_dir}/${params.annotations_lofreq_file_basename}"]
+
+            subject "[${params.workflow_label}] Pipeline Completion: ${status}"
+
+            body
+            """
+            ${msg}
+            """
+            .stripIndent()
+        }
+    }
+}
