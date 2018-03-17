@@ -81,30 +81,23 @@ REMOTE_CONTAINER_DIR:=/ifs/data/molecpathlab/containers/Singularity
 USERNAME:=$(shell whoami)
 SERVER:=phoenix.med.nyu.edu
 
-docker2singularity: clean-singularity-imagefiles base bedtools bwa fastqc msisensor multiqc sambamba trimmomatic variant-calling R
-	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/base:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:base
-	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/bedtools-2.26.0:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:bedtools-2.26.0
-	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/bwa-0.7.17:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:bwa-0.7.17
-	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/fastqc-0.11.7:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:fastqc-0.11.7
-	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/msisensor-0.2:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:msisensor-0.2
-	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/multiqc-1.4:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:multiqc-1.4
-	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/sambamba-0.6.6:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:sambamba-0.6.6
-	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/trimmomatic-0.36:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:trimmomatic-0.36
-	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/variant-calling-0.0.2:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:variant-calling-0.0.2
-	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/R-3.3.2:/output --privileged -t --rm singularityware/docker2singularity stevekm/ngs580-nf:R-3.3.2
+docker2singularity: base bedtools bwa fastqc msisensor multiqc sambamba trimmomatic variant-calling R delly2
+	for item in base bedtools-2.26.0 bwa-0.7.17 fastqc-0.11.7 msisensor-0.2 multiqc-1.4 sambamba-0.6.6 trimmomatic-0.36 variant-calling-0.0.2 R-3.3.2 delly2-0.7.7; \
+	do ./docker2singularity.py "$$item"; \
+	done
 
 clean-singularity-imagefiles:
 	find . -maxdepth 2 -type f -name "*.img" -delete
 
 upload-imagefiles:
-	rsync -vrthcPlz -e ssh ./ $(USERNAME)@$(SERVER):$(REMOTE_CONTAINER_DIR) --include="*/" --include="*.img" --exclude="*" --prune-empty-dirs
+	rsync -vrthPlz -e ssh ./ $(USERNAME)@$(SERVER):$(REMOTE_CONTAINER_DIR) --include="*/" --include="*.img" --exclude="*" --prune-empty-dirs
 
 
 
 
 # ~~~~~~ TEST CONTAINERS ~~~~~ #
 test-base: base
-	docker run --rm -ti stevekm/ngs580-base bash
+	docker run --rm -ti stevekm/ngs580-nf:base bash
 
 test-bwa: bwa
 	docker run --rm -ti stevekm/ngs580-nf:bwa-0.7.17 bash

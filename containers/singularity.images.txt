@@ -1,0 +1,11 @@
+base/stevekm_ngs580-nf_base-2018-03-15-ea494a9472a4.img
+bedtools-2.26.0/stevekm_ngs580-nf_bedtools-2.26.0-2018-03-16-89bb629bf549.img
+bwa-0.7.17/stevekm_ngs580-nf_bwa-0.7.17-2018-03-16-3ed0de18d226.img
+fastqc-0.11.7/stevekm_ngs580-nf_fastqc-0.11.7-2018-03-16-060400f59bab.img
+msisensor-0.2/stevekm_ngs580-nf_msisensor-0.2-2018-03-16-6b8b985b4e9c.img
+multiqc-1.4/stevekm_ngs580-nf_multiqc-1.4-2018-03-16-7de0fa606cbf.img
+R-3.3.2/stevekm_ngs580-nf_R-3.3.2-2018-03-16-b3bacf0d733a.img
+sambamba-0.6.6/stevekm_ngs580-nf_sambamba-0.6.6-2018-03-16-819302d7452d.img
+trimmomatic-0.36/stevekm_ngs580-nf_trimmomatic-0.36-2018-03-15-d75579d18b70.img
+variant-calling-0.0.2/stevekm_ngs580-nf_variant-calling-0.0.2-2018-03-16-0cbe57c9c8da.img
+delly2-0.7.7/stevekm_ngs580-nf_delly2-0.7.7-2018-03-17-dc37d8fb50cc.img
