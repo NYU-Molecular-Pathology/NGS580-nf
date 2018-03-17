@@ -126,7 +126,6 @@ process fastq_merge {
 process trimmomatic {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/fastq-trim", mode: 'copy', overwrite: true
-    clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=5G'
 
     input:
     set val(sample_ID), file(read1), file(read2), file(trimmomatic_contaminant_fa) from samples_fastq_merged.combine(trimmomatic_contaminant_fa)
@@ -174,7 +173,6 @@ process fastqc_trim {
 process bwa_mem {
     // first pass alignment with BWA
     tag { "${sample_ID}" }
-    clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
 
     input:
     set val(sample_ID), file(fastq_R1_trim), file(fastq_R2_trim), file(ref_fa_bwa_dir) from samples_fastq_trimmed.combine(ref_fa_bwa_dir)
@@ -191,7 +189,6 @@ process bwa_mem {
 
 process sambamba_view_sort {
     tag { "${sample_ID}" }
-    clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=4G'
 
     input:
     set val(sample_ID), file(sample_sam) from samples_bwa_sam
@@ -225,7 +222,6 @@ process sambamba_flagstat {
 process sambamba_dedup {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/bam-bwa-dd", mode: 'copy', overwrite: true
-    clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=4G'
 
     input:
     set val(sample_ID), file(sample_bam) from samples_bam2
@@ -300,8 +296,6 @@ samples_dd_bam.combine(ref_fasta)
 process qc_target_reads_gatk_genome {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
-    clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
-
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict) from samples_dd_bam_ref
@@ -334,7 +328,6 @@ process qc_target_reads_gatk_genome {
 process qc_target_reads_gatk_pad500 {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
-    clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref2
@@ -368,7 +361,6 @@ process qc_target_reads_gatk_pad500 {
 process qc_target_reads_gatk_pad100 {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
-    clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref3
@@ -402,7 +394,6 @@ process qc_target_reads_gatk_pad100 {
 process qc_target_reads_gatk_bed {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
-    clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref4
@@ -437,7 +428,6 @@ process qc_target_reads_gatk_bed {
 process bam_ra_rc_gatk {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/bam_dd_ra_rc_gatk", mode: 'copy', overwrite: true
-    clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from samples_dd_bam_ref_gatk
@@ -559,7 +549,6 @@ samples_dd_ra_rc_bam_ref2.combine( dbsnp_ref_vcf3 )
 process qc_coverage_gatk {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc_coverage_gatk", mode: 'copy', overwrite: true
-    clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
 
     input:
     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref
@@ -614,7 +603,6 @@ process pad_bed {
 process lofreq {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/vcf_lofreq", mode: 'copy', overwrite: true
-    clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
 
     input:
     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp
@@ -677,7 +665,6 @@ lofreq_annotations.collectFile(name: "${params.annotations_lofreq_file_basename}
 process gatk_hc {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/vcf_hc", mode: 'copy', overwrite: true
-    clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
 
     input:
     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp2
@@ -1090,7 +1077,6 @@ process tumor_normal_compare {
 // REQUIRES PAIRED SAMPLES BAM FILES
 process msisensor {
     tag { "${comparisonID}" }
-    clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=5G'
     publishDir "${params.output_dir}/microsatellites", mode: 'copy', overwrite: true
 
     input:
@@ -1112,8 +1098,7 @@ process msisensor {
 process mutect2 {
     tag { "${comparisonID}:${chrom}" }
     publishDir "${params.output_dir}/vcf_mutect2", mode: 'copy', overwrite: true
-    clusterOptions '-l mem_free=150G -hard'
-
+    
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf), file(cosmic_ref_vcf), val(chrom) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
 
