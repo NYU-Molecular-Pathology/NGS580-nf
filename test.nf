@@ -1098,7 +1098,7 @@ process msisensor {
 process mutect2 {
     tag { "${comparisonID}:${chrom}" }
     publishDir "${params.output_dir}/vcf_mutect2", mode: 'copy', overwrite: true
-    
+
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf), file(cosmic_ref_vcf), val(chrom) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
 
@@ -1156,10 +1156,6 @@ process multiqc {
 
     script:
     """
-    export PS=\${PS:-''} # needed for virtualenv bug
-    export PS1=\${PS1:-''}
-    unset PYTHONPATH
-    source multiqc-activate
     multiqc "${output_dir}"
     """
 }
