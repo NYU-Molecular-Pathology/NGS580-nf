@@ -57,10 +57,14 @@ delly2-0.7.7: base
 
 delly2: delly2-0.7.7
 
+annovar-150617: base
+	/bin/cp ../bin/annotate_vcf.sh annovar-150617/
+	cd annovar-150617 && docker build -t stevekm/ngs580-nf:annovar-150617 .
 
+annovar: annovar-150617
 
 # ~~~~~~~ SETUP DOCKER CONTAINERS ~~~~~ #
-build: base gatk bwa fastqc trimmomatic sambamba bedtools variant-calling multiqc R msisensor
+build: base gatk bwa fastqc trimmomatic sambamba bedtools variant-calling multiqc R msisensor delly2 annovar
 
 pull:
 	docker pull stevekm/ngs580-nf:base
@@ -136,3 +140,6 @@ test-R: R
 
 test-delly2: delly2
 	docker run --rm -ti stevekm/ngs580-nf:delly2-0.7.7 bash
+
+test-annovar: annovar
+	docker run --rm -ti stevekm/ngs580-nf:annovar-150617 bash

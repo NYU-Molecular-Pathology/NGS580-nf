@@ -1,6 +1,9 @@
 # Makefile to run the pipeline
 SHELL:=/bin/bash
 REFDIR:=/ifs/data/sequence/results/external/NYU/snuderllab/ref
+ANNOVAR_DB_DIR:=/ifs/data/molecpathlab/bin/annovar/db/hg19
+ANNOVAR_PROTOCOL:=$(shell head -1 annovar_protocol.txt)
+ANNOVAR_BUILD_VERSION:=hg19
 EP:=
 .PHONY: containers
 
@@ -30,6 +33,7 @@ setup: install ref bin/multiqc-venv/bin/activate
 containers:
 	cd containers && make build
 
+# demo pipeline dataset for testing
 NGS580-demo-data:
 	git clone https://github.com/NYU-Molecular-Pathology/NGS580-demo-data.git
 
@@ -39,6 +43,28 @@ samples.analysis.tsv: NGS580-demo-data
 	/bin/cp NGS580-demo-data/tiny/targets.bed .
 
 demo: samples.analysis.tsv
+
+
+annovar_db: annovar
+	[ -d "$(ANNOVAR_DB_DIR)" ] && ln -fs $(ANNOVAR_DB_DIR) annovar_db || { \
+	mkdir -p annovar_db && \
+	export PATH="annovar:$${PATH}" && \
+	for item in $$( echo "$(ANNOVAR_PROTOCOL)" | tr ',' ' '); \
+	( \
+	downdb_param="$$(grep "$$item" annovar_key.tsv | cut -f1)" ; \
+	annotate_variation.pl -downdb -buildver $(ANNOVAR_BUILD_VERSION) -webfrom annovar "$$downdb_param" annovar_db ; \
+	) ; \
+	done; \
+	}
+
+annovar:
+	wget http://www.openbioinformatics.org/annovar/download/0wgxR2rIVP/annovar.revision150617.tar.gz && \
+	tar xvfz annovar.revision150617.tar.gz && \
+	rm -f annovar.revision150617.tar.gz
+
+clean-annovar:
+	[ -d annovar_db ] && /bin/mv annovar_db annovar_dbold && rm -rf annovar_dbold &
+	[ -d annovar ] && /bin/mv annovar annovarold && rm -rf annovarold &
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
 # run on phoenix default settings

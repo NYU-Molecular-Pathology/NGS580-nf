@@ -1,0 +1,16 @@
+downdb_param	file	protocol_param
+1000g2015aug	hg19_ALL.sites.2015_08.txt	1000g2015aug_all
+refGene	hg19_refGene.txt	refGene
+cosmic70	hg19_cosmic70.txt	
+clinvar_20170905	hg19_clinvar_20170905.txt	clinvar_20170905
+intervar_20170202	hg19_intervar_20170202.txt	intervar_20170202
+dbnsfp33a	hg19_dbnsfp33a.txt	dbnsfp33a
+esp6500siv2_all	hg19_esp6500siv2_all.txt	esp6500siv2_all
+kaviar_20150923	hg19_kaviar_20150923.txt	kaviar_20150923
+gnomad_exome	hg19_gnomad_exome.txt	gnomad_exome
+gnomad_genome	hg19_gnomad_genome.txt	gnomad_genome
+avsnp150	hg19_avsnp150.txt	avsnp150
+cadd13gt10	hg19_cadd13gt10.txt	
+fathmm	hg19_fathmm.txt	fathmm
+eigen	hg19_eigen.txt	eigen
+
