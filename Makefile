@@ -4,6 +4,7 @@ REFDIR:=/ifs/data/sequence/results/external/NYU/snuderllab/ref
 ANNOVAR_DB_DIR:=/ifs/data/molecpathlab/bin/annovar/db/hg19
 ANNOVAR_PROTOCOL:=$(shell head -1 annovar_protocol.txt)
 ANNOVAR_BUILD_VERSION:=hg19
+# extra params to pass for Nextflow in some recipes
 EP:=
 .PHONY: containers
 
@@ -71,8 +72,10 @@ clean-annovar:
 	[ -d annovar ] && /bin/mv annovar annovarold && rm -rf annovarold &
 	rm -f annovar.revision*.tar.gz
 
+# main setup commands to use
 setup: install ref annovar_db build-containers
 
+# setup commands needed for NYU phoenix HPC
 setup-p: install ref annovar_db multiqc
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
