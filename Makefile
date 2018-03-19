@@ -91,28 +91,33 @@ runr: setup ref
 
 # run on phoenix demo
 rundp: setup ref demo
-	./nextflow run test.nf -with-dag flowchart-NGS580.dot $(EP) && \
+	./nextflow run main.nf -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
 rundpr: setup ref demo
-	./nextflow run test.nf -resume -with-dag flowchart-NGS580.dot $(EP) && \
+	./nextflow run main.nf -resume -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
 # run on phoenix demo head node
 rundph: setup ref demo
-	./nextflow run test.nf -profile headnode -with-dag flowchart-NGS580.dot $(EP) && \
+	./nextflow run main.nf -profile headnode -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
 
 # run locally default settings
 runl: install ref
-	./nextflow run test.nf -profile local -with-dag flowchart-NGS580.dot $(EP) && \
+	./nextflow run main.nf -profile local -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
 # run locally resume
 runlr: install ref
-	./nextflow run test.nf -profile local -resume -with-dag flowchart-NGS580.dot $(EP) && \
+	./nextflow run main.nf -profile local -resume -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
+
+run-power: install ref
+	./nextflow run main.nf -profile local -resume -with-dag flowchart-NGS580.dot $(EP) && \
+	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
+
 
 
 # ~~~~~ CLEANUP ~~~~~ #
