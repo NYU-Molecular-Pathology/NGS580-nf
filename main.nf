@@ -84,7 +84,6 @@ samples_pairs2.subscribe { println "samples_pairs2: ${it}" }
 // PREPROCESSING
 process fastqc_raw {
     tag { "${fastq}" }
-    module "fastqc/0.11.7"
     publishDir "${params.output_dir}/fastqc-raw", mode: 'copy', overwrite: true
 
     input:
@@ -104,11 +103,10 @@ process fastqc_raw {
 
 }
 
+
 process fastq_merge {
     // merge the R1 and R2 fastq files into a single fastq each
     tag { "${sample_ID}" }
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     publishDir "${params.output_dir}/fastq-merge", mode: 'copy', overwrite: true
 
     input:
@@ -124,14 +122,10 @@ process fastq_merge {
     """
 }
 
+
 process trimmomatic {
-    // Illumina read trimming
-    // http://www.usadellab.org/cms/?page=trimmomatic
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/fastq-trim", mode: 'copy', overwrite: true
-    clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=5G'
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
 
     input:
     set val(sample_ID), file(read1), file(read2), file(trimmomatic_contaminant_fa) from samples_fastq_merged.combine(trimmomatic_contaminant_fa)
@@ -141,7 +135,7 @@ process trimmomatic {
 
     script:
     """
-    java -Xms16G -Xmx16G -jar ${params.trimmomatic_jar} PE -threads \${NSLOTS:-1} \
+    trimmomatic.sh PE -threads \${NSLOTS:-\${NTHREADS:-1}} \
     "${read1}" "${read2}" \
     "${sample_ID}_R1.trim.fastq.gz" "${sample_ID}_R1.unpaired.fastq.gz" \
     "${sample_ID}_R2.trim.fastq.gz" "${sample_ID}_R2.unpaired.fastq.gz" \
@@ -149,9 +143,9 @@ process trimmomatic {
     """
 }
 
+
 process fastqc_trim {
     tag { "${sample_ID}" }
-    module "fastqc/0.11.7"
     publishDir "${params.output_dir}/fastqc-trim", mode: 'copy', overwrite: true
 
     input:
@@ -179,10 +173,6 @@ process fastqc_trim {
 process bwa_mem {
     // first pass alignment with BWA
     tag { "${sample_ID}" }
-    clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
-    module 'bwa/0.7.17'
 
     input:
     set val(sample_ID), file(fastq_R1_trim), file(fastq_R2_trim), file(ref_fa_bwa_dir) from samples_fastq_trimmed.combine(ref_fa_bwa_dir)
@@ -192,15 +182,13 @@ process bwa_mem {
 
     script:
     """
-    bwa mem -M -v 1 -t \${NSLOTS:-1} -R '@RG\\tID:${sample_ID}\\tSM:${sample_ID}\\tLB:${sample_ID}\\tPL:ILLUMINA' "${ref_fa_bwa_dir}/genome.fa" "${fastq_R1_trim}" "${fastq_R2_trim}" -o "${sample_ID}.sam"
+    bwa mem -M -v 1 -t \${NSLOTS:-\${NTHREADS:-1}} -R '@RG\\tID:${sample_ID}\\tSM:${sample_ID}\\tLB:${sample_ID}\\tPL:ILLUMINA' "${ref_fa_bwa_dir}/genome.fa" "${fastq_R1_trim}" "${fastq_R2_trim}" -o "${sample_ID}.sam"
     """
 }
 
+
 process sambamba_view_sort {
     tag { "${sample_ID}" }
-    clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=4G'
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
 
     input:
     set val(sample_ID), file(sample_sam) from samples_bwa_sam
@@ -210,16 +198,14 @@ process sambamba_view_sort {
 
     script:
     """
-    "${params.sambamba_bin}" view --sam-input --nthreads=\${NSLOTS:-1} --filter='mapping_quality>=10' --format=bam --compression-level=0 "${sample_sam}" | \
-    "${params.sambamba_bin}" sort --nthreads=\${NSLOTS:-1} --memory-limit=16GB --out="${sample_ID}.bam" /dev/stdin
+    sambamba view --sam-input --nthreads=\${NSLOTS:-\${NTHREADS:-1}} --filter='mapping_quality>=10' --format=bam --compression-level=0 "${sample_sam}" | \
+    sambamba sort --nthreads=\${NSLOTS:-\${NTHREADS:-1}} --memory-limit="${params.sambamba_mem_limit}" --out="${sample_ID}.bam" /dev/stdin
     """
 }
 
 process sambamba_flagstat {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/sambamba-flagstat", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
 
     input:
     set val(sample_ID), file(sample_bam) from samples_bam
@@ -229,17 +215,13 @@ process sambamba_flagstat {
 
     script:
     """
-    "${params.sambamba_bin}" flagstat "${sample_bam}" > "${sample_ID}.flagstat.txt"
+    sambamba flagstat "${sample_bam}" > "${sample_ID}.flagstat.txt"
     """
 }
 
 process sambamba_dedup {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/bam-bwa-dd", mode: 'copy', overwrite: true
-    clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=4G'
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
-    module 'samtools/1.3'
 
     input:
     set val(sample_ID), file(sample_bam) from samples_bam2
@@ -252,7 +234,7 @@ process sambamba_dedup {
 
     script:
     """
-    "${params.sambamba_bin}" markdup --remove-duplicates --nthreads \${NSLOTS:-1} --hash-table-size 525000 --overflow-list-size 525000 "${sample_bam}" "${sample_ID}.dd.bam"
+    sambamba markdup --remove-duplicates --nthreads \${NSLOTS:-\${NTHREADS:-1}} --hash-table-size 525000 --overflow-list-size 525000 "${sample_bam}" "${sample_ID}.dd.bam"
 
     # make a copy of the .command.err Nextflow log file for parsing
     cat .command.err > "${sample_ID}.dd.log"
@@ -269,8 +251,7 @@ samples_dd_reads_log.collectFile(name: "samples_dd_reads.tsv", storeDir: "${para
 process sambamba_dedup_flagstat {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/sambamba-dd-flagstat", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
+
 
     input:
     set val(sample_ID), file(sample_bam) from samples_dd_bam2
@@ -280,7 +261,7 @@ process sambamba_dedup_flagstat {
 
     script:
     """
-    "${params.sambamba_bin}" flagstat "${sample_bam}" > "${sample_ID}.dd.flagstat.txt"
+    sambamba flagstat "${sample_bam}" > "${sample_ID}.dd.flagstat.txt"
     """
 
 }
@@ -315,9 +296,6 @@ samples_dd_bam.combine(ref_fasta)
 process qc_target_reads_gatk_genome {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
-    clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict) from samples_dd_bam_ref
@@ -328,10 +306,10 @@ process qc_target_reads_gatk_genome {
 
     script:
     """
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T DepthOfCoverage \
+    gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-1} \
+    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -350,9 +328,6 @@ process qc_target_reads_gatk_genome {
 process qc_target_reads_gatk_pad500 {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
-    clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref2
@@ -363,10 +338,10 @@ process qc_target_reads_gatk_pad500 {
 
     script:
     """
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T DepthOfCoverage \
+    gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-1} \
+    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -386,9 +361,6 @@ process qc_target_reads_gatk_pad500 {
 process qc_target_reads_gatk_pad100 {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
-    clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref3
@@ -399,10 +371,10 @@ process qc_target_reads_gatk_pad100 {
 
     script:
     """
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T DepthOfCoverage \
+    gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-1} \
+    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -422,9 +394,6 @@ process qc_target_reads_gatk_pad100 {
 process qc_target_reads_gatk_bed {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
-    clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref4
@@ -435,10 +404,10 @@ process qc_target_reads_gatk_bed {
 
     script:
     """
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T DepthOfCoverage \
+    gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-1} \
+    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -457,16 +426,8 @@ process qc_target_reads_gatk_bed {
 
 // MAIN REALIGNMENT AND RECALIBRATION STEP
 process bam_ra_rc_gatk {
-    // re-alignment and recalibration with GATK
-    // https://software.broadinstitute.org/gatk/documentation/tooldocs/3.8-0/org_broadinstitute_gatk_tools_walkers_bqsr_BaseRecalibrator.php
-    // https://software.broadinstitute.org/gatk/documentation/tooldocs/3.8-0/org_broadinstitute_gatk_tools_walkers_bqsr_AnalyzeCovariates.php
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/bam_dd_ra_rc_gatk", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
-    clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
-    module 'samtools/1.3'
-
 
     input:
     set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from samples_dd_bam_ref_gatk
@@ -481,10 +442,10 @@ process bam_ra_rc_gatk {
 
     script:
     """
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T RealignerTargetCreator \
+    gatk.sh -T RealignerTargetCreator \
     -dt NONE \
     --logging_level ERROR \
-    -nt \${NSLOTS:-1} \
+    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --reference_sequence "${ref_fasta}" \
     -known "${gatk_1000G_phase1_indels_vcf}" \
     -known "${mills_and_1000G_gold_standard_indels_vcf}" \
@@ -493,7 +454,7 @@ process bam_ra_rc_gatk {
     --input_file "${sample_bam}" \
     --out "${sample_ID}.intervals"
 
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T IndelRealigner \
+    gatk.sh -T IndelRealigner \
     -dt NONE \
     --logging_level ERROR \
     --reference_sequence "${ref_fasta}" \
@@ -504,9 +465,9 @@ process bam_ra_rc_gatk {
     --input_file "${sample_bam}" \
     --out "${sample_ID}.dd.ra.bam"
 
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T BaseRecalibrator \
+    gatk.sh -T BaseRecalibrator \
     --logging_level ERROR \
-    -nct \${NSLOTS:-1} \
+    -nct \${NSLOTS:-\${NTHREADS:-1}} \
     -rf BadCigar \
     --reference_sequence "${ref_fasta}" \
     -knownSites "${gatk_1000G_phase1_indels_vcf}" \
@@ -517,9 +478,9 @@ process bam_ra_rc_gatk {
     --input_file "${sample_ID}.dd.ra.bam" \
     --out "${sample_ID}.table1.txt"
 
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T BaseRecalibrator \
+    gatk.sh -T BaseRecalibrator \
     --logging_level ERROR \
-    -nct \${NSLOTS:-1} \
+    -nct \${NSLOTS:-\${NTHREADS:-1}} \
     -rf BadCigar \
     --reference_sequence "${ref_fasta}" \
     -knownSites "${gatk_1000G_phase1_indels_vcf}" \
@@ -531,7 +492,7 @@ process bam_ra_rc_gatk {
     -BQSR "${sample_ID}.table1.txt" \
     --out "${sample_ID}.table2.txt"
 
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T AnalyzeCovariates \
+    gatk.sh -T AnalyzeCovariates \
     --logging_level ERROR \
     --reference_sequence "${ref_fasta}" \
     -before "${sample_ID}.table1.txt" \
@@ -539,9 +500,9 @@ process bam_ra_rc_gatk {
     -csv "${sample_ID}.csv" \
     -plots "${sample_ID}.pdf"
 
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T PrintReads \
+    gatk.sh -T PrintReads \
     --logging_level ERROR \
-    -nct \${NSLOTS:-1} \
+    -nct \${NSLOTS:-\${NTHREADS:-1}} \
     -rf BadCigar \
     --reference_sequence "${ref_fasta}" \
     -BQSR "${sample_ID}.table1.txt" \
@@ -588,9 +549,6 @@ samples_dd_ra_rc_bam_ref2.combine( dbsnp_ref_vcf3 )
 process qc_coverage_gatk {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/qc_coverage_gatk", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
-    clusterOptions '-pe threaded 1-16 -l mem_free=40G -l mem_token=5G'
 
     input:
     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref
@@ -606,7 +564,7 @@ process qc_coverage_gatk {
 
     script:
     """
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T DepthOfCoverage \
+    gatk.sh -T DepthOfCoverage \
     -dt NONE \
     --logging_level ERROR \
     -rf BadCigar \
@@ -629,9 +587,6 @@ qc_coverage_gatk_summary.collectFile(name: "${params.qc_coverage_gatk_file_basen
 
 process pad_bed {
     publishDir "${params.output_dir}/targets", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
-    module 'bedtools/2.26.0'
 
     input:
     set file(targets_bed_file), file(ref_chrom_sizes) from targets_bed3.combine(ref_chrom_sizes)
@@ -648,10 +603,6 @@ process pad_bed {
 process lofreq {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/vcf_lofreq", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
-    clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
-    module 'samtools/1.3'
 
     input:
     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp
@@ -665,9 +616,9 @@ process lofreq {
 
     script:
     """
-    "${params.lofreq_bin}" call-parallel \
+    lofreq call-parallel \
     --call-indels \
-    --pp-threads \${NSLOTS:-1} \
+    --pp-threads \${NSLOTS:-\${NTHREADS:-1}} \
     --ref "${ref_fasta}" \
     --bed "${targets_bed_file}" \
     --out "${sample_ID}.vcf" \
@@ -693,14 +644,17 @@ process lofreq {
     annotate_vcf.sh "${sample_ID}.norm.vcf" "${sample_ID}.norm"
 
     # add a column with the sample ID
-    paste_col.py -i "${sample_ID}.norm.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
+    paste_col.py -i "${sample_ID}.norm.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" \
+    -o "${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" \
+    --header "Sample" \
+    -v "${sample_ID}" \
+    -d "\t"
 
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T VariantEval \
+    gatk.sh -T VariantEval \
     -R "${ref_fasta}" \
     -o "${sample_ID}.eval.grp" \
     --dbsnp "${dbsnp_ref_vcf}" \
     --eval "${sample_ID}.norm.vcf"
-
     """
 }
 lofreq_annotations.collectFile(name: "${params.annotations_lofreq_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
@@ -711,10 +665,6 @@ lofreq_annotations.collectFile(name: "${params.annotations_lofreq_file_basename}
 process gatk_hc {
     tag { "${sample_ID}" }
     publishDir "${params.output_dir}/vcf_hc", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
-    clusterOptions '-pe threaded 4-16 -l mem_free=40G -l mem_token=4G'
-    module 'samtools/1.3'
 
     input:
     set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp2
@@ -729,10 +679,10 @@ process gatk_hc {
 
     script:
     """
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T HaplotypeCaller \
+    gatk.sh -T HaplotypeCaller \
     -dt NONE \
     --logging_level ERROR \
-    -nct \${NSLOTS:-1} \
+    -nct \${NSLOTS:-\${NTHREADS:-1}} \
     --max_alternate_alleles 3 \
     --standard_min_confidence_threshold_for_calling 50 \
     --reference_sequence "${ref_fasta}" \
@@ -759,7 +709,7 @@ process gatk_hc {
     # add a column with the sample ID
     paste_col.py -i "${sample_ID}.norm.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
 
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T VariantEval \
+    gatk.sh -T VariantEval \
     -R "${ref_fasta}" \
     -o "${sample_ID}.eval.grp" \
     --dbsnp "${dbsnp_ref_vcf}" \
@@ -790,8 +740,8 @@ process delly2_deletions {
 
     script:
     """
-    "${params.delly2_bin}" call -t DEL -g "${ref_fasta}" -o "${sample_ID}.deletions.bcf" "${sample_bam}"
-    "${params.delly2_bcftools_bin}" view "${sample_ID}.deletions.bcf" > "${sample_ID}.deletions.vcf"
+    delly call -t DEL -g "${ref_fasta}" -o "${sample_ID}.deletions.bcf" "${sample_bam}"
+    bcftools view "${sample_ID}.deletions.bcf" > "${sample_ID}.deletions.vcf"
 
     # annotate the vcf
     annotate_vcf.sh "${sample_ID}.deletions.vcf" "${sample_ID}.deletions"
@@ -816,8 +766,8 @@ process delly2_duplications {
 
     script:
     """
-    "${params.delly2_bin}" call -t DUP -g "${ref_fasta}" -o "${sample_ID}.duplications.bcf" "${sample_bam}"
-    "${params.delly2_bcftools_bin}" view "${sample_ID}.duplications.bcf" > "${sample_ID}.duplications.vcf"
+    delly call -t DUP -g "${ref_fasta}" -o "${sample_ID}.duplications.bcf" "${sample_bam}"
+    bcftools view "${sample_ID}.duplications.bcf" > "${sample_ID}.duplications.vcf"
 
     # annotate the vcf
     annotate_vcf.sh "${sample_ID}.duplications.vcf" "${sample_ID}.duplications"
@@ -843,8 +793,8 @@ process delly2_inversions {
 
     script:
     """
-    "${params.delly2_bin}" call -t INV -g "${ref_fasta}" -o "${sample_ID}.inversions.bcf" "${sample_bam}"
-    "${params.delly2_bcftools_bin}" view "${sample_ID}.inversions.bcf" > "${sample_ID}.inversions.vcf"
+    delly call -t INV -g "${ref_fasta}" -o "${sample_ID}.inversions.bcf" "${sample_bam}"
+    bcftools view "${sample_ID}.inversions.bcf" > "${sample_ID}.inversions.vcf"
 
     # annotate the vcf
     annotate_vcf.sh "${sample_ID}.inversions.vcf" "${sample_ID}.inversions"
@@ -870,8 +820,8 @@ process delly2_translocations {
 
     script:
     """
-    ${params.delly2_bin} call -t BND -g ${ref_fasta} -o "${sample_ID}.translocations.bcf" "${sample_bam}"
-    ${params.delly2_bcftools_bin} view "${sample_ID}.translocations.bcf" > "${sample_ID}.translocations.vcf"
+    delly call -t BND -g ${ref_fasta} -o "${sample_ID}.translocations.bcf" "${sample_bam}"
+    bcftools view "${sample_ID}.translocations.bcf" > "${sample_ID}.translocations.vcf"
 
     # annotate the vcf
     annotate_vcf.sh "${sample_ID}.translocations.vcf" "${sample_ID}.translocations"
@@ -896,8 +846,8 @@ process delly2_insertions {
 
     script:
     """
-    ${params.delly2_bin} call -t INS -g ${ref_fasta} -o "${sample_ID}.insertions.bcf" "${sample_bam}"
-    ${params.delly2_bcftools_bin} view "${sample_ID}.insertions.bcf" > "${sample_ID}.insertions.vcf"
+    delly call -t INS -g ${ref_fasta} -o "${sample_ID}.insertions.bcf" "${sample_bam}"
+    bcftools view "${sample_ID}.insertions.bcf" > "${sample_ID}.insertions.vcf"
 
     # annotate the vcf
     annotate_vcf.sh "${sample_ID}.insertions.vcf" "${sample_ID}.insertions"
@@ -915,8 +865,6 @@ process deconstructSigs_signatures {
     tag { "${sample_ID}" }
     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
     errorStrategy 'ignore'
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     publishDir "${params.output_dir}/signatures_hc", mode: 'copy', overwrite: true
 
     input:
@@ -1115,8 +1063,6 @@ process tumor_normal_compare {
     tag { "${comparisonID}" }
     echo true
     executor "local"
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
 
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) from samples_dd_ra_rc_bam_pairs_ref3
@@ -1131,10 +1077,7 @@ process tumor_normal_compare {
 // REQUIRES PAIRED SAMPLES BAM FILES
 process msisensor {
     tag { "${comparisonID}" }
-    module 'samtools/1.3'
-    clusterOptions '-pe threaded 1-8 -l mem_free=40G -l mem_token=5G'
     publishDir "${params.output_dir}/microsatellites", mode: 'copy', overwrite: true
-
 
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(microsatellites) from samples_dd_ra_rc_bam_pairs_ref_msi
@@ -1147,7 +1090,7 @@ process msisensor {
 
     script:
     """
-    "${params.msisensor_bin}" msi -d "${microsatellites}" -n "${normalBam}" -t "${tumorBam}" -e "${targets_bed}" -o "${comparisonID}.msisensor" -l 1 -q 1 -b \${NSLOTS:-1}
+    msisensor msi -d "${microsatellites}" -n "${normalBam}" -t "${tumorBam}" -e "${targets_bed}" -o "${comparisonID}.msisensor" -l 1 -q 1 -b \${NSLOTS:-\${NTHREADS:-1}}
     """
 }
 
@@ -1155,11 +1098,6 @@ process msisensor {
 process mutect2 {
     tag { "${comparisonID}:${chrom}" }
     publishDir "${params.output_dir}/vcf_mutect2", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
-    clusterOptions '-l mem_free=150G -hard'
-    module 'samtools/1.3'
-    module 'java/1.8'
 
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf), file(cosmic_ref_vcf), val(chrom) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
@@ -1173,7 +1111,7 @@ process mutect2 {
     """
     subset_bed.py "${chrom}" "${targets_bed}" > "${comparisonID}.${chrom}.bed"
 
-    java -Xms16G -Xmx16G -jar "${params.gatk_bin}" -T MuTect2 \
+    gatk.sh -T MuTect2 \
     -dt NONE \
     --logging_level WARN \
     --standard_min_confidence_threshold_for_calling 30 \
@@ -1204,10 +1142,7 @@ mutect2_annotations.collectFile(name: "${params.annotations_mutect2_file_basenam
 
 process multiqc {
     publishDir "${params.output_dir}", mode: 'copy', overwrite: true
-    beforeScript "${params.beforeScript_str}"
-    afterScript "${params.afterScript_str}"
     executor "local"
-    module 'python/2.7.3'
 
     input:
     val(comparisonID) from mutect2_sampleIDs.mix(sample_gatk_hc_done)
@@ -1221,10 +1156,6 @@ process multiqc {
 
     script:
     """
-    export PS=\${PS:-''} # needed for virtualenv bug
-    export PS1=\${PS1:-''}
-    unset PYTHONPATH
-    source multiqc-activate
     multiqc "${output_dir}"
     """
 }
@@ -1233,7 +1164,7 @@ process multiqc {
 
 
 
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
+// ~~~~~~~~~~~~~~~ PIPELINE COMPLETION EVENTS ~~~~~~~~~~~~~~~~~~~ //
 workflow.onComplete {
 
     def status = "NA"
@@ -1262,7 +1193,7 @@ workflow.onComplete {
         Workflow revision : ${workflow.repository ? "$workflow.revision ($workflow.commitId)" : '-'}
         Workflow profile  : ${workflow.profile ?: '-'}
         Workflow container: ${workflow.container ?: '-'}
-        Container engine  : ${workflow.containerEngine?:'-'}
+        container engine  : ${workflow.containerEngine?:'-'}
         Nextflow run name : ${workflow.runName}
         Nextflow version  : ${workflow.nextflow.version}, build ${workflow.nextflow.build} (${workflow.nextflow.timestamp})
 
