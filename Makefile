@@ -58,9 +58,6 @@ annovar_db: annovar
 	done; \
 	}
 
-
-
-
 annovar:
 	wget http://www.openbioinformatics.org/annovar/download/0wgxR2rIVP/annovar.revision150617.tar.gz && \
 	tar xvfz annovar.revision150617.tar.gz && \
@@ -69,6 +66,7 @@ annovar:
 clean-annovar:
 	[ -d annovar_db ] && /bin/mv annovar_db annovar_dbold && rm -rf annovar_dbold &
 	[ -d annovar ] && /bin/mv annovar annovarold && rm -rf annovarold &
+	rm -f annovar.revision*.tar.gz
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
 # run on phoenix default settings
