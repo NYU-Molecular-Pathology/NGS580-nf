@@ -20,6 +20,8 @@ bin/multiqc-venv/bin/activate:
 	cd bin && \
 	make -f multiqc.makefile setup
 
+multiqc: bin/multiqc-venv/bin/activate
+
 ref:
 	[ -d "$(REFDIR)" ] && ln -fs $(REFDIR) ref || { wget https://genome.med.nyu.edu/results/external/NYU/snuderllab/ref.tar.gz && \
 	tar -vxzf ref.tar.gz && \
@@ -28,10 +30,11 @@ ref:
 ref-clean:
 	rm -f ref.tar.gz*
 
-setup: install ref bin/multiqc-venv/bin/activate
-
-containers:
+build-containers:
 	cd containers && make build
+
+pull-containers:
+	cd containers && make pull
 
 # demo pipeline dataset for testing
 NGS580-demo-data:
@@ -46,7 +49,7 @@ demo: samples.analysis.tsv
 
 
 annovar_db: annovar
-	[ -d "$(ANNOVAR_DB_DIR)" ] && ln -fs $(ANNOVAR_DB_DIR) annovar_db || { \
+	[ -d "$(ANNOVAR_DB_DIR)" ] && ln -fs $(ANNOVAR_DB_DIR) annovar_db && rm -f annovar.revision*.tar.gz || { \
 	mkdir -p annovar_db && \
 	for item in $$( echo "$(ANNOVAR_PROTOCOL)" | tr ',' ' ' ) ; do \
 	( \
@@ -67,6 +70,10 @@ clean-annovar:
 	[ -d annovar_db ] && /bin/mv annovar_db annovar_dbold && rm -rf annovar_dbold &
 	[ -d annovar ] && /bin/mv annovar annovarold && rm -rf annovarold &
 	rm -f annovar.revision*.tar.gz
+
+setup: install ref annovar_db build-containers
+
+setup-p: install ref annovar_db multiqc
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
 # run on phoenix default settings
