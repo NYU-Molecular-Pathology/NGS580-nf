@@ -87,42 +87,34 @@ bin/annotate_variation.pl:
 	cd bin && \
 	make -f annovar.makefile install
 
-# remove all ANNOVAR dirs and files used for ANNOVAR ref db setup
-clean-annovar:
-	[ -d annovar_db ] && /bin/mv annovar_db annovar_dbold && rm -rf annovar_dbold &
-	[ -d annovar ] && /bin/mv annovar annovarold && rm -rf annovarold &
-	rm -f annovar.revision*.tar.gz
-
 # main setup commands to use
-setup: install ref annovar_db build-containers
+setup: install ref annovar_db 
 
 # setup commands needed for NYU phoenix HPC
-setup-p: install ref annovar_db multiqc
+setup-phoenix: install ref annovar_db
 
 
 
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
 # run on phoenix default settings
-run-phoenix: setup-p
+run-phoenix: setup-phoenix
 	./nextflow run main.nf -profile standard -resume -with-dag flowchart-NGS580.dot $(EP) 
 
 # run on phoenix Singularity head node config
-run-phoenix-h: setup-p
+run-phoenix-head: setup-phoenix
 	./nextflow run main.nf -profile headnode -with-dag flowchart-NGS580.dot $(EP) 
 
 # run locally default settings
 run-local: install ref
-	./nextflow run main.nf -profile local -with-dag flowchart-NGS580.dot $(EP) 
-
-# run locally resume
-run-local-r: install ref
 	./nextflow run main.nf -profile local -resume -with-dag flowchart-NGS580.dot $(EP) 
 
+# run on Power server
 run-power: install ref
 	source /shared/miniconda2/bin/activate /shared/biobuilds-2017.11 && \
 	./nextflow run main.nf -profile power -resume -with-dag flowchart-NGS580.dot $(EP)
 
+# compile flow chart
 flowchart: 
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png || echo "file flowchart-NGS580.dot not present"
 
@@ -158,3 +150,11 @@ clean-all: clean clean-output clean-work
 	rm -f trace*.txt*
 	rm -f *.html*
 	rm -f flowchart*.dot
+
+# remove all ANNOVAR dirs and files used for ANNOVAR ref db setup
+clean-annovar:
+	[ -d annovar_db ] && /bin/mv annovar_db annovar_dbold && rm -rf annovar_dbold &
+	[ -d annovar ] && /bin/mv annovar annovarold && rm -rf annovarold &
+	rm -f annovar.revision*.tar.gz
+
+clean-ref: ref-clean
