@@ -130,7 +130,7 @@ runlr: install ref
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
 run-power: install ref
-	source /shared/miniconda2/bin/activate /shared/biobuilds-2017.11 && 
+	source /shared/miniconda2/bin/activate /shared/biobuilds-2017.11 && \
 	./nextflow run main.nf -profile power -resume -with-dag flowchart-NGS580.dot $(EP) && \
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png
 
