@@ -55,7 +55,7 @@ samples.analysis.tsv: NGS580-demo-data
 demo: samples.analysis.tsv
 
 # set up ANNOVAR reference db dir based on first line in 'annovar_protocol.txt'
-annovar_db: annovar
+annovar_db: bin/annotate_variation.pl
 	[ -d "$(ANNOVAR_DB_DIR)" ] && ln -fs $(ANNOVAR_DB_DIR) annovar_db && rm -f annovar.revision*.tar.gz || { \
 	mkdir -p annovar_db && \
 	for item in $$( echo "$(ANNOVAR_PROTOCOL)" | tr ',' ' ' ) ; do \
@@ -63,13 +63,13 @@ annovar_db: annovar
 	export PATH="annovar:$${PATH}" ; \
 	downdb_param="$$(grep "$$item" annovar_key.tsv | cut -f1)" ; \
 	echo "$$downdb_param" ; \
-	annotate_variation.pl -downdb -buildver $(ANNOVAR_BUILD_VERSION) -webfrom annovar "$$downdb_param" annovar_db ; \
+	bin/annotate_variation.pl -downdb -buildver $(ANNOVAR_BUILD_VERSION) -webfrom annovar "$$downdb_param" annovar_db ; \
 	) ; \
 	done; \
 	}
 
 # download the ANNOVAR db's in parrallel
-annovar_db_p: annovar
+annovar_db_p: bin/annotate_variation.pl
 	[ -d "$(ANNOVAR_DB_DIR)" ] && ln -fs $(ANNOVAR_DB_DIR) annovar_db && rm -f annovar.revision*.tar.gz || { \
 	mkdir -p annovar_db && \
 	for item in $$( echo "$(ANNOVAR_PROTOCOL)" | tr ',' ' ' ) ; do \
@@ -77,16 +77,15 @@ annovar_db_p: annovar
 	export PATH="annovar:$${PATH}" ; \
 	downdb_param="$$(grep "$$item" annovar_key.tsv | cut -f1)" ; \
 	echo "$$downdb_param" ; \
-	annotate_variation.pl -downdb -buildver $(ANNOVAR_BUILD_VERSION) -webfrom annovar "$$downdb_param" annovar_db & \
+	bin/annotate_variation.pl -downdb -buildver $(ANNOVAR_BUILD_VERSION) -webfrom annovar "$$downdb_param" annovar_db & \
 	) ; \
 	done; \
 	}
 
 # download ANNOVAR; needed to download the reference db's
-annovar:
-	wget http://www.openbioinformatics.org/annovar/download/0wgxR2rIVP/annovar.revision150617.tar.gz && \
-	tar xvfz annovar.revision150617.tar.gz && \
-	rm -f annovar.revision150617.tar.gz
+bin/annotate_variation.pl:
+	cd bin && \
+	make -f annovar.makefile install
 
 # remove all ANNOVAR dirs and files used for ANNOVAR ref db setup
 clean-annovar:
