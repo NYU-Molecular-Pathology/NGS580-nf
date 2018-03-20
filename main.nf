@@ -82,28 +82,6 @@ samples_pairs2.subscribe { println "samples_pairs2: ${it}" }
 //
 
 // PREPROCESSING
-process fastqc_raw {
-    tag { "${fastq}" }
-    publishDir "${params.output_dir}/fastqc-raw", mode: 'copy', overwrite: true
-
-    input:
-    file(fastq) from samples_each_fastq
-
-    output:
-    file(output_html)
-    file(output_zip)
-
-    script:
-    output_html = "${fastq}".replaceFirst(/.fastq.gz$/, "_fastqc.html")
-    output_zip = "${fastq}".replaceFirst(/.fastq.gz$/, "_fastqc.zip")
-    """
-    echo "output_zip: ${output_zip}, output_html: ${output_html}"
-    fastqc -o . "${fastq}"
-    """
-
-}
-
-
 process fastq_merge {
     // merge the R1 and R2 fastq files into a single fastq each
     tag { "${sample_ID}" }
@@ -182,7 +160,13 @@ process bwa_mem {
 
     script:
     """
-    bwa mem -M -v 1 -t \${NSLOTS:-\${NTHREADS:-1}} -R '@RG\\tID:${sample_ID}\\tSM:${sample_ID}\\tLB:${sample_ID}\\tPL:ILLUMINA' "${ref_fa_bwa_dir}/genome.fa" "${fastq_R1_trim}" "${fastq_R2_trim}" -o "${sample_ID}.sam"
+    bwa mem \
+    -M \
+    -v 1 \
+    -t \${NSLOTS:-\${NTHREADS:-1}} \
+    -R '@RG\\tID:${sample_ID}\\tSM:${sample_ID}\\tLB:${sample_ID}\\tPL:ILLUMINA' \
+    "${ref_fa_bwa_dir}/genome.fa" "${fastq_R1_trim}" "${fastq_R2_trim}" \
+    -o "${sample_ID}.sam"
     """
 }
 
@@ -206,7 +190,7 @@ process sambamba_view_sort {
     --compression-level=0 "${sample_sam}" | \
     sambamba sort \
     --nthreads=\${NSLOTS:-\${NTHREADS:-1}} \
-    --memory-limit="${params.sambamba_mem_limit}" \
+    # --memory-limit="${params.sambamba_mem_limit}" \
     --out="${sample_ID}.bam" /dev/stdin
     """
 }
@@ -242,7 +226,12 @@ process sambamba_dedup {
 
     script:
     """
-    sambamba markdup --remove-duplicates --nthreads \${NSLOTS:-\${NTHREADS:-1}} --hash-table-size 525000 --overflow-list-size 525000 "${sample_bam}" "${sample_ID}.dd.bam"
+    sambamba markdup \
+    --remove-duplicates \
+    --nthreads \${NSLOTS:-\${NTHREADS:-1}} \
+    --hash-table-size 525000 \
+    --overflow-list-size 525000 \
+    "${sample_bam}" "${sample_ID}.dd.bam"
 
     # make a copy of the .command.err Nextflow log file for parsing
     cat .command.err > "${sample_ID}.dd.log"
