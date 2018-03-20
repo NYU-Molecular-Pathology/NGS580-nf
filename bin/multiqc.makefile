@@ -1,4 +1,5 @@
 # setup for MultiQC virtual environment in Python 2.7 on phoenix HPC
+REQ_FILE:=multiqc.requirements.txt
 none:
 
 multiqc-venv/bin/activate:
@@ -13,7 +14,7 @@ multiqc-activate: multiqc-venv/bin/activate
 install: multiqc-venv/bin/activate multiqc-activate
 	export PYTHONPATH= && \
 	source multiqc-venv/bin/activate && \
-	pip install -r multiqc.requirements.txt
+	pip install -r $(REQ_FILE)
 
 setup: install multiqc-activate
 
