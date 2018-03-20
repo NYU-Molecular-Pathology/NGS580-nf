@@ -15,3 +15,8 @@ old
 annovar
 annovar_db/
 flowchart-NGS580.png
+.nextflow/
+work/
+output/
+annovar_db
+trace-NGS580.txt
