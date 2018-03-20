@@ -198,8 +198,16 @@ process sambamba_view_sort {
 
     script:
     """
-    sambamba view --sam-input --nthreads=\${NSLOTS:-\${NTHREADS:-1}} --filter='mapping_quality>=10' --format=bam --compression-level=0 "${sample_sam}" | \
-    sambamba sort --nthreads=\${NSLOTS:-\${NTHREADS:-1}} --memory-limit="${params.sambamba_mem_limit}" --out="${sample_ID}.bam" /dev/stdin
+    sambamba view \
+    --sam-input \
+    --nthreads=\${NSLOTS:-\${NTHREADS:-1}} \
+    --filter='mapping_quality>=10' \
+    --format=bam \
+    --compression-level=0 "${sample_sam}" | \
+    sambamba sort \
+    --nthreads=\${NSLOTS:-\${NTHREADS:-1}} \
+    --memory-limit="${params.sambamba_mem_limit}" \
+    --out="${sample_ID}.bam" /dev/stdin
     """
 }
 
