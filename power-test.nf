@@ -82,28 +82,6 @@ samples_pairs2.subscribe { println "samples_pairs2: ${it}" }
 //
 
 // PREPROCESSING
-process fastqc_raw {
-    tag { "${fastq}" }
-    publishDir "${params.output_dir}/fastqc-raw", mode: 'copy', overwrite: true
-
-    input:
-    file(fastq) from samples_each_fastq
-
-    output:
-    file(output_html)
-    file(output_zip)
-
-    script:
-    output_html = "${fastq}".replaceFirst(/.fastq.gz$/, "_fastqc.html")
-    output_zip = "${fastq}".replaceFirst(/.fastq.gz$/, "_fastqc.zip")
-    """
-    echo "output_zip: ${output_zip}, output_html: ${output_html}"
-    fastqc -o . "${fastq}"
-    """
-
-}
-
-
 process fastq_merge {
     // merge the R1 and R2 fastq files into a single fastq each
     tag { "${sample_ID}" }
