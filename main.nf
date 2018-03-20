@@ -190,10 +190,10 @@ process sambamba_view_sort {
     --compression-level=0 "${sample_sam}" | \
     sambamba sort \
     --nthreads=\${NSLOTS:-\${NTHREADS:-1}} \
-    # --memory-limit="${params.sambamba_mem_limit}" \
     --out="${sample_ID}.bam" /dev/stdin
     """
 }
+// --memory-limit="${params.sambamba_mem_limit}" \
 
 process sambamba_flagstat {
     tag { "${sample_ID}" }
