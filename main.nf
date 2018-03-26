@@ -1138,7 +1138,6 @@ process mutect2 {
 }
 mutect2_annotations.collectFile(name: "${params.annotations_mutect2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
 
-//
 // process multiqc {
 //     publishDir "${params.output_dir}", mode: 'copy', overwrite: true
 //     executor "local"
@@ -1158,11 +1157,10 @@ mutect2_annotations.collectFile(name: "${params.annotations_mutect2_file_basenam
 //     multiqc "${output_dir}"
 //     """
 // }
-//
 
 
-
-
+Channel.fromPath( file(params.samples_analysis_sheet) ).set{ samples_analysis_sheet }
+def attachments = samples_analysis_sheet.toList().getVal()
 // ~~~~~~~~~~~~~~~ PIPELINE COMPLETION EVENTS ~~~~~~~~~~~~~~~~~~~ //
 workflow.onComplete {
 
@@ -1212,14 +1210,7 @@ workflow.onComplete {
         sendMail {
             to "${params.email_to}"
             from "${params.email_from}"
-            // files from process channels
-            // attach email_files.toList().getVal()
-            // files from collectFile
-            // attach ["${params.output_dir}/${params.annotations_mutect2_file_basename}",
-            //         "${params.output_dir}/${params.qc_coverage_gatk_file_basename}",
-            //         "${params.output_dir}/${params.annotations_hc_file_basename}",
-            //         "${params.output_dir}/${params.annotations_lofreq_file_basename}"]
-
+            attach attachments
             subject "[${params.workflow_label}] Pipeline Completion: ${status}"
 
             body
