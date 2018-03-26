@@ -4,6 +4,7 @@ REFDIR:=/ifs/data/sequence/results/external/NYU/snuderllab/ref
 ANNOVAR_DB_DIR:=/ifs/data/molecpathlab/bin/annovar/db/hg19
 ANNOVAR_PROTOCOL:=$(shell head -1 annovar_protocol.txt)
 ANNOVAR_BUILD_VERSION:=hg19
+NXF_VER:=0.28.0
 # extra params to pass for Nextflow in some recipes
 EP:=
 .PHONY: containers
@@ -14,6 +15,7 @@ none:
 # ~~~~~ SETUP PIPELINE ~~~~~ #
 # install Nextflow in the current directory
 ./nextflow:
+	export NXF_VER="$(NXF_VER)" && \
 	curl -fsSL get.nextflow.io | bash
 
 install: ./nextflow
