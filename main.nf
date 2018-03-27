@@ -1074,6 +1074,8 @@ process tumor_normal_compare {
 // REQUIRES PAIRED SAMPLES BAM FILES
 process msisensor {
     tag { "${comparisonID}" }
+    validExitStatus 0,139 // allow '139' failure from small dataset; 23039 Segmentation fault      (core dumped)
+    errorStrategy 'ignore'
     publishDir "${params.output_dir}/microsatellites", mode: 'copy', overwrite: true
 
     input:
@@ -1136,31 +1138,29 @@ process mutect2 {
 }
 mutect2_annotations.collectFile(name: "${params.annotations_mutect2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
 
-
-process multiqc {
-    publishDir "${params.output_dir}", mode: 'copy', overwrite: true
-    executor "local"
-
-    input:
-    val(comparisonID) from mutect2_sampleIDs.mix(sample_gatk_hc_done)
-                                            .mix(sample_lofreq_done)
-                                            .collect() // force it to wait for all steps to finish
-    file(output_dir) from Channel.fromPath("${params.output_dir}")
-
-    output:
-    file "multiqc_report.html" into email_files
-    file "multiqc_data"
-
-    script:
-    """
-    multiqc "${output_dir}"
-    """
-}
-
+// process multiqc {
+//     publishDir "${params.output_dir}", mode: 'copy', overwrite: true
+//     executor "local"
+//
+//     input:
+//     val(comparisonID) from mutect2_sampleIDs.mix(sample_gatk_hc_done)
+//                                             .mix(sample_lofreq_done)
+//                                             .collect() // force it to wait for all steps to finish
+//     file(output_dir) from Channel.fromPath("${params.output_dir}")
+//
+//     output:
+//     file "multiqc_report.html" into email_files
+//     file "multiqc_data"
+//
+//     script:
+//     """
+//     multiqc "${output_dir}"
+//     """
+// }
 
 
-
-
+Channel.fromPath( file(params.samples_analysis_sheet) ).set{ samples_analysis_sheet }
+def attachments = samples_analysis_sheet.toList().getVal()
 // ~~~~~~~~~~~~~~~ PIPELINE COMPLETION EVENTS ~~~~~~~~~~~~~~~~~~~ //
 workflow.onComplete {
 
@@ -1179,7 +1179,6 @@ workflow.onComplete {
         exit status       : ${workflow.exitStatus}
         Launch time       : ${workflow.start.format('dd-MMM-yyyy HH:mm:ss')}
         Ending time       : ${workflow.complete.format('dd-MMM-yyyy HH:mm:ss')} (duration: ${workflow.duration})
-        Total CPU-Hours   : ${workflow.stats.getComputeTimeString() ?: '-'}
         Launch directory  : ${workflow.launchDir}
         Work directory    : ${workflow.workDir.toUriString()}
         Project directory : ${workflow.projectDir}
@@ -1205,20 +1204,14 @@ workflow.onComplete {
         http://nextflow.io
         """
         .stripIndent()
+        // Total CPU-Hours   : ${workflow.stats.getComputeTimeString() ?: '-'}
 
     if(params.pipeline_email) {
         sendMail {
             to "${params.email_to}"
             from "${params.email_from}"
-            // files from process channels
-            attach email_files.toList().getVal()
-            // files from collectFile
-            // attach ["${params.output_dir}/${params.annotations_mutect2_file_basename}",
-            //         "${params.output_dir}/${params.qc_coverage_gatk_file_basename}",
-            //         "${params.output_dir}/${params.annotations_hc_file_basename}",
-            //         "${params.output_dir}/${params.annotations_lofreq_file_basename}"]
-
-            subject "[${params.workflow_label}] Pipeline Completion: ${status}"
+            attach attachments
+            subject "[${params.workflow_label}] ${status}"
 
             body
             """
