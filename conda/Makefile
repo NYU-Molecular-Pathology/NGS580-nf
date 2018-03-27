@@ -1,39 +1,60 @@
+SHELL:= /bin/bash
+CONDA:=/shared/miniconda3
 .PHONY: annovar-150617
 none:
 
-test:
-	source /shared/miniconda2/bin/activate /shared/biobuilds-2017.11 && \
-	conda --version
+# test:
+# 	source "$(CONDA_ACTIVATE)" /shared/biobuilds-2017.11 && \
+# 	conda --version
 
-build:
-	source /shared/miniconda2/bin/activate /shared/biobuilds-2017.11 && \
-	conda-build
+# build:
+# 	source "$(CONDA_ACTIVATE)" /shared/biobuilds-2017.11 && \
+# 	conda-build
 
 
 list-env:
-	source /shared/miniconda2/bin/activate && \
+	source "$(CONDA)/bin/activate" && \
 	conda env list
 
 list:
-	source /shared/miniconda2/bin/activate && \
+	source "$(CONDA)/bin/activate" && \
 	conda list
 	
 
 # create an env to use for building packages
-create-conda-build:
-	/shared/miniconda2/bin/conda create -n conda-build-env conda-build
+# create-conda-build:
+# 	"$(CONDA)/bin/conda" create -n conda-build-env conda-build
 
 # create ANNOVAR env from local package
-annovar-150617:
-	source /shared/miniconda2/bin/activate conda-build-env && \
-	conda-build annovar-150617 && \
-	conda create --name annovar-150617 && \
-	conda install --use-local annovar-150617 -n annovar-150617
-	
+annovar:
+	source "$(CONDA)/bin/activate" && \
+	package_path="$$(conda-build annovar-150617 --output --no-force-upload --no-anaconda-upload)" && \
+	echo "$$package_path" && \
+	conda install --use-local "$$package_path" -n annovar-150617
 
-list-conda-build:
-	source /shared/miniconda2/bin/activate conda-build-env && \
-	conda list
+
+test-annovar:
+	source "$(CONDA)/bin/activate" annovar-150617 && \
+	conda list && \
+	echo $${PATH} && \
+	echo $${PYTHONPATH}
+
+remove-annovar:
+	source "$(CONDA)/bin/activate" && \
+	conda remove --name annovar-150617 --all
+
+# conda create --name annovar-150617 && \
+# conda install --use-local annovar-150617 -n annovar-150617
+
+
+# test:
+# 	output="$$(ls /foo)" && \
+# 	echo "$$output_path"
+
+
+# list-conda-build:
+# 	source "$(CONDA)/bin/activate" conda-build-env && \
+# 	conda list
 
 
 # 	conda create -c system -n annovar-150617-env annovar-150617
