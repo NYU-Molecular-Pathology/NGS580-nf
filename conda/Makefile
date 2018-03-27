@@ -1,3 +1,4 @@
+.PHONY: annovar-150617
 none:
 
 test:
@@ -22,9 +23,12 @@ list:
 create-conda-build:
 	/shared/miniconda2/bin/conda create -n conda-build-env conda-build
 
-conda-build-env:
+# create ANNOVAR env from local package
+annovar-150617:
 	source /shared/miniconda2/bin/activate conda-build-env && \
 	conda-build annovar-150617 && \
+	conda create --name annovar-150617 && \
+	conda install --use-local annovar-150617 -n annovar-150617
 	
 
 list-conda-build:
