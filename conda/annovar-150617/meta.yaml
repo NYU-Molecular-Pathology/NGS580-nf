@@ -5,6 +5,6 @@ package:
 source:
   url: http://www.openbioinformatics.org/annovar/download/0wgxR2rIVP/annovar.revision150617.tar.gz
 
-build:
-  noarch: generic
+# build:
+#   noarch: generic
 

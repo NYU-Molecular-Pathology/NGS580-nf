@@ -12,6 +12,7 @@ list:
 	conda list
 	
 
+# ~~~~~~~ CUSTOM ~~~~~~~~~ #
 # create ANNOVAR env from local package
 annovar:
 	source "$(CONDA)/bin/activate" && \
@@ -36,3 +37,90 @@ remove-annovar:
 	mv /home/kellys04/conda-bld /home/kellys04/conda-bld$$(date +%s) && \
 	conda remove -y --name annovar-150617 --all
 
+
+
+# ~~~~~~ FROM BIOBUILDS ~~~~~~ #
+bwa: 
+	source "$(CONDA)/bin/activate" && \
+	conda create -c biobuilds -n bwa-0.7.17 bwa==0.7.17 Samtools==1.6.0
+
+bwa-test: 
+	source "$(CONDA)/bin/activate" bwa-0.7.17 && \
+	which bwa && \
+	which samtools 
+
+trimmomatic: 
+	source "$(CONDA)/bin/activate" && \
+	conda create -c biobuilds -n trimmomatic-0.36 Trimmomatic==0.36 
+
+trimmomatic-test:
+	source "$(CONDA)/bin/activate" trimmomatic-0.36 && \
+	which trimmomatic
+
+sambamba: 
+	source "$(CONDA)/bin/activate" && \
+	conda create -c biobuilds -n sambamba-0.6.6 Sambamba==0.6.6 Samtools==1.6.0
+
+sambamba-test: 
+	source "$(CONDA)/bin/activate" sambamba-0.6.6 && \
+	which sambamba 
+
+fastqc: 
+	source "$(CONDA)/bin/activate" && \
+	conda create -c biobuilds -n fastqc-0.11.5 FASTQC==0.11.5
+
+fastqc-test: 
+	source "$(CONDA)/bin/activate" fastqc-0.11.5 && \
+	which fastqc 
+
+delly2: 
+	source "$(CONDA)/bin/activate" && \
+	conda create -c biobuilds -n delly2-0.7.6 delly==0.7.6
+
+delly2-test: 
+	source "$(CONDA)/bin/activate" delly2-0.7.6 && \
+	which delly
+
+bedtools: 
+	source "$(CONDA)/bin/activate" && \
+	conda create -c biobuilds -n bedtools-2.26.0 bedtools==2.26.0
+
+bedtools-test: 
+	source "$(CONDA)/bin/activate" bedtools-2.26.0 && \
+	which bedtools
+
+lofreq:
+	source "$(CONDA)/bin/activate" && \
+	conda create -c biobuilds -n lofreq-2.1.2 lofreq_star==2.1.2
+
+lofreq-test: 
+	source "$(CONDA)/bin/activate" lofreq-2.1.2 && \
+	which lofreq
+
+vcflib: 
+	source "$(CONDA)/bin/activate" && \
+	conda create -c biobuilds -n vcflib-2.1.2 vcflib==1.0.0_rc1_16.05.18
+
+vcflib-test: 
+	source "$(CONDA)/bin/activate" vcflib-2.1.2 && \
+	which vcf2tsv
+
+
+R: 
+	source "$(CONDA)/bin/activate" && \
+	conda create -c biobuilds -n r-3.4.2 r==3.4.2
+
+R-test:
+	source "$(CONDA)/bin/activate" r-3.4.2 && \
+	R --version && \
+	which R
+
+
+# R: 
+# 	source "$(CONDA)/bin/activate" && \
+# 	conda create -c biobuilds -n r-3.3.2 r==3.3.2
+# R-test:
+# 	source "$(CONDA)/bin/activate" r-3.3.2 && \
+# 	R --version && \
+# 	which R
+# /home/kellys04/.conda/envs/r-3.3.2/lib/R/bin/exec/R: error while loading shared libraries: libiconv.so.2: cannot open shared object file: No such file or directory
