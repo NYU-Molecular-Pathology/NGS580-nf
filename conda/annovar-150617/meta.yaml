@@ -6,11 +6,5 @@ source:
   url: http://www.openbioinformatics.org/annovar/download/0wgxR2rIVP/annovar.revision150617.tar.gz
 
 build:
-  script: build.sh
   noarch: generic
 
-outputs:
-  - name: annovar
-    version: "150617"
-    files:
-      - annovar
