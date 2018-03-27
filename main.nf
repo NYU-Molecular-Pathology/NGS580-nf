@@ -1211,7 +1211,7 @@ workflow.onComplete {
             to "${params.email_to}"
             from "${params.email_from}"
             attach attachments
-            subject "[${params.workflow_label}] Pipeline Completion: ${status}"
+            subject "[${params.workflow_label}] ${status}"
 
             body
             """
