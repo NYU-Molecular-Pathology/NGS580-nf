@@ -104,14 +104,35 @@ vcflib-test:
 
 
 R: 
+	/bin/cp ../bin/install.R .
 	source "$(CONDA)/bin/activate" && \
-	conda create -c biobuilds -n r-3.4.2 r==3.4.2
+	conda create -c biobuilds -n r-3.4.2 \
+	r==3.4.2 \
+	r-ggplot2==2.2.1 \
+	Bioconductor==3.6
+	source "$(CONDA)/bin/activate" r-3.4.2 && \
+	Rscript ./install.R
 
 R-test:
 	source "$(CONDA)/bin/activate" r-3.4.2 && \
 	R --version && \
 	which R
 
+variant-calling-0.0.2: 
+	source "$(CONDA)/bin/activate" && \
+	conda create -c biobuilds -c local -n variant-calling-0.0.2 \
+	Samtools==1.6.0 \
+	lofreq_star==2.1.2 \
+	annovar==150617 \
+	vcflib==1.0.0_rc1_16.05.18 \
+	r==3.4.2 \
+	r-ggplot2==2.2.1
+	source "$(CONDA)/bin/activate" variant-calling-0.0.2 && \
+	Rscript -e "install.packages(c('curl', 'gsalib', 'gplots', 'reshape', 'plyr'), repos='http://cran.us.r-project.org', dependencies = TRUE)"
+
+
+variant-calling-0.0.2-test:
+	source "$(CONDA)/bin/activate" variant-calling-0.0.2 && \
 
 # R: 
 # 	source "$(CONDA)/bin/activate" && \
