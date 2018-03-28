@@ -1,4 +1,4 @@
 #!/bin/bash
 set -x -e
-echo $PWD
-ls -l 
+install_path="${PREFIX}/bin"
+cp *.pl "${install_path}/"

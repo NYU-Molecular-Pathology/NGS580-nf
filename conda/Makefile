@@ -16,17 +16,13 @@ list:
 # create ANNOVAR env from local package
 annovar:
 	source "$(CONDA)/bin/activate" && \
-	package_path="$$(conda-build annovar-150617 --output --no-force-upload --no-anaconda-upload)" && \
-	echo "$$package_path" && \
-	conda create -y -c local -n annovar-150617 annovar
+	conda-build annovar-150617 && \
+	conda create -y -c local -n annovar-150617 annovar==150617
 
-# annovar==150617
-# conda install --use-local "$$package_path" -n annovar-150617
 test-annovar:
 	source "$(CONDA)/bin/activate" annovar-150617 && \
 	conda list && \
 	echo $${PATH} && \
-	echo $${PYTHONPATH} && \
 	annotate_variation.pl --version
 
 
@@ -35,7 +31,8 @@ remove-annovar:
 	conda clean -ay && \
 	conda build purge && \
 	mv /home/kellys04/conda-bld /home/kellys04/conda-bld$$(date +%s) && \
-	conda remove -y --name annovar-150617 --all
+	conda remove -y --name annovar-150617 --all && \
+	conda remove -y --name annovar --all
 
 
 
