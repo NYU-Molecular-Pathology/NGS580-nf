@@ -7,6 +7,15 @@ ANNOVAR_BUILD_VERSION:=hg19
 NXF_VER:=0.28.0
 # extra params to pass for Nextflow in some recipes
 EP:=
+# sequencing run name for deployment
+PROJECT:=
+# location of production sequencing directory
+SEQDIR:=/ifs/data/molecpathlab/quicksilver
+# location of production deployment for analysis
+PRODDIR:=/ifs/data/molecpathlab/production/NGS580
+# location of production demultiplexing for deployment
+FASTQDIR:=
+
 .PHONY: containers
 
 # no default action
@@ -95,6 +104,24 @@ setup: install ref annovar_db
 # setup commands needed for NYU phoenix HPC
 setup-phoenix: install ref annovar_db
 
+
+# set up a new sequencing directory with a copy of this repo for analysis
+deploy:
+	[ -z "$(PROJECT)" ] && printf "invalid PROJECT specified: $(PROJECT)\n" && exit 1 || :
+	[ ! -d "$(SEQDIR)/$(PROJECT)" ] && printf "PROJECT is not a valid location: $(SEQDIR)/$(PROJECT)\n" && exit 1 || :
+	[ -z "$(FASTQDIR)" ] && printf "invalid FASTQDIR specified: $(FASTQDIR)\n" && exit 1 || :
+	[ ! -d "$(FASTQDIR)" ] && printf "FASTQDIR is not a valid directory: $(FASTQDIR)\n" && exit 1 || :
+	repo_dir="$${PWD}" && \
+	output_dir="$(PRODDIR)/$(PROJECT)/$$(date +"%Y-%m-%d_%H-%M-%S")" && \
+	echo "> Setting up repo in location: $${output_dir}" && \
+	git clone --recursive "$${repo_dir}" "$${output_dir}" && \
+	cd "$${output_dir}" && \
+	echo "> Linking input directory: $(FASTQDIR)" && \
+	( mkdir input ; cd input ; ln -s "$(FASTQDIR)" ) && \
+	echo "> Creating input fastq sheet" && \
+	python generate-samplesheets.py "$(FASTQDIR)" && \
+	run_cmd="make run-phoenix" && \
+	printf "> please run the following command to start analysis:\n\n%s\n%s\n" "cd $${output_dir}" "$${run_cmd}" 
 
 
 
