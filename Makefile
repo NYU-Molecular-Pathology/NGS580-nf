@@ -128,10 +128,12 @@ deploy:
 # ~~~~~ RUN PIPELINE ~~~~~ #
 # run on phoenix default settings
 run-phoenix: setup-phoenix
+	module unload java && module load java/1.8 && \
 	./nextflow run main.nf -profile standard -resume -with-dag flowchart-NGS580.dot $(EP) 
 
 # run on phoenix Singularity head node config
 run-phoenix-head: setup-phoenix
+	module unload java && module load java/1.8 && \
 	./nextflow run main.nf -profile headnode -with-dag flowchart-NGS580.dot $(EP) 
 
 # run locally default settings
