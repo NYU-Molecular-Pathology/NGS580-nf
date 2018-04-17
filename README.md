@@ -31,7 +31,7 @@ This will:
 If running on the NYU phoenix HPC cluster, use the following command:
 
 ```
-make setup-p
+make setup-phoenix
 ```
 
 This will:
@@ -43,7 +43,9 @@ This will:
 
 # Usage
 
-To run the pipeline, follow these steps:
+## Create Samplesheet
+
+A samplesheet is needed to gather data about fastq.gz input files and sample IDs. It can be generated with these steps:
 
 - Create a `samples.analysis.tsv` samplesheet (example [here](https://github.com/NYU-Molecular-Pathology/NGS580-nf/blob/master/example/samples.analysis.tsv)) for your input `.fastq.gz` files:
 
@@ -57,11 +59,27 @@ To run the pipeline, follow these steps:
 ./update-samplesheets.py
 ```
 
-- Run the pipeline:
+## Run the pipeline:
+
+- on NYU phoenix HPC using 'module'
+    
+```
+make run-phoenix
+```
+
+- on MCIT Power8 server using Miniconda
 
 ```
-make run
+make run-power
+
 ```
+
+- locally using Docker
+
+```
+make run-local
+```
+
 __NOTE:__ This should be run in a `screen` session, or submitted to the HPC with the following SGE submission script:
 
 ```
