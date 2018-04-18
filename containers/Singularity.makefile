@@ -68,3 +68,23 @@ test: check-vagrant clean-vagrant
 	echo ">>> Starting Vagrant to test image file..." && \
 	vagrant up && \
 	vagrant ssh -c "singularity shell /$(IMG)"
+
+# build with Vagrant
+build: check-vagrant clean-vagrant
+	[ -z "$(VAR)" ] && { echo ">>> ERROR: No directory variable file passed" ; exit 1 ; } || :
+	[ ! -d "$(VAR)" ] && { echo ">>> ERROR: Invalid directory variable" ; exit 1 ; } || :
+	[ ! -f "$(VAR)/Singularity.$(VAR)" ] && { echo ">>> ERROR: Valid Singularity file for directory does not exist" ; exit 1 ; } || :
+	echo ">>> Setting up to build Singularity image in directory: $(VAR)"
+	image_dir="$(VAR)" && \
+	image_file="stevekm_ngs580-nf_$(VAR).img" && \
+	timestamp="$$(date +"%s")" && \
+	vagrant init -m singularityware/singularity-2.4	&& \
+	tmpfile="Vagrantfile.$${timestamp}" && \
+	echo ">>> Moving Vagrantfile to $${tmpfile}" && \
+	/bin/mv Vagrantfile "$${tmpfile}" && \
+	echo ">>> Writing new Vagrantfile" && \
+	cat "$${tmpfile}" | perl -pe "s|(^end$$)|config.vm.synced_folder '$${image_dir}', '/home/vagrant/build'\nend|g" | \
+	perl -pe "s|(^end$$)|config.vm.provision 'shell', path: 'provisioner.sh', privileged: false\nend|g" > Vagrantfile && \
+	echo ">>> Starting Vagrant and building image file..." && \
+	vagrant up && \
+	vagrant ssh -c "cd /home/vagrant/build && sudo singularity build $${image_file} Singularity.$(VAR)"
