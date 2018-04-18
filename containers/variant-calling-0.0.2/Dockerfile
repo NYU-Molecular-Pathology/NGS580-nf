@@ -20,7 +20,8 @@ ENV PATH="/usr:${PATH}"
 RUN apt-get update && \
 \
 apt-get install -y wget \
-bzip2
+bzip2 \
+libcairo2-dev
 
 # ~~~~~ MINICONDA ~~~~~ #
 # Miniconda2 required for LoFreq 2.1.2
