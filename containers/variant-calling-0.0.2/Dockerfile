@@ -20,49 +20,27 @@ ENV PATH="/usr:${PATH}"
 RUN apt-get update && \
 \
 apt-get install -y wget \
-bzip2 \
-g++ \
-# for Samtools
-gcc \
-make \
-libncurses5-dev \
-zlib1g-dev \
-libbz2-dev \
-liblzma-dev \
-git \
-libxml2-dev \
-gfortran \
-libcurl4-openssl-dev \
-libssl-dev \
-libcairo2-dev
+bzip2
 
-# ~~~~~ SAMTOOLS ~~~~~ #
-RUN cd /opt && \
-wget https://newcontinuum.dl.sourceforge.net/project/samtools/samtools/0.1.19/samtools-0.1.19.tar.bz2 && \
-tar xvjf samtools-0.1.19.tar.bz2 && \
-rm -f samtools-0.1.19.tar.bz2 && \
-cd samtools-0.1.19 && \
-make
-ENV SAMTOOLS_ROOT="/opt/samtools-0.1.19"
-ENV PATH="/opt/samtools-0.1.19:${PATH}"
+# ~~~~~ MINICONDA ~~~~~ #
+# Miniconda2 required for LoFreq 2.1.2
+RUN wget https://repo.continuum.io/miniconda/Miniconda2-4.4.10-Linux-x86_64.sh && \
+bash Miniconda2-4.4.10-Linux-x86_64.sh -b -p /conda && \
+rm -f Miniconda2-4.4.10-Linux-x86_64.sh
+ENV PATH="/conda/bin:${PATH}"
+RUN conda config --add channels defaults
+RUN conda config --add channels conda-forge
+RUN conda config --add channels bioconda
 
-# ~~~~~ LOFREQ ~~~~~ #
-RUN cd /opt/ && \
-wget https://raw.githubusercontent.com/CSB5/lofreq/master/dist/lofreq_star-2.1.2_linux-x86-64.tgz && \
-tar -vzxf lofreq_star-2.1.2_linux-x86-64.tgz && \
-rm -f lofreq_star-2.1.2_linux-x86-64.tgz
-ENV PATH="/opt/lofreq_star-2.1.2/bin:${PATH}"
-
-# ~~~~~ HTSLIB ~~~~~ #
-RUN cd /opt/ && \
-wget https://github.com/samtools/htslib/releases/download/1.7/htslib-1.7.tar.bz2 && \
-tar xvfj htslib-1.7.tar.bz2 && \
-rm -f htslib-1.7.tar.bz2 && \
-cd /opt/htslib-1.7 && \
-./configure && \
-make && \
-make install
-ENV PATH="/opt/htslib-1.7:${PATH}"
+# ~~~~~ SAMTOOLS, etc. ~~~~~ #
+RUN conda install -y -c bioconda -c r \
+samtools=0.1.19 \
+htslib=1.7 \
+vcflib=1.0.0 \
+lofreq=2.1.2 \
+r=3.3.2 \
+r-base=3.3.2
+# comes with R 3.1.1 by default
 
 # ~~~~~ ANNOVAR ~~~~~ #
 RUN cd /opt/ && \
@@ -74,13 +52,6 @@ RUN mkdir /opt/annovar/db
 # easy script for annotating:
 ADD annotate_vcf.sh /opt/annovar/annotate_vcf.sh
 ENV PATH="/opt/annovar:${PATH}"
-
-# ~~~~~ vcflib ~~~~~ #
-RUN cd /opt/ && \
-git clone --recursive https://github.com/ekg/vcflib.git && \
-cd vcflib && \
-make
-ENV PATH="/opt/vcflib/bin:${PATH}"
 
 # ~~~~~ R Libs ~~~~~ #
 RUN Rscript -e "install.packages(c('curl', 'ggplot2', 'gsalib', 'gplots', 'reshape', 'plyr'), repos='http://cran.us.r-project.org', dependencies = TRUE)"
