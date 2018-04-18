@@ -2,7 +2,7 @@
 
 [![https://www.singularity-hub.org/static/img/hosted-singularity--hub-%23e32929.svg](https://www.singularity-hub.org/static/img/hosted-singularity--hub-%23e32929.svg)](https://singularity-hub.org/collections/744)
 
-Docker and Singularity containers for use with the pipeline. 
+Docker and Singularity containers for use with the pipeline.
 
 Pre-built copies of these containers are hosted here:
 
@@ -14,7 +14,7 @@ Pre-built copies of these containers are hosted here:
 
 Items in this directory:
 
-- `base`: directory with Dockerfile and Singularity file for the base layer used for most images in this repository. Contains custom mount points and configurations. 
+- `base`: directory with Dockerfile and Singularity file for the base layer used for most images in this repository. Contains custom mount points and configurations.
 
 - `variant-calling-x.x.x`: directories with Dockerfile and Singularity file for containers with variant calling tools, built from Broad Institute's official GATK Docker containers.
 
@@ -22,11 +22,11 @@ Items in this directory:
 
 - `Makefile`: shortcuts to common actions for using and configuring containers
 
-- `docker2singularity.sh`: simple script for converting a Docker container in this directory to a Singularity container
+- `Docker.makefile`: shortcuts to common actions for building Docker containers in this directory
 
-- `docker2singularity.py`: script that converts Docker containers to Singularity containers if the directory is not listed as already having an image file in the `singularity.images.txt` file
+- `Singularity.makefile`: shortcuts to common actions for building Singularity images in this container, and converting Docker images to Singularity container image files.
 
-- `singularity.images.txt`: file containing names of Singularity image files that have already been built and transfered to the remote server for use
+- `singularity.images.txt`: file containing names of Singularity image files that have already been built and transferred to the remote server for use
 
 # Usage
 
@@ -35,27 +35,60 @@ Items in this directory:
 You can build all Docker containers used in the pipeline with this command:
 
 ```
-make build
+make build-all-Docker
 ```
+- __NOTE:__ This takes up a lot of disk space. Make sure your Docker is set for a global image size of >100GB.
+
+To build a selected container, run a command in the following format:
+
+```
+make -f Docker.makefile build VAR=<container_subdir>
+```
+
+where `container_subdir` is a subdirectory in this directory.
 
 ## Pull Docker Containers
 
 Alternatively, you can pull these containers from Docker Hub with this command:
 
 ```
-make pull
+make pull-all-Docker
 ```
+
+- __NOTE:__ Due to inconsistencies with Dockerhub, building is the most reliable way to ensure that you have the most recent version present on your system.
+
+## Test a Docker Container
+
+You can test out a Docker container by running the following command:
+
+```
+make -f Docker.makefile test VAR=<container_subdir>
+```
+
+This will start an interactive session inside the container, for you verify that the container works and the desired programs are installed.
 
 ## Converting Docker containers to Singularity containers
 
-The Docker containers in this directory can be converted to Singularity containers for use on HPC systems with the following command:
+Once all Docker containers are present on your system, they can be converted to Singularity container image files for use on HPC systems.
+
+To avoid creation & transfer of duplicate containers to the remote system, the `singularity.images.txt` file can be used to hold a list of known containers that already exist on the remote system.
+
+
+The following command can be used to selectively convert only the missing containers from Docker format to Singularity format:
 
 ```
-make docker2singularity
+make convert-all-Docker
 ```
+- __NOTE:__ to convert all containers to Singularity, simply clear the contents of the `singularity.images.txt` file, or run the Makefile command for the desired container in the format: `make -f Singularity.makefile convert-Docker VAR=<container_subdir>`.
 
-Once built, these new image files can be transfered to the remote HPC server using the following command:
+Once built, all image files present in the current directory tree can be transferred to the remote HPC server using the following command:
 ```
-make upload-imagefiles
+make -f Singularity.makefile upload-imagefiles
 ```
-- NOTE: see configuration details inside the Makefile for determining the remote server address and directory path
+- __NOTE__: see configuration details inside the `Singularity.makefile` file for determining the remote server address and directory path, which can be passed as Makefile command line arguments in the format `USERNAME=steve SERVER=remote.edu`, etc.
+
+After uploading of images is finished, you can update the local copy of `singularity.images.txt` with the following command:
+
+```
+make -f Singularity.makefile update-remote-imagefile-list
+```

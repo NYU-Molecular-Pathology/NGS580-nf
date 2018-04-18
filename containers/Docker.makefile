@@ -1,8 +1,8 @@
 VAR=
+
 none:
 
 .PHONY: base $(VAR)
-
 
 check-docker:
 	docker --version > /dev/null 2>&1 || { echo "ERROR: 'docker' not found" && exit 1 ; }
@@ -15,6 +15,9 @@ base: check-docker
 build: base
 	cd $(VAR) && \
 	docker build -t stevekm/ngs580-nf:$(VAR) .
+
+pull:
+	docker pull stevekm/ngs580-nf:$(VAR)
 
 # ~~~~~~ TEST CONTAINERS ~~~~~ #
 test-base: base
