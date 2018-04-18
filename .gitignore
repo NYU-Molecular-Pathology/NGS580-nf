@@ -23,3 +23,6 @@ trace-NGS580.txt
 bin/annotate_variation.pl
 bin/annovar*
 bin/convert2annovar.pl
+.vagrant*
+Vagrantfile*
+singularity.images.old*
