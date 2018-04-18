@@ -92,3 +92,17 @@ After uploading of images is finished, you can update the local copy of `singula
 ```
 make -f Singularity.makefile update-remote-imagefile-list
 ```
+
+## Test a Singularity image file
+
+After generating a `.img` Singularity container image file, you can test it out by running the following command:
+
+```
+make -f Singularity.makefile test IMG=path/to/container.img
+```
+
+- __NOTE__: Vagrant is required for this. Tested on macOS only. See Vagrant installation notes in `VAGRANT.md`.
+
+- __NOTE__: The relative path to the image file from the current directory should be passed to the `IMG` variable, not the absolute path.
+
+This will load a copy of the official `singularityware` Vagrant image, bind in the path to your Singularity container file, and start an interactive Singularity shell session for you to use for verification that your programs are installed correctly inside the container.

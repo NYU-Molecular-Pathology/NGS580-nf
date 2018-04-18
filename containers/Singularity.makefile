@@ -3,6 +3,7 @@ VAR=
 REMOTE_CONTAINER_DIR:=/ifs/data/molecpathlab/containers/Singularity
 USERNAME:=$(shell whoami)
 SERVER:=phoenix.med.nyu.edu
+IMG=
 
 none:
 
@@ -43,3 +44,27 @@ update-remote-imagefile-list:
 	/bin/mv singularity.images.txt "$${old_file}" && \
 	echo ">>> moving $${tmpfile} to singularity.images.txt" && \
 	/bin/mv "$${tmpfile}" "singularity.images.txt"
+
+check-vagrant:
+	echo ">>> Making sure Vagrant is present..."
+	vagrant -v >/dev/null 2>&1 || { echo "ERROR: 'docker' not found" && exit 1 ; }
+
+clean-vagrant:
+	rm -f Vagrantfile*
+	[ -d .vagrant ] && rm -rf .vagrant || :
+
+test: check-vagrant clean-vagrant
+	[ -z "$(IMG)" ] && { echo ">>> ERROR: No image file passed" ; exit 1 ; } || :
+	[ ! -f "$(IMG)" ] && { echo ">>> ERROR: Invalid image file" ; exit 1 ; } || :
+	echo ">>> Testing Singularity image file: $(IMG)"
+	image_dir="$$(dirname $(IMG))" && \
+	timestamp="$$(date +"%s")" && \
+	vagrant init singularityware/singularity-2.4 && \
+	tmpfile="Vagrantfile.$${timestamp}" && \
+	echo ">>> Moving Vagrantfile to $${tmpfile}" && \
+	/bin/mv Vagrantfile "$${tmpfile}" && \
+	echo ">>> Writing new Vagrantfile" && \
+	cat "$${tmpfile}" | sed -e "s|  # config.vm.synced_folder \"../data\", \"/vagrant_data\"|  config.vm.synced_folder \"$${image_dir}\", \"/$${image_dir}\"|" > Vagrantfile && \
+	echo ">>> Starting Vagrant to test image file..." && \
+	vagrant up && \
+	vagrant ssh -c "singularity shell /$(IMG)"
