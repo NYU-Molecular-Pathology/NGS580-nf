@@ -2,20 +2,11 @@ BootStrap: debootstrap
 OSVersion: xenial
 MirrorURL: http://us.archive.ubuntu.com/ubuntu/
 
-%setup
-    /bin/cp install.R ${SINGULARITY_ROOTFS}/install.R
-
 %post
     # ~~~~~ BASIC SETUP ~~~~~ #
     apt-get update && \
     apt-get install -y wget \
-    bzip2 \
-    make \
-    gcc \
-    g++ \
-    gfortran \
-    libxml2-dev \
-    libcairo2-dev
+    bzip2
 
     # location for misc scripts
     mkdir -p /opt/bin
@@ -34,9 +25,8 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     conda config --add channels conda-forge
     conda config --add channels bioconda
 
-    # ~~~~~ R ~~~~~ #
-    conda install -y -c r r-base r=3.3.2 r-base=3.3.2
-    Rscript /install.R
+    # ~~~~~ MULTIQC ~~~~~ #
+    conda install -y -c bioconda multiqc multiqc=1.5
 
 %environment
     export PATH="/opt/bin:${PATH}"

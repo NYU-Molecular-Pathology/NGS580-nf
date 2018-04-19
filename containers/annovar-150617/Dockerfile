@@ -5,7 +5,8 @@ MAINTAINER Stephen M. Kelly
 
 # ~~~~~ BASIC SETUP ~~~~~ #
 RUN apt-get update && \
-apt-get install -y wget
+apt-get install -y wget \
+perl
 
 # ~~~~~ ANNOVAR ~~~~~ #
 RUN cd /opt/ && \

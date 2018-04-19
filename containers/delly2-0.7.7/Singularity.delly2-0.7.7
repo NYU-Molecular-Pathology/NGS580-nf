@@ -1,2 +1,38 @@
-BootStrap: docker
-From: stevekm/ngs580-nf:delly2-0.7.7
+BootStrap: debootstrap
+OSVersion: xenial
+MirrorURL: http://us.archive.ubuntu.com/ubuntu/
+
+%post
+    # ~~~~~ BASIC SETUP ~~~~~ #
+    apt-get update && \
+    apt-get install -y git \
+    wget \
+    make \
+    gcc \
+    g++ \
+    libncurses5-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    liblzma-dev
+
+    # location for misc scripts
+    mkdir -p /opt/bin
+
+    # location for misc data
+    mkdir -p /data
+
+    # mount point for for NYULMC phoenix (Singluarity)
+    mkdir /ifs
+
+    # ~~~~~ DELLY2 ~~~~~ #
+    cd /opt && \
+    git clone --recursive https://github.com/dellytools/delly.git && \
+    cd delly && \
+    git checkout tags/v0.7.7 && \
+    git submodule update --recursive && \
+    make
+
+%environment
+    export PATH="/opt/bin:${PATH}"
+    export PATH="/opt:${PATH}"
+    export PATH="/opt/delly/src:${PATH}"

@@ -4,7 +4,7 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
 
 %post
     # location for misc scripts
-    mkdir /opt/bin
+    mkdir -p /opt/bin
 
     # location for misc data
     mkdir /data
