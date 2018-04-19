@@ -50,41 +50,24 @@ check-vagrant:
 	vagrant -v >/dev/null 2>&1 || { echo "ERROR: 'docker' not found" && exit 1 ; }
 
 clean-vagrant:
-	rm -f Vagrantfile*
 	[ -d .vagrant ] && rm -rf .vagrant || :
 
-test: check-vagrant clean-vagrant
-	[ -z "$(IMG)" ] && { echo ">>> ERROR: No image file passed" ; exit 1 ; } || :
-	[ ! -f "$(IMG)" ] && { echo ">>> ERROR: Invalid image file" ; exit 1 ; } || :
+#  test with Vagrant
+test: check-vagrant
+	[ -z "$(IMG)" ] && { echo ">>> ERROR: No image file passed (e.g. IMG=path/to/container.img)" ; exit 1 ; } || :
+	[ ! -f "$(IMG)" ] && { echo ">>> ERROR: Invalid image file (IMG=$(IMG))" ; exit 1 ; } || :
 	echo ">>> Testing Singularity image file: $(IMG)"
-	image_dir="$$(dirname $(IMG))" && \
-	timestamp="$$(date +"%s")" && \
-	vagrant init singularityware/singularity-2.4 && \
-	tmpfile="Vagrantfile.$${timestamp}" && \
-	echo ">>> Moving Vagrantfile to $${tmpfile}" && \
-	/bin/mv Vagrantfile "$${tmpfile}" && \
-	echo ">>> Writing new Vagrantfile" && \
-	cat "$${tmpfile}" | sed -e "s|  # config.vm.synced_folder \"../data\", \"/vagrant_data\"|  config.vm.synced_folder \"$${image_dir}\", \"/$${image_dir}\"|" > Vagrantfile && \
-	echo ">>> Starting Vagrant to test image file..." && \
-	vagrant up && \
-	vagrant ssh -c "singularity shell /$(IMG)"
+	echo ">>> Starting Vagrant..." && \
+	vagrant up test && \
+	vagrant ssh test -c "singularity shell /vagrant/$(IMG)"
 
 # build with Vagrant
-build: check-vagrant clean-vagrant
+build: check-vagrant
 	[ -z "$(VAR)" ] && { echo ">>> ERROR: No directory variable file passed" ; exit 1 ; } || :
 	[ ! -d "$(VAR)" ] && { echo ">>> ERROR: Invalid directory variable" ; exit 1 ; } || :
-	[ ! -f "$(VAR)/Singularity.$(VAR)" ] && { echo ">>> ERROR: Valid Singularity file for directory does not exist" ; exit 1 ; } || :
+	[ ! -f "$(VAR)/Singularity.$(VAR)" ] && { echo ">>> ERROR: Singularity file '$(VAR)/Singularity.$(VAR)' does not exist" ; exit 1 ; } || :
 	echo ">>> Setting up to build Singularity image in directory: $(VAR)"
-	image_dir="$(VAR)" && \
 	image_file="stevekm_ngs580-nf_$(VAR).img" && \
-	timestamp="$$(date +"%s")" && \
-	vagrant init -m singularityware/singularity-2.4	&& \
-	tmpfile="Vagrantfile.$${timestamp}" && \
-	echo ">>> Moving Vagrantfile to $${tmpfile}" && \
-	/bin/mv Vagrantfile "$${tmpfile}" && \
-	echo ">>> Writing new Vagrantfile" && \
-	cat "$${tmpfile}" | perl -pe "s|(^end$$)|config.vm.synced_folder '$${image_dir}', '/home/vagrant/build'\nend|g" | \
-	perl -pe "s|(^end$$)|config.vm.provision 'shell', path: 'provisioner.sh', privileged: false\nend|g" > Vagrantfile && \
-	echo ">>> Starting Vagrant and building image file..." && \
-	vagrant up && \
-	vagrant ssh -c "cd /home/vagrant/build && sudo singularity build $${image_file} Singularity.$(VAR)"
+	echo ">>> Output file will be: $(VAR)/$${image_file}" && \
+	vagrant up build && \
+	vagrant ssh build -c "cd /vagrant/$(VAR) && sudo singularity build $${image_file} Singularity.$(VAR)"
