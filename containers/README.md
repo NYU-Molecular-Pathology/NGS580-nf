@@ -37,7 +37,7 @@ You can build all Docker containers used in the pipeline with this command:
 ```
 make build-all-Docker
 ```
-- __NOTE:__ This takes up a lot of disk space. Make sure your Docker is set for a global image size of >100GB.
+- __NOTE:__ This takes up a lot of disk space. Make sure your Docker is set for a global image size of >100GB. It is also recommended to set Docker to use at least 8GB of memory when running. 
 
 To build a selected container, run a command in the following format:
 
