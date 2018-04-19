@@ -9,15 +9,15 @@ none:
 
 .PHONY: base $(VAR)
 
-check-docker:
+check-Docker:
 	echo ">>> Making sure Docker is present..."
 	docker --version > /dev/null 2>&1 || { echo "ERROR: 'docker' not found" && exit 1 ; }
 
-check-docker-image: check-docker
+check-Docker-image: check-Docker
 	echo ">>> Making sure Docker image exists..."
 	[ "$$(docker images -q stevekm/ngs580-nf:$(VAR))" != "" ] && exit 0 || exit 1
 
-convert-Docker: check-docker-image
+convert-Docker: check-Docker-image
 	echo ">>> Checking if an entry already exists in singularity.images.txt..."
 	[ "$$(grep -q '$(VAR)' singularity.images.txt; echo $$?)" -eq 0 ] && \
 	echo ">>> A Singularity image file is already known for this image, skipping..." || { \
@@ -68,6 +68,9 @@ build: check-vagrant
 	[ ! -f "$(VAR)/Singularity.$(VAR)" ] && { echo ">>> ERROR: Singularity file '$(VAR)/Singularity.$(VAR)' does not exist" ; exit 1 ; } || :
 	echo ">>> Setting up to build Singularity image in directory: $(VAR)"
 	image_file="stevekm_ngs580-nf_$(VAR).img" && \
+	image_path="$(VAR)/$${image_file}" && \
+	[ -f "$${image_path}" ] && { echo ">>> Removing previous image file: $${image_path}" ; rm -f "$${image_path}" ; } ; \
 	echo ">>> Output file will be: $(VAR)/$${image_file}" && \
 	vagrant up build && \
-	vagrant ssh build -c "cd /vagrant/$(VAR) && sudo singularity build $${image_file} Singularity.$(VAR)"
+	vagrant ssh build -c "cd /vagrant/$(VAR) && sudo singularity build $${image_file} Singularity.$(VAR)" && \
+	echo ">>> Output file: $(VAR)/$${image_file}"

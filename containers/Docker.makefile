@@ -4,11 +4,11 @@ none:
 
 .PHONY: base $(VAR)
 
-check-docker:
+check-Docker:
 	docker --version > /dev/null 2>&1 || { echo "ERROR: 'docker' not found" && exit 1 ; }
 
 # ~~~~~ BUILD DOCKER CONTAINERS ~~~~~ #
-base: check-docker
+base: check-Docker
 	cd base && docker build -t stevekm/ngs580-nf:base .
 
 # ~~~~~~~ SETUP DOCKER CONTAINERS ~~~~~ #

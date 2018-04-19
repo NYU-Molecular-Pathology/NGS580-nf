@@ -1,3 +1,2 @@
-multiqc
+multiqc==1.4
 jinja2>=2.9
-
