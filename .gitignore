@@ -27,3 +27,4 @@ bin/convert2annovar.pl
 Vagrantfile*
 singularity.images.old*
 .vagrant
+containers/*/old.*
