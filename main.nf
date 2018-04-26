@@ -57,7 +57,7 @@ Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf) ).s
 Channel.fromPath( file(params.dbsnp_ref_vcf) ).into{ dbsnp_ref_vcf; dbsnp_ref_vcf2; dbsnp_ref_vcf3 }
 Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref_vcf2 }
 Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
-Channel.fromPath("${params.ANNOVAR_DB_DIR}").set { annovar_db_dir }
+Channel.fromPath("${params.ANNOVAR_DB_DIR}").into { annovar_db_dir; annovar_db_dir2 }
 
 
 // read samples from analysis samplesheet
@@ -744,11 +744,11 @@ process lofreq {
     -R "${ref_fasta}" \
     -o "${eval_file}" \
     --dbsnp "${dbsnp_ref_vcf}" \
-    --eval "${norm_vcf}"
+    --eval "${filtered_vcf}"
 
     gatk.sh -T VariantsToTable \
     -R "${ref_fasta}" \
-    -V "${sample_vcf}" \
+    -V "${filtered_vcf}" \
     -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER -F DP -F AF -F SB -F INDEL -F CONSVAR -F HRUN \
     -o "${tsv_file}"
 
@@ -774,7 +774,6 @@ process gatk_hc {
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp2
 
     output:
-    // set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_lofreq_vcf.concat().combine(annovar_db_dir)
     set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into (sample_vcf_hc, sample_vcf_hc2)
     file("${vcf_file}")
     file("${multiallelics_stats}")
@@ -1151,6 +1150,7 @@ process mutect2 {
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf), file(cosmic_ref_vcf), val(chrom) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
 
     output:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_mutect2
     file("${vcf_file}")
     file("${norm_vcf}")
     file("${filtered_vcf}")
@@ -1227,15 +1227,17 @@ process mutect2 {
     # convert VCF to TSV
     gatk.sh -T VariantsToTable \
     -R "${ref_fasta}" \
-    -V "${sample_vcf}" \
+    -V "${filtered_vcf}" \
     -F CHROM -F POS -F ID -F REF -F ALT -F FILTER -F QUAL -F AC -F AN -F NLOD -F TLOD \
     -GF AD -GF DP -GF AF \
     -o "${tsv_file}"
 
     # reformat and adjust the TSV table for consistency downstream
     # add extra columns to the VCF TSV file for downstream
-    reformat-vcf-table.py -c MuTect2 -s "${sampleID}" -i "${tsv_file}" | \
-    paste-col.py --header "Sample" -v "${sampleID}"  | \
+    reformat-vcf-table.py -c MuTect2 -s "${tumorID}" -i "${tsv_file}" | \
+    paste-col.py --header "Sample" -v "${tumorID}"  | \
+    paste-col.py --header "Tumor" -v "${tumorID}"  | \
+    paste-col.py --header "Normal" -v "${normalID}"  | \
     paste-col.py --header "Run" -v "${params.runID}" | \
     paste-col.py --header "Results" -v "${resultsID}" | \
     paste-col.py --header "Location" -v "${current_dir_path}" | \
@@ -1329,7 +1331,7 @@ process annotate_pairs {
     errorStrategy 'ignore'
 
     input:
-    set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_lofreq_vcf.concat(sample_vcf_hc2).combine(annovar_db_dir)
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_mutect2.combine(annovar_db_dir2)
 
     output:
     file("${annotations_tsv}") into annotations_tables_pairs
