@@ -1,5 +1,5 @@
 // NGS580 Target exome analysis for 580 gene panel
-
+import java.nio.file.Files;
 // ~~~~~~~~~~ SETUP PARAMETERS ~~~~~~~~~~ //
 // pipeline settings; overriden by nextflow.config and CLI args
 params.output_dir = "output"
@@ -57,7 +57,7 @@ Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf) ).s
 Channel.fromPath( file(params.dbsnp_ref_vcf) ).into{ dbsnp_ref_vcf; dbsnp_ref_vcf2; dbsnp_ref_vcf3 }
 Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref_vcf2 }
 Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
-Channel.fromPath("${params.ANNOVAR_DB_DIR}").into { annovar_db_dir; annovar_db_dir2 }
+Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_db_dir2 }
 
 
 // read samples from analysis samplesheet
@@ -96,8 +96,16 @@ Channel.fromPath( file(params.samples_analysis_sheet) )
 // view paired entries
 samples_pairs2.subscribe { println "samples_pairs2: ${it}" }
 
-
-
+Channel.fromPath( file(params.samples_analysis_sheet) ).set { samples_analysis_sheet }
+Channel.from([[
+    runID: "${params.runID}",
+    resultsID: "${params.resultsID}",
+    output_path: "${output_dir_path}",
+    hostname: "${localhostname}",
+    launch_time: "${workflow.start.format('dd-MMM-yyyy HH:mm:ss')}",
+    project_dir: "${workflow.projectDir}",
+    username: "${params.username}"
+    ]]).set { pipeline_metadata }
 
 
 //
@@ -105,6 +113,40 @@ samples_pairs2.subscribe { println "samples_pairs2: ${it}" }
 //
 
 // PREPROCESSING
+process copy_samplesheet {
+    publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
+
+    input:
+    file(samples_analysis_sheet: "samplesheet.tsv") from samples_analysis_sheet
+
+    output:
+    file("samples.analysis.tsv")
+
+    script:
+    """
+    cp "${samples_analysis_sheet}" samples.analysis.tsv
+    """
+}
+
+
+process print_metadata {
+    publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
+    echo true
+    executor "local"
+
+    input:
+    set val(runID), val(resultsID), val(output_path), val(hostname), val(launch_time), val(project_dir), val(username) from pipeline_metadata
+
+    output:
+    file("meta.tsv")
+
+    script:
+    """
+    printf "Run\tResults\tLocation\tSystem\tOutputPath\tLaunchTime\tUsername\n" > meta.tsv
+    printf "${runID}\t${resultsID}\t${project_dir}\t${hostname}\t${output_path}\t${launch_time}\t${username}\n" >> meta.tsv
+    """
+}
+
 process fastq_merge {
     // merge the R1 and R2 fastq files into a single fastq each
     tag { "${sampleID}" }
@@ -290,7 +332,7 @@ process sambamba_dedup {
     samtools index "${bam_file}"
     """
 }
-samples_dd_reads_log.collectFile(name: "samples_dd_reads.tsv", storeDir: "${params.output_dir}", keepHeader: true)
+samples_dd_reads_log.collectFile(name: "samples_dd_reads.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 process sambamba_dedup_flagstat {
     tag { "${sampleID}" }
@@ -665,7 +707,7 @@ process qc_coverage_gatk {
     head -2 "${sample_summary}" > "${summary_csv}"
     """
 }
-qc_coverage_gatk_summary.collectFile(name: "${params.qc_coverage_gatk_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
+qc_coverage_gatk_summary.collectFile(name: "${params.qc_coverage_gatk_file_basename}", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 process pad_bed {
     publishDir "${params.output_dir}/analysis/targets", mode: 'copy', overwrite: true
@@ -774,7 +816,8 @@ process gatk_hc {
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp2
 
     output:
-    set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into (sample_vcf_hc, sample_vcf_hc2)
+    set val(caller), val(sampleID), file("${filtered_vcf}") into sample_vcf_hc
+    set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into sample_vcf_hc2
     file("${vcf_file}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
@@ -895,15 +938,33 @@ process delly2 {
 
 
 // Genomic Signatures
+deconstructSigs_variant_min = 55
+sample_vcf_hc.filter{ caller, sampleID, filtered_vcf ->
+    line_count = 0
+    num_variants = 0
+    enough_variants = false
+    filtered_vcf.withReader { reader ->
+        while (line = reader.readLine()) {
+            if (!line.startsWith("#")) num_variants++
+            if (num_variants > 1) {
+                enough_variants = true
+                break
+                }
+            line_count++
+        }
+    }
+    enough_variants
+}.set { sample_vcf_hc_filtered }
+
 process deconstructSigs_signatures {
     tag { "${sampleID}" }
-    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
+    // validExitStatus 0,11 // allow '11' failure triggered by few/no variants
     errorStrategy 'ignore'
     publishDir "${params.output_dir}/analysis/signatures_hc", mode: 'copy', overwrite: true
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
-    set val(caller), val(sampleID), file(sample_vcf) from sample_vcf_hc
+    set val(caller), val(sampleID), file(sample_vcf) from sample_vcf_hc_filtered
 
     output:
     file "${signatures_rds}"
@@ -922,49 +983,56 @@ process deconstructSigs_signatures {
 
 
 process merge_signatures_plots {
-    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-    errorStrategy 'ignore'
+    // validExitStatus 0,11 // allow '11' failure triggered by few/no variants
+    // errorStrategy 'ignore'
     executor "local"
     publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
 
     input:
-    file '*' from signatures_plots.toList()
+    file(input_files:'*') from signatures_plots.toList() //.ifEmpty{null}
 
     output:
     file "signatures.pdf"
 
+    when:
+    input_files != null
+
     script:
+    println "[merge_signatures_plots] input_files: ${input_files}"
     """
-    if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
-        gs -dBATCH -dNOPAUSE -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile=genomic_signatures.pdf *
-    else
-        exit 11
-    fi
+    gs -dBATCH -dNOPAUSE -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile=genomic_signatures.pdf ${input_files}
     """
+    // if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
+    //
+    // else
+    //     exit 11
+    // fi
 }
 
 
 process merge_signatures_pie_plots {
-    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-    errorStrategy 'ignore'
+    // validExitStatus 0,11 // allow '11' failure triggered by few/no variants
+    // errorStrategy 'ignore'
     executor "local"
     publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
 
 
     input:
-    file '*' from signatures_pie_plots.toList()
+    file(input_files:'*') from signatures_pie_plots.toList()
 
     output:
     file "signatures_pie.pdf"
 
     script:
     """
-    if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
-        gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=genomic_signatures_pie.pdf *
-    else
-        exit 11
-    fi
+    gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=genomic_signatures_pie.pdf ${input_files}
     """
+    // if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
+    //
+    // else
+    //     exit 11
+    // fi
+
 }
 
 
@@ -1174,6 +1242,9 @@ process mutect2 {
     tsv_file = "${prefix}.tsv"
     reformat_tsv = "${prefix}.reformat.tsv"
     """
+    module list
+    bcftools --version
+
     # subset the target regions for the given chromosome
     subset_bed.py "${chrom}" "${targets_bed}" > "${bed_subset}"
 
@@ -1249,16 +1320,44 @@ process mutect2 {
 
 
 // ~~~~~~ ANNOTATION ~~~~~~ //
+samples_lofreq_vcf.concat(sample_vcf_hc2)
+                    .combine(annovar_db_dir)
+                    // only entries that have variants present; more than one .TSV file line
+                    .filter { caller, sampleID, sample_vcf, sample_tsv, annovar_db ->
+                        // long count = sample_tsv.readLines().size() // <- THIS WORKS but loads entire file
+                        long count = Files.lines(sample_tsv).count()
+                        count > 1
+                    }
+                    .set { samples_vcfs_tsvs_filtered }
+
+samples_mutect2.combine(annovar_db_dir2)
+                // only entries that have variants present; more than one .TSV file line
+                .filter { caller, comparisonID, tumorID, normalID, chrom, sample_vcf, sample_tsv, annovar_db ->
+                    line_count = 0
+                    num_variants = 0
+                    enough_variants = false
+                    sample_vcf.withReader { reader ->
+                        while (line = reader.readLine()) {
+                            if (!line.startsWith("#")) num_variants++
+                            if (num_variants > 1) {
+                                enough_variants = true
+                                break
+                                }
+                            line_count++
+                        }
+                    }
+                    enough_variants
+                }
+                .set { samples_mutect2_vcfs_tsvs_filtered }
+
 process annotate {
     // annotate the VCF file
-    tag "${caller}-${sampleID}"
+    tag "${prefix}"
     publishDir "${params.output_dir}/samples/${sampleID}/${caller}", mode: 'copy', overwrite: true
     publishDir "${params.output_dir}/analysis/annotate", overwrite: true
-    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-    errorStrategy 'ignore'
 
     input:
-    set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_lofreq_vcf.concat(sample_vcf_hc2).combine(annovar_db_dir)
+    set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_vcfs_tsvs_filtered
 
     output:
     file("${annotations_tsv}") into annotations_tables
@@ -1279,7 +1378,7 @@ process annotate {
     if( caller == 'HaplotypeCaller' )
         """
         # make sure there are variants present, by checking the .TSV file; should have >1 line
-        [ ! "\$( cat "${sample_tsv}" | wc -l )" -gt 1 ] && echo "ERROR: No variants present in ${sample_tsv}, skipping annotation..." && exit 11 || :
+        # [ ! "\$( cat "${sample_tsv}" | wc -l )" -gt 1 ] && echo "ERROR: No variants present in ${sample_tsv}, skipping annotation..." && exit 11 || :
 
         # annovate
         table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
@@ -1301,7 +1400,7 @@ process annotate {
     else if( caller == 'LoFreq' )
         """
         # make sure there are variants present, by checking the .TSV file; should have >1 line
-        [ ! "\$( cat "${sample_tsv}" | wc -l )" -gt 1 ] && echo "ERROR: No variants present in ${sample_tsv}, skipping annotation..." && exit 11 || :
+        # [ ! "\$( cat "${sample_tsv}" | wc -l )" -gt 1 ] && echo "ERROR: No variants present in ${sample_tsv}, skipping annotation..." && exit 11 || :
 
         table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
         --buildver "${params.ANNOVAR_BUILD_VERSION}" \
@@ -1324,14 +1423,12 @@ process annotate {
 }
 
 process annotate_pairs {
-    tag "${caller}-${sampleID}"
+    tag "${prefix}"
     publishDir "${params.output_dir}/samples/${sampleID}/${caller}", mode: 'copy', overwrite: true
     publishDir "${params.output_dir}/analysis/annotate", overwrite: true
-    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-    errorStrategy 'ignore'
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_mutect2.combine(annovar_db_dir2)
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_mutect2_vcfs_tsvs_filtered
 
     output:
     file("${annotations_tsv}") into annotations_tables_pairs
@@ -1342,7 +1439,7 @@ process annotate_pairs {
     file("${annotations_tsv}")
 
     script:
-    prefix = "${sampleID}.${caller}"
+    prefix = "${comparisonID}.${chrom}.${caller}"
     avinput_file = "${prefix}.avinput"
     avinput_tsv = "${prefix}.avinput.tsv"
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
@@ -1352,7 +1449,7 @@ process annotate_pairs {
     if( caller == 'MuTect2' )
         """
         # make sure there are variants present, by checking the .TSV file; should have >1 line
-        [ ! "\$( cat "${sample_tsv}" | wc -l )" -gt 1 ] && echo "ERROR: No variants present in ${sample_tsv}, skipping annotation..." && exit 11 || :
+        # [ ! "\$( cat "${sample_tsv}" | wc -l )" -gt 1 ] && echo "ERROR: No variants present in ${sample_tsv}, skipping annotation..." && exit 11 || :
 
         table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
         --buildver "${params.ANNOVAR_BUILD_VERSION}" \
