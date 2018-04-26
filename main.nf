@@ -85,7 +85,8 @@ samples_pairs2.subscribe { println "samples_pairs2: ${it}" }
 process fastq_merge {
     // merge the R1 and R2 fastq files into a single fastq each
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/fastq-merge", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/fastq-merge", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(fastq_r1: "*"), file(fastq_r2: "*") from samples_R1_R2
@@ -106,7 +107,8 @@ process fastq_merge {
 
 process trimmomatic {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/fastq-trim", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/fastq-trim", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(read1), file(read2), file(trimmomatic_contaminant_fa) from samples_fastq_merged.combine(trimmomatic_contaminant_fa)
@@ -132,7 +134,8 @@ process trimmomatic {
 
 process fastqc_trim {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/fastqc-trim", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/fastqc-trim", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID),  file(fastq_R1_trim), file(fastq_R2_trim) from samples_fastq_trimmed2
@@ -209,7 +212,8 @@ process sambamba_view_sort {
 
 process sambamba_flagstat {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/sambamba-flagstat", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/sambamba-flagstat", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam) from samples_bam
@@ -227,7 +231,8 @@ process sambamba_flagstat {
 
 process sambamba_dedup {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/bam-bwa-dd", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/bam-bwa-dd", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam) from samples_bam2
@@ -266,7 +271,8 @@ samples_dd_reads_log.collectFile(name: "samples_dd_reads.tsv", storeDir: "${para
 
 process sambamba_dedup_flagstat {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/sambamba-dd-flagstat", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/sambamba-dd-flagstat", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam) from samples_dd_bam2
@@ -312,7 +318,8 @@ samples_dd_bam.combine(ref_fasta)
 
 process qc_target_reads_gatk_genome {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict) from samples_dd_bam_ref
@@ -347,7 +354,8 @@ process qc_target_reads_gatk_genome {
 
 process qc_target_reads_gatk_pad500 {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref2
@@ -383,7 +391,8 @@ process qc_target_reads_gatk_pad500 {
 
 process qc_target_reads_gatk_pad100 {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref3
@@ -419,7 +428,8 @@ process qc_target_reads_gatk_pad100 {
 
 process qc_target_reads_gatk_bed {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref4
@@ -456,7 +466,8 @@ process qc_target_reads_gatk_bed {
 // MAIN REALIGNMENT AND RECALIBRATION STEP
 process bam_ra_rc_gatk {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/bam_dd_ra_rc_gatk", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/bam_dd_ra_rc_gatk", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from samples_dd_bam_ref_gatk
@@ -587,7 +598,8 @@ samples_dd_ra_rc_bam_ref2.combine( dbsnp_ref_vcf3 )
 
 process qc_coverage_gatk {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/qc_coverage_gatk", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/qc_coverage_gatk", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref
@@ -633,7 +645,8 @@ process qc_coverage_gatk {
 qc_coverage_gatk_summary.collectFile(name: "${params.qc_coverage_gatk_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
 
 process pad_bed {
-    publishDir "${params.output_dir}/targets", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/targets", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set file(targets_bed_file), file(ref_chrom_sizes) from targets_bed3.combine(ref_chrom_sizes)
@@ -649,7 +662,8 @@ process pad_bed {
 
 process lofreq {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/vcf_lofreq", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/vcf_lofreq", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp
@@ -660,6 +674,7 @@ process lofreq {
     file("${multiallelics_stats}")
     file("${realign_stats}")
     file("${eval_file}")
+    file("${tsv_file}")
     val(sampleID) into sample_lofreq_done
 
     script:
@@ -668,9 +683,11 @@ process lofreq {
     vcf_file = "${prefix}.vcf"
     vcf_bgz_file = "${prefix}.vcf.bgz"
     norm_vcf = "${prefix}.norm.vcf"
+    filtered_vcf = "${prefix}.filtered.vcf"
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
-    eval_file = "${sampleID}.eval.grp"
+    eval_file = "${prefix}.eval.grp"
+    tsv_file = "${prefix}.tsv"
     """
     lofreq call-parallel \
     --call-indels \
@@ -689,30 +706,43 @@ process lofreq {
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
 
+    # do not report if frequency is less than 1%
+    gatk.sh -T SelectVariants \
+    -R "${ref_fasta}" \
+    -V "${norm_vcf}" \
+    -select "AF > 0.01"  \
+    > "${filtered_vcf}"
+
     gatk.sh -T VariantEval \
     -R "${ref_fasta}" \
     -o "${eval_file}" \
     --dbsnp "${dbsnp_ref_vcf}" \
     --eval "${norm_vcf}"
+
+    gatk.sh -T VariantsToTable \
+    -R "${ref_fasta}" \
+    -V "${sample_vcf}" \
+    -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER -F DP -F AF -F SB -F INDEL -F CONSVAR -F HRUN \
+    -o "${tsv_file}"
     """
 }
 
-
-
-
 process gatk_hc {
     tag { "${sampleID}" }
-    publishDir "${params.output_dir}/vcf_hc", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/vcf_hc", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp2
 
     output:
-    set val(caller), val(sampleID), file(norm_vcf) into sample_vcf_hc
+    set val(caller), val(sampleID), file(filtered_vcf) into sample_vcf_hc
     file("${vcf_file}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
     file("${eval_file}")
+    file("${norm_vcf}")
+    file("${tsv_file}")
     val(sampleID) into sample_gatk_hc_done
 
     script:
@@ -720,9 +750,11 @@ process gatk_hc {
     prefix = "${sampleID}.${caller}"
     vcf_file = "${prefix}.vcf"
     norm_vcf = "${prefix}.norm.vcf"
+    filtered_vcf = "${prefix}.filtered.vcf"
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
-    eval_file = "${sampleID}.eval.grp"
+    eval_file = "${prefix}.eval.grp"
+    tsv_file = "${prefix}.tsv"
     """
     gatk.sh -T HaplotypeCaller \
     -dt NONE \
@@ -741,11 +773,31 @@ process gatk_hc {
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
 
+    # report if
+    # alternate allele freq (allele depth / depth) greater than 0.5
+    # more than 5 variant call supporting reads
+    # quality reads present (reported depth >0)
+    gatk.sh -T SelectVariants \
+    -R "${ref_fasta}" \
+    -V "${norm_vcf}" \
+    --sample_name "${sampleID}" \
+    -select "vc.getGenotype('${sampleID}').getAD().1 / vc.getGenotype('${sampleID}').getDP() > 0.50" \
+    -select "vc.getGenotype('${sampleID}').getAD().1 > 5" \
+    -select "vc.getGenotype('${sampleID}').getDP() > 0" \
+    > "${filtered_vcf}"
+
     gatk.sh -T VariantEval \
     -R "${ref_fasta}" \
     -o "${eval_file}" \
     --dbsnp "${dbsnp_ref_vcf}" \
-    --eval "${norm_vcf}"
+    --eval "${filtered_vcf}"
+
+    gatk.sh -T VariantsToTable \
+    -R "${ref_fasta}" \
+    -V "${filtered_vcf}" \
+    -F CHROM -F POS -F ID -F REF -F ALT -F FILTER -F QUAL -F AC -F AN \
+    -GF AD -GF DP \
+    -o "${tsv_file}"
     """
 }
 
@@ -766,7 +818,8 @@ delly2_modes = [
 ]
 process delly2 {
     tag { "${sampleID}-${type}" }
-    publishDir "${params.output_dir}/snv-${type}-Delly2", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/snv-${type}-Delly2", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref4
@@ -794,7 +847,8 @@ process deconstructSigs_signatures {
     tag { "${sampleID}" }
     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
     errorStrategy 'ignore'
-    publishDir "${params.output_dir}/signatures_hc", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/signatures_hc", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(caller), val(sampleID), file(sample_vcf) from sample_vcf_hc
@@ -819,7 +873,7 @@ process merge_signatures_plots {
     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
     errorStrategy 'ignore'
     executor "local"
-    publishDir "${params.output_dir}", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
 
     input:
     file '*' from signatures_plots.toList()
@@ -842,7 +896,8 @@ process merge_signatures_pie_plots {
     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
     errorStrategy 'ignore'
     executor "local"
-    publishDir "${params.output_dir}", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
+
 
     input:
     file '*' from signatures_pie_plots.toList()
@@ -1012,7 +1067,8 @@ process msisensor {
     tag { "${comparisonID}" }
     validExitStatus 0,139 // allow '139' failure from small dataset; 23039 Segmentation fault      (core dumped)
     errorStrategy 'ignore'
-    publishDir "${params.output_dir}/microsatellites", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/microsatellites", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(microsatellites) from samples_dd_ra_rc_bam_pairs_ref_msi
@@ -1035,13 +1091,20 @@ process msisensor {
 
 process mutect2 {
     tag { "${comparisonID}:${chrom}" }
-    publishDir "${params.output_dir}/vcf_mutect2", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/vcf_mutect2", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${tumorID}", overwrite: true
 
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf), file(cosmic_ref_vcf), val(chrom) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
 
     output:
     file("${vcf_file}")
+    file("${norm_vcf}")
+    file("${filtered_vcf}")
+    file("${multiallelics_stats}")
+    file("${realign_stats}")
+    file("${eval_file}")
+    file("${tsv_file}")
     val(comparisonID) into mutect2_sampleIDs
 
     script:
@@ -1049,6 +1112,12 @@ process mutect2 {
     prefix = "${comparisonID}.${chrom}.${caller}"
     bed_subset = "${prefix}.bed"
     vcf_file = "${prefix}.vcf"
+    norm_vcf = "${prefix}.norm.vcf"
+    filtered_vcf = "${prefix}.filtered.vcf"
+    multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
+    realign_stats = "${prefix}.bcftools.realign.stats.txt"
+    eval_file = "${prefix}.eval.grp"
+    tsv_file = "${prefix}.tsv"
     """
     subset_bed.py "${chrom}" "${targets_bed}" > "${bed_subset}"
 
@@ -1067,6 +1136,40 @@ process mutect2 {
     --input_file:tumor "${tumorBam}" \
     --input_file:normal "${normalBam}" \
     --out "${vcf_file}"
+
+    cat ${vcf_file} | \
+    bcftools norm --multiallelics -both --output-type v - 2>"${multiallelics_stats}" | \
+    bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
+    "${norm_vcf}"
+
+    # report if
+    # T frequency is more than 3%
+    # N frequency is less than 5%
+    # at least 5 variant call supporting reads
+    # T frequency is sufficiently higher than N frequency # "we recommend applying post-processing filters, e.g. by hard-filtering calls with low minor allele frequencies"
+    # only 'PASS' entries
+    gatk.sh -T SelectVariants \
+    -R "${ref_fasta}" \
+    -V "${norm_vcf}" \
+    -select "(vc.getGenotype('TUMOR').getAD().1 / (vc.getGenotype('TUMOR').getAD().0 + vc.getGenotype('TUMOR').getAD().1) )  > 0.03" \
+    -select "(vc.getGenotype('NORMAL').getAD().1 / (vc.getGenotype('NORMAL').getAD().0 + vc.getGenotype('NORMAL').getAD().1) )  > 0.05" \
+    -select "vc.getGenotype('TUMOR').getAD().1 > 5" \
+    -select "(vc.getGenotype('TUMOR').getAD().1 / (vc.getGenotype('TUMOR').getAD().0 + vc.getGenotype('TUMOR').getAD().1) ) > (vc.getGenotype('NORMAL').getAD().1 / (vc.getGenotype('NORMAL').getAD().0 + vc.getGenotype('NORMAL').getAD().1) ) * 5" \
+    -select 'vc.isNotFiltered()' \
+    > "${filtered_vcf}"
+
+    gatk.sh -T VariantEval \
+    -R "${ref_fasta}" \
+    -o "${eval_file}" \
+    --dbsnp "${dbsnp_ref_vcf}" \
+    --eval "${filtered_vcf}"
+
+    gatk.sh -T VariantsToTable \
+    -R "${ref_fasta}" \
+    -V "${sample_vcf}" \
+    -F CHROM -F POS -F ID -F REF -F ALT -F FILTER -F QUAL -F AC -F AN -F NLOD -F TLOD \
+    -GF AD -GF DP -GF AF \
+    -o "${tsv_file}"
     """
 }
 
