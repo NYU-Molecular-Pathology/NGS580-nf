@@ -1,7 +1,30 @@
 // NGS580 Target exome analysis for 580 gene panel
 
+// ~~~~~~~~~~ SETUP PARAMETERS ~~~~~~~~~~ //
 // pipeline settings; overriden by nextflow.config and CLI args
 params.output_dir = "output"
+params.runID = null
+params.resultsID = null
+
+// set a timestamp variable if resultsID not passed
+import java.text.SimpleDateFormat
+def resultsID
+if ( params.resultsID == null ) {
+    Date now = new Date()
+    SimpleDateFormat timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss")
+    resultsID = timestamp.format(now)
+} else {
+    resultsID = params.resultsID
+}
+
+// path to the output directory
+output_dir_path = new File(params.output_dir).getCanonicalPath()
+
+// path to the current directory
+current_dir_path = new File(System.getProperty("user.dir")).getCanonicalPath()
+
+// get the system hostname to identify which system the pipeline is running from
+String localhostname = java.net.InetAddress.getLocalHost().getHostName();
 
 // summary collectFile's
 params.qc_coverage_gatk_file_basename = "qc_coverage_gatk.csv"
@@ -34,7 +57,7 @@ Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf) ).s
 Channel.fromPath( file(params.dbsnp_ref_vcf) ).into{ dbsnp_ref_vcf; dbsnp_ref_vcf2; dbsnp_ref_vcf3 }
 Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref_vcf2 }
 Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
-
+Channel.fromPath("${params.ANNOVAR_DB_DIR}").set { annovar_db_dir }
 
 
 // read samples from analysis samplesheet
@@ -669,12 +692,15 @@ process lofreq {
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp
 
     output:
-    set val(caller), val(sampleID), file("${norm_vcf}") into samples_lofreq_vcf
+    set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_lofreq_vcf
     file("${vcf_file}")
+    file("${norm_vcf}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
     file("${eval_file}")
     file("${tsv_file}")
+    file("${reformat_tsv}")
+    file("${filtered_vcf}")
     val(sampleID) into sample_lofreq_done
 
     script:
@@ -688,6 +714,7 @@ process lofreq {
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
     eval_file = "${prefix}.eval.grp"
     tsv_file = "${prefix}.tsv"
+    reformat_tsv = "${prefix}.reformat.tsv"
     """
     lofreq call-parallel \
     --call-indels \
@@ -724,6 +751,17 @@ process lofreq {
     -V "${sample_vcf}" \
     -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER -F DP -F AF -F SB -F INDEL -F CONSVAR -F HRUN \
     -o "${tsv_file}"
+
+    # reformat and adjust the TSV table for consistency downstream
+    # add extra columns to the VCF TSV file for downstream
+    reformat-vcf-table.py -c LoFreq -s "${sampleID}" -i "${tsv_file}" | \
+    paste-col.py --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Results" -v "${resultsID}" | \
+    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "VariantCaller" -v "${caller}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${reformat_tsv}"
     """
 }
 
@@ -736,13 +774,16 @@ process gatk_hc {
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp2
 
     output:
-    set val(caller), val(sampleID), file(filtered_vcf) into sample_vcf_hc
+    // set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_lofreq_vcf.concat().combine(annovar_db_dir)
+    set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into (sample_vcf_hc, sample_vcf_hc2)
     file("${vcf_file}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
     file("${eval_file}")
     file("${norm_vcf}")
     file("${tsv_file}")
+    file("${reformat_tsv}")
+    file("${filtered_vcf}")
     val(sampleID) into sample_gatk_hc_done
 
     script:
@@ -755,6 +796,7 @@ process gatk_hc {
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
     eval_file = "${prefix}.eval.grp"
     tsv_file = "${prefix}.tsv"
+    reformat_tsv = "${prefix}.reformat.tsv"
     """
     gatk.sh -T HaplotypeCaller \
     -dt NONE \
@@ -798,6 +840,17 @@ process gatk_hc {
     -F CHROM -F POS -F ID -F REF -F ALT -F FILTER -F QUAL -F AC -F AN \
     -GF AD -GF DP \
     -o "${tsv_file}"
+
+    # reformat and adjust the TSV table for consistency downstream
+    # add extra columns to the VCF TSV file for downstream
+    reformat-vcf-table.py -c HaplotypeCaller -s "${sampleID}" -i "${tsv_file}" | \
+    paste-col.py --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Results" -v "${resultsID}" | \
+    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "VariantCaller" -v "${caller}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${reformat_tsv}"
     """
 }
 
@@ -1105,6 +1158,7 @@ process mutect2 {
     file("${realign_stats}")
     file("${eval_file}")
     file("${tsv_file}")
+    file("${reformat_tsv}")
     val(comparisonID) into mutect2_sampleIDs
 
     script:
@@ -1118,9 +1172,12 @@ process mutect2 {
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
     eval_file = "${prefix}.eval.grp"
     tsv_file = "${prefix}.tsv"
+    reformat_tsv = "${prefix}.reformat.tsv"
     """
+    # subset the target regions for the given chromosome
     subset_bed.py "${chrom}" "${targets_bed}" > "${bed_subset}"
 
+    # variant calling
     gatk.sh -T MuTect2 \
     -dt NONE \
     --logging_level WARN \
@@ -1137,12 +1194,14 @@ process mutect2 {
     --input_file:normal "${normalBam}" \
     --out "${vcf_file}"
 
+    # normalize and split vcf entries
     cat ${vcf_file} | \
     bcftools norm --multiallelics -both --output-type v - 2>"${multiallelics_stats}" | \
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
 
-    # report if
+    # filter VCF
+    # report if:
     # T frequency is more than 3%
     # N frequency is less than 5%
     # at least 5 variant call supporting reads
@@ -1158,20 +1217,178 @@ process mutect2 {
     -select 'vc.isNotFiltered()' \
     > "${filtered_vcf}"
 
+    # check some quality metrics
     gatk.sh -T VariantEval \
     -R "${ref_fasta}" \
     -o "${eval_file}" \
     --dbsnp "${dbsnp_ref_vcf}" \
     --eval "${filtered_vcf}"
 
+    # convert VCF to TSV
     gatk.sh -T VariantsToTable \
     -R "${ref_fasta}" \
     -V "${sample_vcf}" \
     -F CHROM -F POS -F ID -F REF -F ALT -F FILTER -F QUAL -F AC -F AN -F NLOD -F TLOD \
     -GF AD -GF DP -GF AF \
     -o "${tsv_file}"
+
+    # reformat and adjust the TSV table for consistency downstream
+    # add extra columns to the VCF TSV file for downstream
+    reformat-vcf-table.py -c MuTect2 -s "${sampleID}" -i "${tsv_file}" | \
+    paste-col.py --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Results" -v "${resultsID}" | \
+    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "VariantCaller" -v "${caller}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${reformat_tsv}"
     """
 }
+
+
+// ~~~~~~ ANNOTATION ~~~~~~ //
+process annotate {
+    // annotate the VCF file
+    tag "${caller}-${sampleID}"
+    publishDir "${params.output_dir}/samples/${sampleID}/${caller}", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/annotate", overwrite: true
+    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
+    errorStrategy 'ignore'
+
+    input:
+    set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_lofreq_vcf.concat(sample_vcf_hc2).combine(annovar_db_dir)
+
+    output:
+    file("${annotations_tsv}") into annotations_tables
+    file("${avinput_file}")
+    file("${avinput_tsv}")
+    file("${annovar_output_txt}")
+    file("${annovar_output_vcf}")
+    file("${annotations_tsv}")
+
+    script:
+    prefix = "${sampleID}.${caller}"
+    avinput_file = "${prefix}.avinput"
+    avinput_tsv = "${prefix}.avinput.tsv"
+    annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
+    annovar_output_vcf = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.vcf"
+    annotations_tmp = "${prefix}.annotations.tmp"
+    annotations_tsv = "${prefix}.annotations.tsv"
+    if( caller == 'HaplotypeCaller' )
+        """
+        # make sure there are variants present, by checking the .TSV file; should have >1 line
+        [ ! "\$( cat "${sample_tsv}" | wc -l )" -gt 1 ] && echo "ERROR: No variants present in ${sample_tsv}, skipping annotation..." && exit 11 || :
+
+        # annovate
+        table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
+        --buildver "${params.ANNOVAR_BUILD_VERSION}" \
+        --remove \
+        --protocol "${params.ANNOVAR_PROTOCOL}" \
+        --operation "${params.ANNOVAR_OPERATION}" \
+        --nastring . \
+        --vcfinput \
+        --onetranscript \
+        --outfile "${prefix}"
+
+        printf "Chr\tStart\tEnd\tRef\tAlt\tAF\tQuality\tAD.ALT\tCHROM\tPOS\tID\tREF\tALT\tQUAL\n" > "${avinput_tsv}"
+        cut -f1-14 ${avinput_file} >>  "${avinput_tsv}"
+
+        merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
+        hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k Chr Start End Ref Alt CHROM POS REF ALT Sample Run Results VariantCaller
+        """
+    else if( caller == 'LoFreq' )
+        """
+        # make sure there are variants present, by checking the .TSV file; should have >1 line
+        [ ! "\$( cat "${sample_tsv}" | wc -l )" -gt 1 ] && echo "ERROR: No variants present in ${sample_tsv}, skipping annotation..." && exit 11 || :
+
+        table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
+        --buildver "${params.ANNOVAR_BUILD_VERSION}" \
+        --remove \
+        --protocol "${params.ANNOVAR_PROTOCOL}" \
+        --operation "${params.ANNOVAR_OPERATION}" \
+        --nastring . \
+        --vcfinput \
+        --onetranscript \
+        --outfile "${prefix}"
+
+        printf "Chr\tStart\tEnd\tRef\tAlt\tId\tQuality\tDP\tCHROM\tPOS\tID\tREF\tALT\tQUAL\n" > "${avinput_tsv}"
+        cut -f1-14 ${avinput_file} >>  "${avinput_tsv}"
+
+        merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
+        hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k Chr Start End Ref Alt CHROM POS REF ALT Sample Run Results VariantCaller
+        """
+    else
+        error "Invalid caller: ${caller}"
+}
+
+process annotate_pairs {
+    tag "${caller}-${sampleID}"
+    publishDir "${params.output_dir}/samples/${sampleID}/${caller}", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/annotate", overwrite: true
+    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
+    errorStrategy 'ignore'
+
+    input:
+    set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_lofreq_vcf.concat(sample_vcf_hc2).combine(annovar_db_dir)
+
+    output:
+    file("${annotations_tsv}") into annotations_tables_pairs
+    file("${avinput_file}")
+    file("${avinput_tsv}")
+    file("${annovar_output_txt}")
+    file("${annovar_output_vcf}")
+    file("${annotations_tsv}")
+
+    script:
+    prefix = "${sampleID}.${caller}"
+    avinput_file = "${prefix}.avinput"
+    avinput_tsv = "${prefix}.avinput.tsv"
+    annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
+    annovar_output_vcf = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.vcf"
+    annotations_tmp = "${prefix}.annotations.tmp"
+    annotations_tsv = "${prefix}.annotations.tsv"
+    if( caller == 'MuTect2' )
+        """
+        # make sure there are variants present, by checking the .TSV file; should have >1 line
+        [ ! "\$( cat "${sample_tsv}" | wc -l )" -gt 1 ] && echo "ERROR: No variants present in ${sample_tsv}, skipping annotation..." && exit 11 || :
+
+        table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
+        --buildver "${params.ANNOVAR_BUILD_VERSION}" \
+        --remove \
+        --protocol "${params.ANNOVAR_PROTOCOL}" \
+        --operation "${params.ANNOVAR_OPERATION}" \
+        --nastring . \
+        --vcfinput \
+        --onetranscript \
+        --outfile "${prefix}"
+
+        # TODO: Need to check this! Need a MuTect2 .vcf with passing variants!
+        printf "Chr\tStart\tEnd\tRef\tAlt\tId\tQuality\tDP\tCHROM\tPOS\tID\tREF\tALT\tQUAL\n" > "${avinput_tsv}"
+        cut -f1-14 ${avinput_file} >>  "${avinput_tsv}"
+
+        merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
+        hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k Chr Start End Ref Alt CHROM POS REF ALT Sample Run Results VariantCaller
+        """
+    else
+        error "Invalid caller: ${caller}"
+
+
+}
+process collect_annotation_tables {
+    publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
+
+    input:
+    file('table*') from annotations_tables.concat(annotations_tables_pairs).collect()
+
+    output:
+    file('all_annotations.tsv')
+
+    script:
+    """
+    concat-tables.py * > all_annotations.tsv
+    """
+}
+
 
 // process multiqc {
 //     publishDir "${params.output_dir}", mode: 'copy', overwrite: true
