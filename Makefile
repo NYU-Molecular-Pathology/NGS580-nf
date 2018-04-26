@@ -4,7 +4,7 @@ REFDIR:=/ifs/data/sequence/results/external/NYU/snuderllab/ref
 ANNOVAR_DB_DIR:=/ifs/data/molecpathlab/bin/annovar/db/hg19
 ANNOVAR_PROTOCOL:=$(shell head -1 annovar_protocol.txt)
 ANNOVAR_BUILD_VERSION:=hg19
-NXF_VER:=0.28.0
+NXF_VER:=0.29.0
 # extra params to pass for Nextflow in some recipes
 EP:=
 # sequencing run name for deployment
@@ -28,6 +28,9 @@ none:
 	curl -fsSL get.nextflow.io | bash
 
 install: ./nextflow
+
+update: ./nextflow
+	./nextflow self-update
 
 # set up MultiQC in a virtualenv
 bin/multiqc-venv/bin/activate:

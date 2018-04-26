@@ -41,13 +41,13 @@ Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
 Channel.fromPath( file(params.samples_analysis_sheet) )
         .splitCsv(header: true, sep: '\t')
         .map{row ->
-            def sample_ID = row['Sample']
+            def sampleID = row['Sample']
             def reads1 = row['R1'].tokenize( ',' ).collect { file(it) } // comma-sep string into list of files
             def reads2 = row['R2'].tokenize( ',' ).collect { file(it) }
-            return [ sample_ID, reads1, reads2 ]
+            return [ sampleID, reads1, reads2 ]
         }
         .tap { samples_R1_R2; samples_R1_R2_2 } // set of all fastq R1 R2 per sample
-        .map { sample_ID, reads1, reads2 ->
+        .map { sampleID, reads1, reads2 ->
             return [ reads1, reads2 ]
         }
         .flatMap().flatMap()
@@ -84,50 +84,58 @@ samples_pairs2.subscribe { println "samples_pairs2: ${it}" }
 // PREPROCESSING
 process fastq_merge {
     // merge the R1 and R2 fastq files into a single fastq each
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/fastq-merge", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(fastq_r1: "*"), file(fastq_r2: "*") from samples_R1_R2
+    set val(sampleID), file(fastq_r1: "*"), file(fastq_r2: "*") from samples_R1_R2
 
     output:
-    set val(sample_ID), file("${sample_ID}_R1.fastq.gz"), file("${sample_ID}_R2.fastq.gz") into samples_fastq_merged
+    set val(sampleID), file("${merged_fastq_R1}"), file("${merged_fastq_R2}") into samples_fastq_merged
 
     script:
+    prefix = "${sampleID}"
+    merged_fastq_R1 = "${prefix}_R1.fastq.gz"
+    merged_fastq_R2 = "${prefix}_R2.fastq.gz"
     """
-    cat ${fastq_r1} > "${sample_ID}_R1.fastq.gz"
-    cat ${fastq_r2} > "${sample_ID}_R2.fastq.gz"
+    cat ${fastq_r1} > "${merged_fastq_R1}"
+    cat ${fastq_r2} > "${merged_fastq_R2}"
     """
 }
 
 
 process trimmomatic {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/fastq-trim", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(read1), file(read2), file(trimmomatic_contaminant_fa) from samples_fastq_merged.combine(trimmomatic_contaminant_fa)
+    set val(sampleID), file(read1), file(read2), file(trimmomatic_contaminant_fa) from samples_fastq_merged.combine(trimmomatic_contaminant_fa)
 
     output:
-    set val(sample_ID), file("${sample_ID}_R1.trim.fastq.gz"), file("${sample_ID}_R2.trim.fastq.gz") into samples_fastq_trimmed, samples_fastq_trimmed2
+    set val(sampleID), file("${fastq_R1_trimmed}"), file("${fastq_R2_trimmed}") into samples_fastq_trimmed, samples_fastq_trimmed2
 
     script:
+    prefix = "${sampleID}"
+    fastq_R1_trimmed = "${prefix}_R1.trim.fastq.gz"
+    fastq_R2_trimmed = "${prefix}_R2.trim.fastq.gz"
+    fastq_R1_unpaired = "${prefix}_R1.unpaired.fastq.gz"
+    fastq_R2_unpaired = "${prefix}_R2.unpaired.fastq.gz"
     """
     trimmomatic.sh PE -threads \${NSLOTS:-\${NTHREADS:-1}} \
     "${read1}" "${read2}" \
-    "${sample_ID}_R1.trim.fastq.gz" "${sample_ID}_R1.unpaired.fastq.gz" \
-    "${sample_ID}_R2.trim.fastq.gz" "${sample_ID}_R2.unpaired.fastq.gz" \
+    "${fastq_R1_trimmed}" "${fastq_R1_unpaired}" \
+    "${fastq_R2_trimmed}" "${fastq_R2_unpaired}" \
     ILLUMINACLIP:${trimmomatic_contaminant_fa}:2:30:10:1:true TRAILING:5 SLIDINGWINDOW:4:15 MINLEN:35
     """
 }
 
 
 process fastqc_trim {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/fastqc-trim", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID),  file(fastq_R1_trim), file(fastq_R2_trim) from samples_fastq_trimmed2
+    set val(sampleID),  file(fastq_R1_trim), file(fastq_R2_trim) from samples_fastq_trimmed2
 
     output:
     file(output_R1_html)
@@ -150,37 +158,41 @@ process fastqc_trim {
 
 process bwa_mem {
     // first pass alignment with BWA
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
 
     input:
-    set val(sample_ID), file(fastq_R1_trim), file(fastq_R2_trim), file(ref_fa_bwa_dir) from samples_fastq_trimmed.combine(ref_fa_bwa_dir)
+    set val(sampleID), file(fastq_R1_trim), file(fastq_R2_trim), file(ref_fa_bwa_dir) from samples_fastq_trimmed.combine(ref_fa_bwa_dir)
 
     output:
-    set val(sample_ID), file("${sample_ID}.sam") into samples_bwa_sam
+    set val(sampleID), file("${sam_file}") into samples_bwa_sam
 
     script:
+    prefix = "${sampleID}"
+    sam_file = "${prefix}.sam"
     """
     bwa mem \
     -M \
     -v 1 \
     -t \${NSLOTS:-\${NTHREADS:-1}} \
-    -R '@RG\\tID:${sample_ID}\\tSM:${sample_ID}\\tLB:${sample_ID}\\tPL:ILLUMINA' \
+    -R '@RG\\tID:${sampleID}\\tSM:${sampleID}\\tLB:${sampleID}\\tPL:ILLUMINA' \
     "${ref_fa_bwa_dir}/genome.fa" "${fastq_R1_trim}" "${fastq_R2_trim}" \
-    -o "${sample_ID}.sam"
+    -o "${sam_file}"
     """
 }
 
 
 process sambamba_view_sort {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
 
     input:
-    set val(sample_ID), file(sample_sam) from samples_bwa_sam
+    set val(sampleID), file(sample_sam) from samples_bwa_sam
 
     output:
-    set val(sample_ID), file("${sample_ID}.bam") into samples_bam, samples_bam2
+    set val(sampleID), file("${bam_file}") into samples_bam, samples_bam2
 
     script:
+    prefix = "${sampleID}"
+    bam_file = "${prefix}.bam"
     """
     sambamba view \
     --sam-input \
@@ -190,75 +202,83 @@ process sambamba_view_sort {
     --compression-level=0 "${sample_sam}" | \
     sambamba sort \
     --nthreads=\${NSLOTS:-\${NTHREADS:-1}} \
-    --out="${sample_ID}.bam" /dev/stdin
+    --out="${bam_file}" /dev/stdin
     """
 }
 // --memory-limit="${params.sambamba_mem_limit}" \
 
 process sambamba_flagstat {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/sambamba-flagstat", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(sample_bam) from samples_bam
+    set val(sampleID), file(sample_bam) from samples_bam
 
     output:
-    file "${sample_ID}.flagstat.txt"
+    file("${flagstat}")
 
     script:
+    prefix = "${sampleID}"
+    flagstat = "${prefix}.flagstat.txt"
     """
-    sambamba flagstat "${sample_bam}" > "${sample_ID}.flagstat.txt"
+    sambamba flagstat "${sample_bam}" > "${flagstat}"
     """
 }
 
 process sambamba_dedup {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/bam-bwa-dd", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(sample_bam) from samples_bam2
+    set val(sampleID), file(sample_bam) from samples_bam2
 
     output:
-    set val(sample_ID), file("${sample_ID}.dd.bam") into samples_dd_bam, samples_dd_bam2, samples_dd_bam3, samples_dd_bam4, samples_dd_bam5, samples_dd_bam6, samples_dd_bam7
-    file("${sample_ID}.dd.bam.bai")
-    file("${sample_ID}.dd.log")
-    file("${sample_ID}.dd.reads.log") into samples_dd_reads_log
+    set val(sampleID), file("${bam_file}") into samples_dd_bam, samples_dd_bam2, samples_dd_bam3, samples_dd_bam4, samples_dd_bam5, samples_dd_bam6, samples_dd_bam7
+    file("${bai_file}")
+    file("${log_file}")
+    file("${reads_log_file}") into samples_dd_reads_log
 
     script:
+    prefix = "${sampleID}"
+    bam_file = "${prefix}.dd.bam"
+    bai_file = "${prefix}.dd.bam.bai"
+    log_file = "${prefix}.dd.log"
+    reads_log_file = "${prefix}.dd.reads.log"
     """
     sambamba markdup \
     --remove-duplicates \
     --nthreads \${NSLOTS:-\${NTHREADS:-1}} \
     --hash-table-size 525000 \
     --overflow-list-size 525000 \
-    "${sample_bam}" "${sample_ID}.dd.bam"
+    "${sample_bam}" "${bam_file}"
 
     # make a copy of the .command.err Nextflow log file for parsing
-    cat .command.err > "${sample_ID}.dd.log"
+    cat .command.err > "${log_file}"
 
     # get values for log output
     reads_duplicates="\$(cat .command.err | grep -m 1 "found.*duplicates" | tr -d -c 0-9)"
-    printf "Sample\tDuplicates\n%s\t%s\n" "${sample_ID}" "\${reads_duplicates}" > "${sample_ID}.dd.reads.log"
+    printf "Sample\tDuplicates\n%s\t%s\n" "${sampleID}" "\${reads_duplicates}" > "${reads_log_file}"
 
-    samtools index "${sample_ID}.dd.bam"
+    samtools index "${bam_file}"
     """
 }
 samples_dd_reads_log.collectFile(name: "samples_dd_reads.tsv", storeDir: "${params.output_dir}", keepHeader: true)
 
 process sambamba_dedup_flagstat {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/sambamba-dd-flagstat", mode: 'copy', overwrite: true
 
-
     input:
-    set val(sample_ID), file(sample_bam) from samples_dd_bam2
+    set val(sampleID), file(sample_bam) from samples_dd_bam2
 
     output:
-    file "${sample_ID}.dd.flagstat.txt"
+    file "${flagstat}"
 
     script:
+    prefix = "${sampleID}"
+    flagstat = "${prefix}.dd.flagstat.txt"
     """
-    sambamba flagstat "${sample_bam}" > "${sample_ID}.dd.flagstat.txt"
+    sambamba flagstat "${sample_bam}" > "${flagstat}"
     """
 
 }
@@ -291,17 +311,20 @@ samples_dd_bam.combine(ref_fasta)
 // GATK RECALIBRATION AND VARIANT CALLING
 
 process qc_target_reads_gatk_genome {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict) from samples_dd_bam_ref
+    set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict) from samples_dd_bam_ref
 
     output:
-    file "${sample_ID}.genome.sample_statistics"
-    file "${sample_ID}.genome.sample_summary"
+    file "${sample_statistics}"
+    file "${sample_summary}"
 
     script:
+    prefix = "${sampleID}.genome"
+    sample_statistics = "${prefix}.sample_statistics"
+    sample_summary = "${prefix}.sample_summary"
     """
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
@@ -317,23 +340,26 @@ process qc_target_reads_gatk_genome {
     --reference_sequence "${ref_fasta}" \
     --input_file "${sample_bam}" \
     --outputFormat csv \
-    --out "${sample_ID}.genome"
+    --out "${prefix}"
     """
 }
 
 
 process qc_target_reads_gatk_pad500 {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref2
+    set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref2
 
     output:
-    file "${sample_ID}.pad500.sample_statistics"
-    file "${sample_ID}.pad500.sample_summary"
+    file "${sample_statistics}"
+    file "${sample_summary}"
 
     script:
+    prefix = "${sampleID}.pad500"
+    sample_statistics = "${prefix}.sample_statistics"
+    sample_summary = "${prefix}.sample_summary"
     """
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
@@ -351,22 +377,25 @@ process qc_target_reads_gatk_pad500 {
     --interval_padding 500 \
     --input_file "${sample_bam}" \
     --outputFormat csv \
-    --out "${sample_ID}.pad500"
+    --out "${prefix}"
     """
 }
 
 process qc_target_reads_gatk_pad100 {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref3
+    set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref3
 
     output:
-    file "${sample_ID}.pad100.sample_statistics"
-    file "${sample_ID}.pad100.sample_summary"
+    file "${sample_statistics}"
+    file "${sample_summary}"
 
     script:
+    prefix = "${sampleID}.pad100"
+    sample_statistics = "${prefix}.sample_statistics"
+    sample_summary = "${prefix}.sample_summary"
     """
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
@@ -384,22 +413,25 @@ process qc_target_reads_gatk_pad100 {
     --interval_padding 100 \
     --input_file "${sample_bam}" \
     --outputFormat csv \
-    --out "${sample_ID}.pad100"
+    --out "${prefix}"
     """
 }
 
 process qc_target_reads_gatk_bed {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/qc-target-reads", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref4
+    set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref4
 
     output:
-    file "${sample_ID}.bed.sample_statistics"
-    file "${sample_ID}.bed.sample_summary"
+    file "${sample_statistics}"
+    file "${sample_summary}"
 
     script:
+    prefix = "${sampleID}.bed"
+    sample_statistics = "${prefix}.sample_statistics"
+    sample_summary = "${prefix}.sample_summary"
     """
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
@@ -416,28 +448,38 @@ process qc_target_reads_gatk_bed {
     --intervals "${targets_bed_file}" \
     --input_file "${sample_bam}" \
     --outputFormat csv \
-    --out "${sample_ID}.bed"
+    --out "${prefix}"
     """
 }
 
 
 // MAIN REALIGNMENT AND RECALIBRATION STEP
 process bam_ra_rc_gatk {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/bam_dd_ra_rc_gatk", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from samples_dd_bam_ref_gatk
+    set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from samples_dd_bam_ref_gatk
 
     output:
-    set val(sample_ID), file("${sample_ID}.dd.ra.rc.bam"), file("${sample_ID}.dd.ra.rc.bam.bai") into samples_dd_ra_rc_bam, samples_dd_ra_rc_bam2, samples_dd_ra_rc_bam3
-    file "${sample_ID}.intervals"
-    file "${sample_ID}.table1.txt"
-    file "${sample_ID}.table2.txt"
-    file "${sample_ID}.csv"
-    file "${sample_ID}.pdf"
+    set val(sampleID), file("${ra_rc_bam_file}"), file("${ra_rc_bai_file}") into samples_dd_ra_rc_bam, samples_dd_ra_rc_bam2, samples_dd_ra_rc_bam3
+    file "${intervals_file}"
+    file "${table1}"
+    file "${table2}"
+    file "${csv_file}"
+    file "${pdf_file}"
 
     script:
+    prefix = "${sampleID}"
+    ra_bam_file = "${prefix}.dd.ra.bam"
+    ra_bai_file = "${prefix}.dd.ra.bam.bai"
+    ra_rc_bam_file = "${prefix}.dd.ra.rc.bam"
+    ra_rc_bai_file = "${prefix}.dd.ra.rc.bam.bai"
+    intervals_file = "${prefix}.intervals"
+    table1 = "${prefix}.table1.txt"
+    table2 = "${prefix}.table2.txt"
+    csv_file = "${prefix}.csv"
+    pdf_file = "${prefix}.pdf"
     """
     gatk.sh -T RealignerTargetCreator \
     -dt NONE \
@@ -449,7 +491,7 @@ process bam_ra_rc_gatk {
     --intervals "${targets_bed_file}" \
     --interval_padding 10 \
     --input_file "${sample_bam}" \
-    --out "${sample_ID}.intervals"
+    --out "${intervals_file}"
 
     gatk.sh -T IndelRealigner \
     -dt NONE \
@@ -458,9 +500,9 @@ process bam_ra_rc_gatk {
     --maxReadsForRealignment 50000 \
     -known "${gatk_1000G_phase1_indels_vcf}" \
     -known "${mills_and_1000G_gold_standard_indels_vcf}" \
-    -targetIntervals "${sample_ID}.intervals" \
+    -targetIntervals "${intervals_file}" \
     --input_file "${sample_bam}" \
-    --out "${sample_ID}.dd.ra.bam"
+    --out "${ra_bam_file}"
 
     gatk.sh -T BaseRecalibrator \
     --logging_level ERROR \
@@ -472,8 +514,8 @@ process bam_ra_rc_gatk {
     -knownSites "${dbsnp_ref_vcf}" \
     --intervals "${targets_bed_file}" \
     --interval_padding 10 \
-    --input_file "${sample_ID}.dd.ra.bam" \
-    --out "${sample_ID}.table1.txt"
+    --input_file "${ra_bam_file}" \
+    --out "${table1}"
 
     gatk.sh -T BaseRecalibrator \
     --logging_level ERROR \
@@ -485,28 +527,28 @@ process bam_ra_rc_gatk {
     -knownSites "${dbsnp_ref_vcf}" \
     --intervals "${targets_bed_file}" \
     --interval_padding 10 \
-    --input_file "${sample_ID}.dd.ra.bam" \
-    -BQSR "${sample_ID}.table1.txt" \
-    --out "${sample_ID}.table2.txt"
+    --input_file "${ra_bam_file}" \
+    -BQSR "${table1}" \
+    --out "${table2}"
 
     gatk.sh -T AnalyzeCovariates \
     --logging_level ERROR \
     --reference_sequence "${ref_fasta}" \
-    -before "${sample_ID}.table1.txt" \
-    -after "${sample_ID}.table2.txt" \
-    -csv "${sample_ID}.csv" \
-    -plots "${sample_ID}.pdf"
+    -before "${table1}" \
+    -after "${table2}" \
+    -csv "${csv_file}" \
+    -plots "${pdf_file}"
 
     gatk.sh -T PrintReads \
     --logging_level ERROR \
     -nct \${NSLOTS:-\${NTHREADS:-1}} \
     -rf BadCigar \
     --reference_sequence "${ref_fasta}" \
-    -BQSR "${sample_ID}.table1.txt" \
-    --input_file "${sample_ID}.dd.ra.bam" \
-    --out "${sample_ID}.dd.ra.rc.bam"
+    -BQSR "${table1}" \
+    --input_file "${ra_bam_file}" \
+    --out "${ra_rc_bam_file}"
 
-    samtools index "${sample_ID}.dd.ra.rc.bam"
+    samtools index "${ra_rc_bam_file}"
     """
 }
 
@@ -544,22 +586,30 @@ samples_dd_ra_rc_bam_ref2.combine( dbsnp_ref_vcf3 )
 
 
 process qc_coverage_gatk {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/qc_coverage_gatk", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref
 
     output:
-    file "${sample_ID}.sample_summary"
-    file "${sample_ID}.sample_statistics"
-    file "${sample_ID}.sample_interval_summary"
-    file "${sample_ID}.sample_interval_statistics"
-    file "${sample_ID}.sample_cumulative_coverage_proportions"
-    file "${sample_ID}.sample_cumulative_coverage_counts"
-    file("${sample_ID}.summary.csv") into qc_coverage_gatk_summary
+    file "${sample_summary}"
+    file "${sample_statistics}"
+    file "${sample_interval_summary}"
+    file "${sample_interval_statistics}"
+    file "${sample_cumulative_coverage_proportions}"
+    // file "${sample_cumulative_coverage_counts}."
+    file("${summary_csv}") into qc_coverage_gatk_summary
 
     script:
+    prefix = "${sampleID}"
+    sample_summary = "${prefix}.sample_summary"
+    sample_statistics = "${prefix}.sample_statistics"
+    sample_interval_summary = "${prefix}.sample_interval_summary"
+    sample_interval_statistics = "${prefix}.sample_interval_statistics"
+    sample_cumulative_coverage_proportions = "${prefix}.sample_cumulative_coverage_proportions"
+    sample_cumulative_coverage_counts = "${prefix}.sample_cumulative_coverage_counts"
+    summary_csv = "${prefix}.summary.csv"
     """
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
@@ -575,9 +625,9 @@ process qc_coverage_gatk {
     --start 1 --stop 1000 \
     --input_file "${sample_bam}" \
     --outputFormat csv \
-    --out "${sample_ID}"
+    --out "${prefix}"
 
-    head -2 "${sample_ID}.sample_summary" > "${sample_ID}.summary.csv"
+    head -2 "${sample_summary}" > "${summary_csv}"
     """
 }
 qc_coverage_gatk_summary.collectFile(name: "${params.qc_coverage_gatk_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
@@ -598,83 +648,81 @@ process pad_bed {
 }
 
 process lofreq {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/vcf_lofreq", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp
 
     output:
-    file("${sample_ID}.vcf")
-    file("${sample_ID}.norm.vcf")
-    file("${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt") into lofreq_annotations
-    file("${sample_ID}.eval.grp")
-    val(sample_ID) into sample_lofreq_done
+    set val(caller), val(sampleID), file("${norm_vcf}") into samples_lofreq_vcf
+    file("${vcf_file}")
+    file("${multiallelics_stats}")
+    file("${realign_stats}")
+    file("${eval_file}")
+    val(sampleID) into sample_lofreq_done
 
     script:
+    caller = "LoFreq"
+    prefix = "${sampleID}.${caller}"
+    vcf_file = "${prefix}.vcf"
+    vcf_bgz_file = "${prefix}.vcf.bgz"
+    norm_vcf = "${prefix}.norm.vcf"
+    multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
+    realign_stats = "${prefix}.bcftools.realign.stats.txt"
+    eval_file = "${sampleID}.eval.grp"
     """
     lofreq call-parallel \
     --call-indels \
     --pp-threads \${NSLOTS:-\${NTHREADS:-1}} \
     --ref "${ref_fasta}" \
     --bed "${targets_bed_file}" \
-    --out "${sample_ID}.vcf" \
+    --out "${vcf_file}" \
     "${sample_bam}"
 
-    bgzip -c "${sample_ID}.vcf" > "${sample_ID}.vcf.bgz"
+    bgzip -c "${vcf_file}" > "${vcf_bgz_file}"
 
-    bcftools index "${sample_ID}.vcf.bgz"
+    bcftools index "${vcf_bgz_file}"
 
-    bcftools norm \
-    --multiallelics \
-    -both \
-    --output-type v \
-    "${sample_ID}.vcf.bgz" | \
-    bcftools norm \
-    --fasta-ref "${ref_fasta}" \
-    --output-type v - | \
-    bcftools view \
-    --exclude 'DP<5' \
-    --output-type v >  "${sample_ID}.norm.vcf"
-
-    # annotate the vcf
-    annotate_vcf.sh "${sample_ID}.norm.vcf" "${sample_ID}.norm"
-
-    # add a column with the sample ID
-    paste_col.py -i "${sample_ID}.norm.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" \
-    -o "${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" \
-    --header "Sample" \
-    -v "${sample_ID}" \
-    -d "\t"
+    cat ${vcf_file} | \
+    bcftools norm --multiallelics -both --output-type v - 2>"${multiallelics_stats}" | \
+    bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
+    "${norm_vcf}"
 
     gatk.sh -T VariantEval \
     -R "${ref_fasta}" \
-    -o "${sample_ID}.eval.grp" \
+    -o "${eval_file}" \
     --dbsnp "${dbsnp_ref_vcf}" \
-    --eval "${sample_ID}.norm.vcf"
+    --eval "${norm_vcf}"
     """
 }
-lofreq_annotations.collectFile(name: "${params.annotations_lofreq_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
 
 
 
 
 process gatk_hc {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     publishDir "${params.output_dir}/vcf_hc", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp2
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp2
 
     output:
-    file("${sample_ID}.vcf")
-    set val(sample_ID), file("${sample_ID}.norm.vcf") into sample_vcf_hc
-    file("${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt") into gatk_hc_annotations
-    set val(sample_ID), file("${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt") into gatk_hc_annotations2
-    file("${sample_ID}.eval.grp")
-    val(sample_ID) into sample_gatk_hc_done
+    set val(caller), val(sampleID), file(norm_vcf) into sample_vcf_hc
+    file("${vcf_file}")
+    file("${multiallelics_stats}")
+    file("${realign_stats}")
+    file("${eval_file}")
+    val(sampleID) into sample_gatk_hc_done
 
     script:
+    caller = "HaplotypeCaller"
+    prefix = "${sampleID}.${caller}"
+    vcf_file = "${prefix}.vcf"
+    norm_vcf = "${prefix}.norm.vcf"
+    multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
+    realign_stats = "${prefix}.bcftools.realign.stats.txt"
+    eval_file = "${sampleID}.eval.grp"
     """
     gatk.sh -T HaplotypeCaller \
     -dt NONE \
@@ -686,35 +734,20 @@ process gatk_hc {
     --intervals "${targets_bed_file}" \
     --interval_padding 10 \
     --input_file "${sample_bam}" \
-    --out "${sample_ID}.vcf"
+    --out "${vcf_file}"
 
-    cat "${sample_ID}.vcf" | \
-    bcftools norm \
-    --multiallelics \
-    -both \
-    --output-type v - | \
-    bcftools norm \
-    --fasta-ref "${ref_fasta}" \
-    --output-type v - | \
-    bcftools view \
-    --exclude 'DP<5' \
-    --output-type v > "${sample_ID}.norm.vcf"
-
-    # annotate the vcf
-    annotate_vcf.sh "${sample_ID}.norm.vcf" "${sample_ID}.norm"
-
-    # add a column with the sample ID
-    paste_col.py -i "${sample_ID}.norm.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.norm.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
+    cat ${vcf_file} | \
+    bcftools norm --multiallelics -both --output-type v - 2>"${multiallelics_stats}" | \
+    bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
+    "${norm_vcf}"
 
     gatk.sh -T VariantEval \
     -R "${ref_fasta}" \
-    -o "${sample_ID}.eval.grp" \
+    -o "${eval_file}" \
     --dbsnp "${dbsnp_ref_vcf}" \
-    --eval "${sample_ID}.norm.vcf"
+    --eval "${norm_vcf}"
     """
 }
-gatk_hc_annotations.collectFile(name: "${params.annotations_hc_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-
 
 
 
@@ -724,157 +757,60 @@ gatk_hc_annotations.collectFile(name: "${params.annotations_hc_file_basename}", 
 // DOWNSTREAM TASKS
 //
 // DELLY2 SNV STEPS
-process delly2_deletions {
-    tag { "${sample_ID}" }
-    publishDir "${params.output_dir}/snv-deletions-Delly2", mode: 'copy', overwrite: true
+delly2_modes = [
+['deletions', 'DEL'],
+['duplications', 'DUP'],
+['inversions', 'INV'],
+['translocations', 'BND'],
+['insertions', 'INS']
+]
+process delly2 {
+    tag { "${sampleID}-${type}" }
+    publishDir "${params.output_dir}/snv-${type}-Delly2", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref4
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref4
+    each mode from delly2_modes
 
     output:
-    file "${sample_ID}.deletions.vcf"
-    file "${sample_ID}.deletions.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_deletions_annotations
+    file "${vcf_file}"
 
     script:
+    type = mode[0]
+    arg = mode[1]
+    caller = "Delly2"
+    prefix = "${sampleID}.${caller}.${type}"
+    bcf_file = "${prefix}.bcf"
+    vcf_file = "${prefix}.vcf"
     """
-    delly call -t DEL -g "${ref_fasta}" -o "${sample_ID}.deletions.bcf" "${sample_bam}"
-    bcftools view "${sample_ID}.deletions.bcf" > "${sample_ID}.deletions.vcf"
-
-    # annotate the vcf
-    annotate_vcf.sh "${sample_ID}.deletions.vcf" "${sample_ID}.deletions"
-
-    # add a column with the sample ID
-    paste_col.py -i "${sample_ID}.deletions.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.deletions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
-    """
-}
-delly2_deletions_annotations.collectFile(name: "${params.annotations_deletions_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-
-
-process delly2_duplications {
-    tag { "${sample_ID}" }
-    publishDir "${params.output_dir}/snv-duplications-Delly2", mode: 'copy', overwrite: true
-
-    input:
-    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref5
-
-    output:
-    file "${sample_ID}.duplications.vcf"
-    file "${sample_ID}.duplications.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_duplications_annotations
-
-    script:
-    """
-    delly call -t DUP -g "${ref_fasta}" -o "${sample_ID}.duplications.bcf" "${sample_bam}"
-    bcftools view "${sample_ID}.duplications.bcf" > "${sample_ID}.duplications.vcf"
-
-    # annotate the vcf
-    annotate_vcf.sh "${sample_ID}.duplications.vcf" "${sample_ID}.duplications"
-
-    # add a column with the sample ID
-    paste_col.py -i "${sample_ID}.duplications.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.duplications.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
+    delly call -t "${arg}" -g "${ref_fasta}" -o "${bcf_file}" "${sample_bam}"
+    bcftools view "${bcf_file}" > "${vcf_file}"
     """
 }
-delly2_duplications_annotations.collectFile(name: "${params.annotations_duplications_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-
-
-
-process delly2_inversions {
-    tag { "${sample_ID}" }
-    publishDir "${params.output_dir}/snv-inversions-Delly2", mode: 'copy', overwrite: true
-
-    input:
-    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref6
-
-    output:
-    file "${sample_ID}.inversions.bcf"
-    file "${sample_ID}.inversions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_inversions_annotations
-
-    script:
-    """
-    delly call -t INV -g "${ref_fasta}" -o "${sample_ID}.inversions.bcf" "${sample_bam}"
-    bcftools view "${sample_ID}.inversions.bcf" > "${sample_ID}.inversions.vcf"
-
-    # annotate the vcf
-    annotate_vcf.sh "${sample_ID}.inversions.vcf" "${sample_ID}.inversions"
-
-    # add a column with the sample ID
-    paste_col.py -i "${sample_ID}.inversions.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.inversions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
-    """
-}
-delly2_inversions_annotations.collectFile(name: "${params.annotations_inversion_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-
-
-
-process delly2_translocations {
-    tag { "${sample_ID}" }
-    publishDir "${params.output_dir}/snv-translocations-Delly2", mode: 'copy', overwrite: true
-
-    input:
-    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref7
-
-    output:
-    file "${sample_ID}.translocations.vcf"
-    file "${sample_ID}.translocations.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_translocations_annotations
-
-    script:
-    """
-    delly call -t BND -g ${ref_fasta} -o "${sample_ID}.translocations.bcf" "${sample_bam}"
-    bcftools view "${sample_ID}.translocations.bcf" > "${sample_ID}.translocations.vcf"
-
-    # annotate the vcf
-    annotate_vcf.sh "${sample_ID}.translocations.vcf" "${sample_ID}.translocations"
-
-    # add a column with the sample ID
-    paste_col.py -i "${sample_ID}.translocations.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.translocations.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
-    """
-}
-delly2_translocations_annotations.collectFile(name: "${params.annotations_translocations_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-
-
-process delly2_insertions {
-    tag { "${sample_ID}" }
-    publishDir "${params.output_dir}/snv-insertions-Delly2", mode: 'copy', overwrite: true
-
-    input:
-    set val(sample_ID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref8
-
-    output:
-    file "${sample_ID}.insertions.vcf"
-    file "${sample_ID}.insertions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" into delly2_insertions_annotations
-
-    script:
-    """
-    delly call -t INS -g ${ref_fasta} -o "${sample_ID}.insertions.bcf" "${sample_bam}"
-    bcftools view "${sample_ID}.insertions.bcf" > "${sample_ID}.insertions.vcf"
-
-    # annotate the vcf
-    annotate_vcf.sh "${sample_ID}.insertions.vcf" "${sample_ID}.insertions"
-
-    # add a column with the sample ID
-    paste_col.py -i "${sample_ID}.insertions.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${sample_ID}.insertions.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${sample_ID}" -d "\t"
-    """
-}
-delly2_insertions_annotations.collectFile(name: "${params.annotations_insertions_Delly2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
-
 
 
 // Genomic Signatures
 process deconstructSigs_signatures {
-    tag { "${sample_ID}" }
+    tag { "${sampleID}" }
     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
     errorStrategy 'ignore'
     publishDir "${params.output_dir}/signatures_hc", mode: 'copy', overwrite: true
 
     input:
-    set val(sample_ID), file(sample_vcf) from sample_vcf_hc
+    set val(caller), val(sampleID), file(sample_vcf) from sample_vcf_hc
 
     output:
-    file "${sample_ID}_signatures.Rds"
-    file "${sample_ID}_signatures.pdf" into signatures_plots
-    file "${sample_ID}_signatures_pie.pdf" into signatures_pie_plots
+    file "${signatures_rds}"
+    file "${signatures_pdf}" into signatures_plots
+    file "${signatures_pie_pdf}" into signatures_pie_plots
 
     script:
+    prefix = "${sampleID}.${caller}"
+    signatures_rds = "${prefix}_signatures.Rds"
+    signatures_pdf = "${prefix}_signatures.pdf"
+    signatures_pie_pdf = "${prefix}_signatures.pdf"
     """
-    deconstructSigs_make_signatures.R "${sample_ID}" "${sample_vcf}"
+    deconstructSigs_make_signatures.R "${sampleID}" "${sample_vcf}"
     """
 }
 
@@ -926,52 +862,51 @@ process merge_signatures_pie_plots {
 
 
 // // REQUIRES ANNOTATIONS FOR DBSNP FILTERING
-process vaf_distribution_plot {
-    tag { "${sample_ID}" }
-    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-    errorStrategy 'ignore'
-    publishDir "${params.output_dir}/vaf-distribution-hc", mode: 'copy', overwrite: true
+// process vaf_distribution_plot {
+//     tag { "${sampleID}" }
+//     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
+//     errorStrategy 'ignore'
+//     publishDir "${params.output_dir}/vaf-distribution-hc", mode: 'copy', overwrite: true
+//
+//     input:
+//     set val(sampleID), file(sample_vcf_annot) from gatk_hc_annotations2
+//
+//     output:
+//     file "${sampleID}_vaf_dist.pdf" into vaf_distribution_plots
+//
+//     script:
+//     """
+//     VAF-distribution-plot.R "${sampleID}" "${sample_vcf_annot}"
+//     """
+// }
 
-    input:
-    set val(sample_ID), file(sample_vcf_annot) from gatk_hc_annotations2
-
-    output:
-    file "${sample_ID}_vaf_dist.pdf" into vaf_distribution_plots
-
-    script:
-    """
-    VAF-distribution-plot.R "${sample_ID}" "${sample_vcf_annot}"
-    """
-
-}
-
-process merge_VAF_plots {
-    executor "local"
-    validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-    errorStrategy 'ignore'
-    publishDir "${params.output_dir}/", mode: 'copy', overwrite: true
-
-    input:
-    file '*' from vaf_distribution_plots.toList()
-
-    output:
-    file "vaf_distributions.pdf"
-
-    script:
-    """
-    if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
-        gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=vaf_distributions.pdf *
-    else
-        exit 11
-    fi
-    """
-}
+// process merge_VAF_plots {
+//     executor "local"
+//     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
+//     errorStrategy 'ignore'
+//     publishDir "${params.output_dir}/", mode: 'copy', overwrite: true
+//
+//     input:
+//     file '*' from vaf_distribution_plots.toList()
+//
+//     output:
+//     file "vaf_distributions.pdf"
+//
+//     script:
+//     """
+//     if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
+//         gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=vaf_distributions.pdf *
+//     else
+//         exit 11
+//     fi
+//     """
+// }
 
 
 
 
 // SETUP CHANNELS FOR PAIRED TUMOR-NORMAL STEPS
-// samples_dd_ra_rc_bam2 // set val(sample_ID), file("${sample_ID}.dd.ra.rc.bam"), file("${sample_ID}.dd.ra.rc.bam.bai")
+// samples_dd_ra_rc_bam2 // set val(sampleID), file("${sampleID}.dd.ra.rc.bam"), file("${sampleID}.dd.ra.rc.bam.bai")
 // samples_pairs // [ tumorID, normalID ]
 // get all the combinations of samples & pairs
 samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai, tumorID, normalID ]
@@ -1073,6 +1008,7 @@ process tumor_normal_compare {
 
 // REQUIRES PAIRED SAMPLES BAM FILES
 process msisensor {
+    // disable this since it always breaks on small sample datasets
     tag { "${comparisonID}" }
     validExitStatus 0,139 // allow '139' failure from small dataset; 23039 Segmentation fault      (core dumped)
     errorStrategy 'ignore'
@@ -1086,6 +1022,9 @@ process msisensor {
     file "${comparisonID}.msisensor_dis"
     file "${comparisonID}.msisensor_germline"
     file "${comparisonID}.msisensor_somatic"
+
+    when:
+    params.msisensor_disable != true
 
     script:
     """
@@ -1102,13 +1041,16 @@ process mutect2 {
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf), file(cosmic_ref_vcf), val(chrom) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
 
     output:
-    file("${comparisonID}.${chrom}.vcf")
-    file("${comparisonID}.${chrom}.sample.chrom.${params.ANNOVAR_BUILD_VERSION}_multianno.txt") into mutect2_annotations
+    file("${vcf_file}")
     val(comparisonID) into mutect2_sampleIDs
 
     script:
+    caller = "MuTect2"
+    prefix = "${comparisonID}.${chrom}.${caller}"
+    bed_subset = "${prefix}.bed"
+    vcf_file = "${prefix}.vcf"
     """
-    subset_bed.py "${chrom}" "${targets_bed}" > "${comparisonID}.${chrom}.bed"
+    subset_bed.py "${chrom}" "${targets_bed}" > "${bed_subset}"
 
     gatk.sh -T MuTect2 \
     -dt NONE \
@@ -1120,23 +1062,13 @@ process mutect2 {
     --reference_sequence "${ref_fasta}" \
     --dbsnp "${dbsnp_ref_vcf}" \
     --cosmic "${cosmic_ref_vcf}" \
-    --intervals "${comparisonID}.${chrom}.bed" \
+    --intervals "${bed_subset}" \
     --interval_padding 10 \
     --input_file:tumor "${tumorBam}" \
     --input_file:normal "${normalBam}" \
-    --out "${comparisonID}.${chrom}.vcf"
-
-    # annotate the vcf
-    annotate_vcf.sh "${comparisonID}.${chrom}.vcf" "${comparisonID}.${chrom}"
-
-    # add a column with the sample ID
-    paste_col.py -i "${comparisonID}.${chrom}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${comparisonID}.${chrom}.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "Sample" -v "${comparisonID}" -d "\t"
-
-    # add the col for this chrom
-    paste_col.py -i "${comparisonID}.${chrom}.sample.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" -o "${comparisonID}.${chrom}.sample.chrom.${params.ANNOVAR_BUILD_VERSION}_multianno.txt" --header "SampleChrom" -v "${chrom}" -d "\t"
+    --out "${vcf_file}"
     """
 }
-mutect2_annotations.collectFile(name: "${params.annotations_mutect2_file_basename}", storeDir: "${params.output_dir}", keepHeader: true)
 
 // process multiqc {
 //     publishDir "${params.output_dir}", mode: 'copy', overwrite: true
