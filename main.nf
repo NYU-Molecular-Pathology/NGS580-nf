@@ -121,6 +121,7 @@ process copy_samplesheet {
 
     output:
     file("samples.analysis.tsv")
+    val("samples.analysis.tsv") into done_copy_samplesheet
 
     script:
     """
@@ -139,6 +140,7 @@ process print_metadata {
 
     output:
     file("meta.tsv")
+    val("meta.tsv") into done_print_metadata
 
     script:
     """
@@ -158,6 +160,7 @@ process fastq_merge {
 
     output:
     set val(sampleID), file("${merged_fastq_R1}"), file("${merged_fastq_R2}") into samples_fastq_merged
+    val(sampleID) into done_fastq_merge
 
     script:
     prefix = "${sampleID}"
@@ -180,6 +183,7 @@ process trimmomatic {
 
     output:
     set val(sampleID), file("${fastq_R1_trimmed}"), file("${fastq_R2_trimmed}") into samples_fastq_trimmed, samples_fastq_trimmed2
+    val(sampleID) into done_trimmomatic
 
     script:
     prefix = "${sampleID}"
@@ -210,6 +214,7 @@ process fastqc_trim {
     file(output_R1_zip)
     file(output_R2_html)
     file(output_R2_zip)
+    val(sampleID) into done_fastqc_trim
 
     script:
     output_R1_html = "${fastq_R1_trim}".replaceFirst(/.fastq.gz$/, "_fastqc.html")
@@ -233,6 +238,7 @@ process bwa_mem {
 
     output:
     set val(sampleID), file("${sam_file}") into samples_bwa_sam
+    val(sampleID) into done_bwa_mem
 
     script:
     prefix = "${sampleID}"
@@ -257,6 +263,7 @@ process sambamba_view_sort {
 
     output:
     set val(sampleID), file("${bam_file}") into samples_bam, samples_bam2
+    val(sampleID) into done_sambamba_view_sort
 
     script:
     prefix = "${sampleID}"
@@ -285,6 +292,7 @@ process sambamba_flagstat {
 
     output:
     file("${flagstat}")
+    val(sampleID) into done_sambamba_flagstat
 
     script:
     prefix = "${sampleID}"
@@ -307,6 +315,7 @@ process sambamba_dedup {
     file("${bai_file}")
     file("${log_file}")
     file("${reads_log_file}") into samples_dd_reads_log
+    val(sampleID) into done_sambamba_dedup
 
     script:
     prefix = "${sampleID}"
@@ -344,6 +353,7 @@ process sambamba_dedup_flagstat {
 
     output:
     file "${flagstat}"
+    val(sampleID) into done_sambamba_dedup_flagstat
 
     script:
     prefix = "${sampleID}"
@@ -392,6 +402,7 @@ process qc_target_reads_gatk_genome {
     output:
     file "${sample_statistics}"
     file "${sample_summary}"
+    val(sampleID) into done_qc_target_reads_gatk_genome
 
     script:
     prefix = "${sampleID}.genome"
@@ -428,6 +439,7 @@ process qc_target_reads_gatk_pad500 {
     output:
     file "${sample_statistics}"
     file "${sample_summary}"
+    val(sampleID) into done_qc_target_reads_gatk_pad500
 
     script:
     prefix = "${sampleID}.pad500"
@@ -465,6 +477,7 @@ process qc_target_reads_gatk_pad100 {
     output:
     file "${sample_statistics}"
     file "${sample_summary}"
+    val(sampleID) into done_qc_target_reads_gatk_pad100
 
     script:
     prefix = "${sampleID}.pad100"
@@ -502,6 +515,7 @@ process qc_target_reads_gatk_bed {
     output:
     file "${sample_statistics}"
     file "${sample_summary}"
+    val(sampleID) into done_qc_target_reads_gatk_bed
 
     script:
     prefix = "${sampleID}.bed"
@@ -544,6 +558,7 @@ process bam_ra_rc_gatk {
     file "${table2}"
     file "${csv_file}"
     file "${pdf_file}"
+    val(sampleID) into done_bam_ra_rc_gatk
 
     script:
     prefix = "${sampleID}"
@@ -677,6 +692,7 @@ process qc_coverage_gatk {
     file "${sample_cumulative_coverage_proportions}"
     // file "${sample_cumulative_coverage_counts}."
     file("${summary_csv}") into qc_coverage_gatk_summary
+    val(sampleID) into done_qc_coverage_gatk
 
     script:
     prefix = "${sampleID}"
@@ -711,13 +727,14 @@ qc_coverage_gatk_summary.collectFile(name: "${params.qc_coverage_gatk_file_basen
 
 process pad_bed {
     publishDir "${params.output_dir}/analysis/targets", mode: 'copy', overwrite: true
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    // publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set file(targets_bed_file), file(ref_chrom_sizes) from targets_bed3.combine(ref_chrom_sizes)
 
     output:
     file("targets.pad10.bed") into targets_pad_bed
+    val("targets.pad10.bed") into done_pad_bed
 
     script:
     """
@@ -743,7 +760,7 @@ process lofreq {
     file("${tsv_file}")
     file("${reformat_tsv}")
     file("${filtered_vcf}")
-    val(sampleID) into sample_lofreq_done
+    val(sampleID) into done_lofreq
 
     script:
     caller = "LoFreq"
@@ -826,7 +843,7 @@ process gatk_hc {
     file("${tsv_file}")
     file("${reformat_tsv}")
     file("${filtered_vcf}")
-    val(sampleID) into sample_gatk_hc_done
+    val(sampleID) into done_gatk_hc
 
     script:
     caller = "HaplotypeCaller"
@@ -922,6 +939,7 @@ process delly2 {
 
     output:
     file "${vcf_file}"
+    val(sampleID) into done_delly2
 
     script:
     type = mode[0]
@@ -940,21 +958,25 @@ process delly2 {
 // Genomic Signatures
 deconstructSigs_variant_min = 55
 sample_vcf_hc.filter{ caller, sampleID, filtered_vcf ->
-    line_count = 0
-    num_variants = 0
-    enough_variants = false
-    filtered_vcf.withReader { reader ->
-        while (line = reader.readLine()) {
-            if (!line.startsWith("#")) num_variants++
-            if (num_variants > 1) {
-                enough_variants = true
-                break
+                // make sure there are enough variants in the VCF to proceed!
+                line_count = 0
+                num_variants = 0
+                enough_variants = false
+
+                filtered_vcf.withReader { reader ->
+                    while (line = reader.readLine()) {
+                        if (!line.startsWith("#")) num_variants++
+                        if (num_variants > deconstructSigs_variant_min) {
+                            enough_variants = true
+                            break
+                            }
+                        line_count++
+                    }
                 }
-            line_count++
-        }
-    }
-    enough_variants
-}.set { sample_vcf_hc_filtered }
+
+                enough_variants
+                }
+                .set { sample_vcf_hc_filtered }
 
 process deconstructSigs_signatures {
     tag { "${sampleID}" }
@@ -970,6 +992,7 @@ process deconstructSigs_signatures {
     file "${signatures_rds}"
     file "${signatures_pdf}" into signatures_plots
     file "${signatures_pie_pdf}" into signatures_pie_plots
+    val(sampleID) into done_deconstructSigs_signatures
 
     script:
     prefix = "${sampleID}.${caller}"
@@ -989,13 +1012,11 @@ process merge_signatures_plots {
     publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
 
     input:
-    file(input_files:'*') from signatures_plots.toList() //.ifEmpty{null}
+    file(input_files:'*') from signatures_plots.toList()
 
     output:
     file "signatures.pdf"
-
-    when:
-    input_files != null
+    val("signatures.pdf") into done_merge_signatures_plots
 
     script:
     println "[merge_signatures_plots] input_files: ${input_files}"
@@ -1022,6 +1043,7 @@ process merge_signatures_pie_plots {
 
     output:
     file "signatures_pie.pdf"
+    val("signatures_pie.pdf") into done_merge_signatures_pie_plots
 
     script:
     """
@@ -1174,6 +1196,9 @@ process tumor_normal_compare {
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) from samples_dd_ra_rc_bam_pairs_ref3
 
+    output:
+    val(comparisonID) into done_tumor_normal_compare
+
     script:
     """
     echo "[tumor_normal_compare] comparisonID: ${comparisonID}, tumorID: ${tumorID}, tumorBam: ${tumorBam}, tumorBai: ${tumorBai}, normalID: ${normalID}, normalBam: ${normalBam}, normalBai: ${normalBai}, ref_fasta: ${ref_fasta}, ref_fai: ${ref_fai}, ref_dict: ${ref_dict}, targets_bed: ${targets_bed}, "
@@ -1198,6 +1223,7 @@ process msisensor {
     file "${comparisonID}.msisensor_dis"
     file "${comparisonID}.msisensor_germline"
     file "${comparisonID}.msisensor_somatic"
+    val(comparisonID) into done_msisensor
 
     when:
     params.msisensor_disable != true
@@ -1228,6 +1254,7 @@ process mutect2 {
     file("${tsv_file}")
     file("${reformat_tsv}")
     val(comparisonID) into mutect2_sampleIDs
+    val(comparisonID) into done_mutect2
 
     script:
     caller = "MuTect2"
@@ -1366,6 +1393,7 @@ process annotate {
     file("${annovar_output_txt}")
     file("${annovar_output_vcf}")
     file("${annotations_tsv}")
+    val(sampleID) into done_annotate
 
     script:
     prefix = "${sampleID}.${caller}"
@@ -1437,6 +1465,7 @@ process annotate_pairs {
     file("${annovar_output_txt}")
     file("${annovar_output_vcf}")
     file("${annotations_tsv}")
+    val(comparisonID) into done_annotate_pairs
 
     script:
     prefix = "${comparisonID}.${chrom}.${caller}"
@@ -1481,6 +1510,7 @@ process collect_annotation_tables {
 
     output:
     file('all_annotations.tsv')
+    val('all_annotations.tsv') into done_collect_annotation_tables
 
     script:
     """
@@ -1489,6 +1519,52 @@ process collect_annotation_tables {
 }
 
 
+// ~~~~~~~~ REPORTING ~~~~~~~ //
+// collect from all processes to make sure they are finished
+done_copy_samplesheet.concat(
+    done_print_metadata,
+    done_fastq_merge,
+    done_trimmomatic,
+    done_fastqc_trim,
+    done_bwa_mem,
+    done_sambamba_view_sort,
+    done_sambamba_flagstat,
+    done_sambamba_dedup,
+    done_sambamba_dedup_flagstat,
+    done_qc_target_reads_gatk_genome,
+    done_qc_target_reads_gatk_pad500,
+    done_qc_target_reads_gatk_pad100,
+    done_qc_target_reads_gatk_bed,
+    done_bam_ra_rc_gatk,
+    done_qc_coverage_gatk,
+    done_pad_bed,
+    done_lofreq,
+    done_gatk_hc,
+    done_delly2,
+    done_deconstructSigs_signatures,
+    done_merge_signatures_plots,
+    done_merge_signatures_pie_plots,
+    done_tumor_normal_compare,
+    done_msisensor,
+    done_mutect2,
+    done_annotate,
+    done_annotate_pairs,
+    done_collect_annotation_tables
+    )
+    .tap { all_done1 }
+
+process custom_report {
+    executor "local"
+    echo true
+
+    input:
+    val(items) from all_done1.collect()
+
+    script:
+    """
+    echo "[custom_report] everyting is done"
+    """
+}
 // process multiqc {
 //     publishDir "${params.output_dir}", mode: 'copy', overwrite: true
 //     executor "local"
