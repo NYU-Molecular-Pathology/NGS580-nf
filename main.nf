@@ -959,9 +959,9 @@ process delly2 {
 deconstructSigs_variant_min = 55
 sample_vcf_hc.filter{ caller, sampleID, filtered_vcf ->
                 // make sure there are enough variants in the VCF to proceed!
-                line_count = 0
-                num_variants = 0
-                enough_variants = false
+                def line_count = 0
+                def num_variants = 0
+                def enough_variants = false
 
                 filtered_vcf.withReader { reader ->
                     while (line = reader.readLine()) {
@@ -973,14 +973,13 @@ sample_vcf_hc.filter{ caller, sampleID, filtered_vcf ->
                         line_count++
                     }
                 }
-
+                println "[sample_vcf_hc] ${caller}, ${sampleID}, ${filtered_vcf} line_count: ${line_count},  num_variants: ${num_variants}, enough_variants: ${enough_variants} "
                 enough_variants
                 }
                 .set { sample_vcf_hc_filtered }
 
 process deconstructSigs_signatures {
     tag { "${sampleID}" }
-    // validExitStatus 0,11 // allow '11' failure triggered by few/no variants
     errorStrategy 'ignore'
     publishDir "${params.output_dir}/analysis/signatures_hc", mode: 'copy', overwrite: true
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
@@ -1006,8 +1005,6 @@ process deconstructSigs_signatures {
 
 
 process merge_signatures_plots {
-    // validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-    // errorStrategy 'ignore'
     executor "local"
     publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
 
@@ -1018,25 +1015,19 @@ process merge_signatures_plots {
     file "signatures.pdf"
     val("signatures.pdf") into done_merge_signatures_plots
 
+    when:
+    input_files.size() > 0
+
     script:
-    println "[merge_signatures_plots] input_files: ${input_files}"
     """
     gs -dBATCH -dNOPAUSE -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile=genomic_signatures.pdf ${input_files}
     """
-    // if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
-    //
-    // else
-    //     exit 11
-    // fi
 }
 
 
 process merge_signatures_pie_plots {
-    // validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-    // errorStrategy 'ignore'
     executor "local"
     publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
-
 
     input:
     file(input_files:'*') from signatures_pie_plots.toList()
@@ -1045,16 +1036,13 @@ process merge_signatures_pie_plots {
     file "signatures_pie.pdf"
     val("signatures_pie.pdf") into done_merge_signatures_pie_plots
 
+    when:
+    input_files.size() > 0
+
     script:
     """
     gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=genomic_signatures_pie.pdf ${input_files}
     """
-    // if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
-    //
-    // else
-    //     exit 11
-    // fi
-
 }
 
 
@@ -1551,7 +1539,7 @@ done_copy_samplesheet.concat(
     done_annotate_pairs,
     done_collect_annotation_tables
     )
-    .tap { all_done1 }
+    .tap { all_done1; all_done2 }
 
 process custom_report {
     executor "local"
@@ -1565,25 +1553,24 @@ process custom_report {
     echo "[custom_report] everyting is done"
     """
 }
-// process multiqc {
-//     publishDir "${params.output_dir}", mode: 'copy', overwrite: true
-//     executor "local"
-//
-//     input:
-//     val(comparisonID) from mutect2_sampleIDs.mix(sample_gatk_hc_done)
-//                                             .mix(sample_lofreq_done)
-//                                             .collect() // force it to wait for all steps to finish
-//     file(output_dir) from Channel.fromPath("${params.output_dir}")
-//
-//     output:
-//     file "multiqc_report.html" into email_files
-//     file "multiqc_data"
-//
-//     script:
-//     """
-//     multiqc "${output_dir}"
-//     """
-// }
+
+process multiqc {
+    publishDir "${params.output_dir}/analysis/multiqc", mode: 'copy', overwrite: true
+    executor "local"
+
+    input:
+    val(all_vals) from all_done2.collect()
+    file(output_dir) from Channel.fromPath("${params.output_dir}")
+
+    output:
+    file "multiqc_report.html" // into email_files
+    file "multiqc_data"
+
+    script:
+    """
+    multiqc "${output_dir}"
+    """
+}
 
 
 Channel.fromPath( file(params.samples_analysis_sheet) ).set{ samples_analysis_sheet }
