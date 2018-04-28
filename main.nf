@@ -160,15 +160,26 @@ process fastq_merge {
 
     output:
     set val(sampleID), file("${merged_fastq_R1}"), file("${merged_fastq_R2}") into samples_fastq_merged
+    file("${num_reads_R1}")
+    file("${num_reads_R2}")
+    file("${num_reads}")
     val(sampleID) into done_fastq_merge
 
     script:
     prefix = "${sampleID}"
     merged_fastq_R1 = "${prefix}_R1.fastq.gz"
     merged_fastq_R2 = "${prefix}_R2.fastq.gz"
+    num_reads = "${prefix}.reads.txt"
+    num_reads_R1 = "${prefix}_R1.reads.txt"
+    num_reads_R2 = "${prefix}_R2.reads.txt"
     """
     cat ${fastq_r1} > "${merged_fastq_R1}"
     cat ${fastq_r2} > "${merged_fastq_R2}"
+
+    # get the number of reads
+    zcat "${merged_fastq_R1}" | awk '{s++}END{print s/4}' > "${num_reads}"
+    cp "${num_reads}" "${num_reads_R1}"
+    zcat "${merged_fastq_R2}" | awk '{s++}END{print s/4}' > "${num_reads_R2}"
     """
 }
 
@@ -183,6 +194,11 @@ process trimmomatic {
 
     output:
     set val(sampleID), file("${fastq_R1_trimmed}"), file("${fastq_R2_trimmed}") into samples_fastq_trimmed, samples_fastq_trimmed2
+    file("${num_reads_trim}")
+    file("${num_reads_trim_R1}")
+    file("${num_reads_trim_R2}")
+    file("${num_reads_unpaired_R1}")
+    file("${num_reads_unpaired_R2}")
     val(sampleID) into done_trimmomatic
 
     script:
@@ -191,12 +207,24 @@ process trimmomatic {
     fastq_R2_trimmed = "${prefix}_R2.trim.fastq.gz"
     fastq_R1_unpaired = "${prefix}_R1.unpaired.fastq.gz"
     fastq_R2_unpaired = "${prefix}_R2.unpaired.fastq.gz"
+    num_reads_trim = "${prefix}.trim.reads.txt"
+    num_reads_trim_R1 = "${prefix}_R1.trim.reads.txt"
+    num_reads_trim_R2 = "${prefix}_R2.trim.reads.txt"
+    num_reads_unpaired_R1 = "${prefix}_R1.unpaired.reads.txt"
+    num_reads_unpaired_R2 = "${prefix}_R2.unpaired.reads.txt"
     """
     trimmomatic.sh PE -threads \${NSLOTS:-\${NTHREADS:-1}} \
     "${read1}" "${read2}" \
     "${fastq_R1_trimmed}" "${fastq_R1_unpaired}" \
     "${fastq_R2_trimmed}" "${fastq_R2_unpaired}" \
     ILLUMINACLIP:${trimmomatic_contaminant_fa}:2:30:10:1:true TRAILING:5 SLIDINGWINDOW:4:15 MINLEN:35
+
+    # get the number of reads
+    zcat "${fastq_R1_trimmed}" | awk '{s++}END{print s/4}' > "${num_reads_trim}"
+    cp "${num_reads_trim}" "${num_reads_trim_R1}"
+    zcat "${fastq_R2_trimmed}" | awk '{s++}END{print s/4}' > "${num_reads_trim_R2}"
+    zcat "${fastq_R1_unpaired}" | awk '{s++}END{print s/4}' > "${num_reads_unpaired_R1}"
+    zcat "${fastq_R2_unpaired}" | awk '{s++}END{print s/4}' > "${num_reads_unpaired_R2}"
     """
 }
 
@@ -232,6 +260,7 @@ process fastqc_trim {
 process bwa_mem {
     // first pass alignment with BWA
     tag { "${sampleID}" }
+    publishDir "${params.output_dir}/analysis/bam-bwa-dd", mode: 'copy', overwrite: true
 
     input:
     set val(sampleID), file(fastq_R1_trim), file(fastq_R2_trim), file(ref_fa_bwa_dir) from samples_fastq_trimmed.combine(ref_fa_bwa_dir)
