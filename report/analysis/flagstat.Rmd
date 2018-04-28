@@ -1,0 +1,116 @@
+```{r}
+remove_vars(vars = c(
+    "reads_df", 
+    "read.flagstat", 
+    "read.dedup.log",
+    "metrics_long",
+    "mapping_plot"
+    ))
+
+# ~~~~~~ FUNCTIONS ~~~~~ #
+read.flagstat <- function(file){
+    # reads a samtools flagstat text file to parse values
+    file_lines <- readLines(file)
+
+    mapped_all_line <- grep(pattern = 'mapped (', x = file_lines, value = TRUE, fixed = TRUE)[1]
+    mapped_all <- unlist(strsplit(x = mapped_all_line, split = ' '))[1]
+    
+    mapped_secondary_line <- grep(pattern = 'secondary', x = file_lines, value = TRUE, fixed = TRUE)[1]
+    mapped_secondary <- unlist(strsplit(x = mapped_secondary_line, split = ' '))[1]
+    
+    mapped_total <- as.numeric(mapped_all) - as.numeric(mapped_secondary)
+    
+    chimeric_line <- grep(pattern = 'mate mapped to a different chr', x = file_lines, value = TRUE, fixed = TRUE)[1]
+    chimeric <- unlist(strsplit(x = chimeric_line, split = ' '))[1]
+    
+    return(list(
+        MappedReads = as.numeric(mapped_total),
+        ChimericReads = as.numeric(chimeric)
+    ))
+}
+
+read.dedup.log <- function(file){
+    # reads the stderr message from sambamba dedup
+    file_lines <- readLines(file)
+    dup_line <- grep(pattern = 'found.*duplicates', x = file_lines, value = TRUE)
+    dups <- as.numeric(gsub(pattern = '.*found ([0-9]*) duplicates.*', replacement = '\\1', x = dup_line))
+    
+    return(list(
+        Duplicates = dups
+    ))
+}
+
+```
+
+```{r}
+metrics_df <- do.call('rbind', lapply(X = samplesIDs, FUN = function(samplesID){
+    # raw_pattern <- paste(samplesID, '.reads.txt', sep = '', collapse = '|')
+    # raw_reads_file <- input_files[grep(pattern = raw_pattern, x = basename(input_files))]
+    # raw_reads <- as.numeric(readLines(raw_reads_file))
+    
+    # raw_R1_pattern <- paste(samplesID, '_R1.reads.txt', sep = '', collapse = '|')
+    # raw_R1_file <- input_files[grep(pattern = raw_R1_pattern, x = basename(input_files))]
+    # raw_R1_reads <- as.numeric(readLines(raw_R1_file))
+    
+    # stats from sambamba stderr dedup message 
+    dd_pattern <- paste(samplesID, '.dd.log', sep = '', collapse = '|')
+    dd_file <- input_files[grep(pattern = dd_pattern, x = basename(input_files))]
+    dedup <- read.dedup.log(dd_file) 
+    duplicates <- dedup['Duplicates'][[1]]
+    
+    # stats from BWA alignment
+    flagstat_pattern <- paste(samplesID, '.flagstat.txt', sep = '', collapse = '|')
+    flagstat_file <- input_files[grep(pattern = flagstat_pattern, x = basename(input_files))]
+    flagstat <- read.flagstat(flagstat_file)
+    
+    mapped_reads <- flagstat["MappedReads"][[1]]
+    chimeric_reads <- flagstat["ChimericReads"][[1]]
+    
+    # stats from deduplication
+    flagstat_dd_pattern <- paste(samplesID, '.dd.flagstat.txt', sep = '', collapse = '|')
+    flagstat_dd_file <- input_files[grep(pattern = flagstat_dd_pattern, x = basename(input_files))]
+    flagstat_dd <- read.flagstat(flagstat_dd_file)
+    
+    dedup_reads <- flagstat_dd["MappedReads"][[1]]
+    
+    # mapped_pcnt <- mapped_reads / raw_reads
+    # chimeric_pcnt <- chimeric_reads / mapped_reads
+
+    return(data.frame(
+        Sample = samplesID, 
+        # TotalReads = raw_reads,
+        # RawReadsR1 = raw_R1_reads,
+        MappedReads = mapped_reads,
+        DuplicatedReads = duplicates,
+        DeduplicatedReads = dedup_reads
+        # MappedPercent = mapped_pcnt,
+        # ChimericReads = chimeric_reads
+        # ChimericPercent = chimeric_pcnt
+    ))
+}))
+
+
+metrics_long <- reshape2::melt(metrics_df[c('Sample', 'MappedReads', 'DeduplicatedReads')], id.vars="Sample", variable.name="Type", value.name="Reads")
+metrics_long[["Reads"]] <- as.numeric(metrics_long[["Reads"]]) / 1e6
+metrics_long[["Type"]] <- factor(x = metrics_long[["Type"]], levels = sort(unique(as.character(metrics_long[["Type"]]), decreasing = TRUE)))
+
+mapping_plot <- ggplot(data = metrics_long, aes(x = Sample, y = Reads, fill = Type)) + 
+    geom_bar(stat="identity", position = "dodge") + 
+    ggtitle("Sample Read Mapping") + 
+    coord_flip() + 
+    ylab("Reads (millions)") + 
+    theme_bw() +
+    theme(panel.grid.minor = element_blank())
+
+```
+
+# Reads
+
+```{r, results='asis'}
+kable(metrics_df, row.names = TRUE)
+```
+
+```{r}
+# , fig.height=11.5, fig.width=8
+mapping_plot
+```

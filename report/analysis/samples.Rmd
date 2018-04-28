@@ -1,0 +1,17 @@
+```{r}
+remove_vars(vars = c(
+    "samples", 
+    "samplesIDs"
+    ))
+```
+
+```{r}
+samples <- read.delim(file = 'samples.analysis.tsv', header = TRUE, sep = '\t', check.names = FALSE)
+samplesIDs <- as.character(samples[["Sample"]])
+```
+
+# Samples
+
+```{r, results='asis'}
+kable(samples[c("Sample", "Normal")], row.names = TRUE)
+```

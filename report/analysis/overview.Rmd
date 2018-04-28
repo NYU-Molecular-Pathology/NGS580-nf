@@ -1,0 +1,13 @@
+```{r}
+remove_vars(vars = c("overview"))
+```
+
+```{r}
+overview <- read.delim(file = 'meta.tsv', header = TRUE, sep = '\t', check.names = FALSE)
+```
+
+# Overview
+
+```{r, results='asis'}
+kable(as.data.frame(t(overview)), col.names = 'Info')
+```

@@ -1,0 +1,54 @@
+---
+title: "NGS580 Analysis Report"
+author: "`r Sys.info()[['user']] `"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  html_document: 
+    css: styles.css 
+    keep_md: yes
+    toc: true
+    number_sections: true
+params:
+   input_dir: output
+---
+```{r setup, include=FALSE}
+# This is the main parent report file, loads and compiles all child documents for the report
+knitr::opts_chunk$set(echo = FALSE)
+library("knitr")
+library("ggplot2")
+library("reshape2")
+# ~~~~~~~ CONFIGS ~~~~~~~ #
+child_docs <- c(
+    "overview.Rmd",
+    "samples.Rmd",
+    "flagstat.Rmd",
+    "sysinfo.Rmd"
+)
+
+input_dir <- params$input_dir
+input_files <- dir(path = input_dir, recursive = TRUE, full.names = TRUE)
+
+# ~~~~~~~ FUNCTIONS ~~~~~~~ #
+remove_vars <- function(vars, env){
+    # clean out variables from the evironment, if they exist
+    for(item in vars){
+        if(exists(item)) rm(list = item, pos = env)
+    }
+}
+
+find_sample_files <- function(samplesIDs, ext){
+    # returns paths to files that match sample ID + extension
+    # NOTE: uses global `input_files`
+    pattern <- paste(samplesIDs, ext, sep = '', collapse = '|')
+    return(input_files[grep(pattern = pattern, x = basename(input_files))])
+}
+
+
+```
+
+```{r, results='asis'}
+for(child_doc in child_docs){
+    cat(knit_child(child_doc, quiet = TRUE))
+    cat('\n')
+}
+```
