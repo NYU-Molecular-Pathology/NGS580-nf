@@ -1,9 +1,14 @@
 ```{r}
-remove_vars(vars = c("overview"))
+remove_vars(vars = c(
+    "overview",
+    "meta_file"
+    ))
+
+meta_file <- input_files[grep(pattern = 'meta.tsv', x = basename(input_files))][1]
 ```
 
 ```{r}
-overview <- read.delim(file = 'meta.tsv', header = TRUE, sep = '\t', check.names = FALSE)
+overview <- read.delim(file = meta_file, header = TRUE, sep = '\t', check.names = FALSE)
 ```
 
 # Overview

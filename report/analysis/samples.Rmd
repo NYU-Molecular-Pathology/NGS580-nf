@@ -1,12 +1,15 @@
 ```{r}
 remove_vars(vars = c(
     "samples", 
-    "samplesIDs"
+    "samplesIDs",
+    "samples_file"
     ))
+
+samples_file <- input_files[grep(pattern = 'samples.analysis.tsv', x = input_files)][1]
 ```
 
 ```{r}
-samples <- read.delim(file = 'samples.analysis.tsv', header = TRUE, sep = '\t', check.names = FALSE)
+samples <- read.delim(file = samples_file, header = TRUE, sep = '\t', check.names = FALSE)
 samplesIDs <- as.character(samples[["Sample"]])
 ```
 

@@ -34,3 +34,4 @@ meta.tsv
 output
 *.png
 .gitignore
+.Rproj.user
