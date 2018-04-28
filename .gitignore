@@ -28,3 +28,7 @@ Vagrantfile*
 singularity.images.old*
 .vagrant
 containers/*/old.*
+meta.tsv
+*.Rdata
+*.html
+output
