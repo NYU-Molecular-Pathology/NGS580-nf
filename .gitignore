@@ -32,3 +32,5 @@ meta.tsv
 *.Rdata
 *.html
 output
+*.png
+.gitignore
