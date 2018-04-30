@@ -1,4 +1,5 @@
 ```{r}
+# loads sample information from samples.analysis.tsv file
 remove_vars(vars = c(
     "samples", 
     "samplesIDs",

@@ -8,9 +8,10 @@ output:
     keep_md: yes
     toc: true
     number_sections: true
+    df_print: paged
 params:
    input_dir: input
-   child: !r c("flagstat.Rmd", "haplotypecaller.Rmd", "lofreq.Rmd")
+   child: !r c("flagstat.Rmd", "haplotypecaller.Rmd", "lofreq.Rmd", "sample-coverage.Rmd")
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report
@@ -45,11 +46,12 @@ find_sample_files <- function(samplesIDs, ext){
     return(input_files[grep(pattern = pattern, x = basename(input_files))])
 }
 
-
+# save environment to file
 save.image(file = 'loaded.Rdata', compress = TRUE)
 ```
 
 ```{r, results='asis'}
+# load and compile each child doc
 for(child_doc in child_docs){
     cat(knit_child(child_doc, quiet = TRUE))
     cat('\n')
@@ -57,5 +59,6 @@ for(child_doc in child_docs){
 ```
 
 ```{r}
+# save environment to file
 save.image(file="final.Rdata",compress = TRUE)
 ```

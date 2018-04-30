@@ -1,4 +1,5 @@
 ```{r}
+# loads overview analysis metrics from meta.tsv file
 remove_vars(vars = c(
     "overview",
     "meta_file"

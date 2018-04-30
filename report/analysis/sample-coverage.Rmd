@@ -1,0 +1,148 @@
+```{r}
+# summary of .sample_summary files produced by GATK DepthOfCoverage
+remove_vars(vars = c(
+    "read.sample_summary",
+    "make_coverage_cutoff_table",
+    "coverage_files",
+    "coverage_df",
+    "coverage_long",
+    "coverage_boxplot",
+    "coverage_barplot"
+))
+# ~~~~~~~ FUNCTIONS ~~~~~~~ #
+read.sample_summary <- function(file){
+    # read a GATK .csv formatted DepthOfCoverage sample_summary file into a dataframe
+    df <- read.delim(file = file, header = TRUE, sep = ',', row.names = 1, check.names = FALSE)
+    
+    # add 'sample' column from rownames
+    df[['Sample']] <- rownames(df)
+    
+    # reorder columns
+    df <- df[c("Sample", colnames(df)[which(colnames(df) != 'Sample')])]
+    
+    # remove the 'Total' row
+    df <- df[which(rownames(df) != 'Total'), ]
+    rownames(df) <- c()
+    return(df)
+}
+
+make_coverage_cutoff_table <- function(df){
+    # make a final dataframe for plotting from the cutoff files
+    
+    # get the columns that have the coverage cutoff values e.g. '%_bases_above_10'
+    bases_above_colnames <- grep(pattern = '%_bases_above_', x = colnames(df), value = TRUE)
+    
+    # make long table for just coverage cutoffs
+    df_long <- reshape2::melt(df[c("Sample", bases_above_colnames)], 
+                              id.vars="Sample", 
+                              variable.name="Cutoff", value.name="Percent")
+    
+    # remove %_bases_above_ from 'cutoff' columns, convert to ordered factor
+    coverage_cutoffs <- sort(as.numeric(unique(gsub(pattern = '%_bases_above_', 
+                                                    replacement = '', 
+                                                    x = as.character(df_long[["Cutoff"]])))))
+    df_long[["Cutoff"]] <- factor(x = gsub(pattern = '%_bases_above_', 
+                                           replacement = '', 
+                                           x = as.character(df_long[["Cutoff"]])), 
+                                  levels = coverage_cutoffs)
+    return(df_long)
+}
+
+
+chrom_regions2df <- function(regions){
+    # split the regions into chrom coordinates for BED files
+    # regions <- c("chr1:236998847-236998987", "chr1:237001714-237001899")
+    regions_df <- as.data.frame(do.call(rbind, strsplit(regions, ':')))
+    regions_df <- cbind(regions_df[1],
+                        as.data.frame(do.call(rbind, strsplit(as.character(regions_df$V2), '-'))))
+    colnames(regions_df) <- c("Chrom", "Start", "Stop")
+    return(regions_df)
+}
+
+```
+
+```{r}
+# ~~~~~~~ sample_summary ~~~~~~ #
+# find matching files; missing or no-match files dropped by default
+coverage_files <- unlist(sapply(X = samplesIDs, FUN = function(x){
+    pattern <- paste(x, '.sample_summary', sep = '')
+    return(input_files[grep(pattern = pattern, x = basename(input_files))])
+}))
+
+coverage_df <- do.call('rbind', lapply(X = coverage_files, FUN = function(x){
+    df <- read.sample_summary(file = x)
+    rownames(df) <- c()
+    return(df)
+}))
+row.names(coverage_df) <- c()
+
+coverage_long <- make_coverage_cutoff_table(coverage_df)
+
+coverage_boxplot <- ggplot(data = coverage_long, 
+                           aes(x = Cutoff, 
+                               y = Percent, 
+                               fill = Cutoff)) + 
+    geom_boxplot() + 
+    ggtitle("Percent of Bases Above Coverage Cutoff") + 
+    theme_bw() +
+    theme(legend.position="none", panel.grid.minor = element_blank())
+
+coverage_barplot <- ggplot(data = coverage_long, 
+                                      aes(x = Sample, 
+                                          y = Percent, 
+                                          fill = Cutoff)) +
+        geom_bar(stat="identity", position = "dodge") + 
+        ggtitle("Percent of Bases Above Coverage Cutoff") + 
+        coord_flip() + 
+        theme_bw() +
+        theme(panel.grid.minor = element_blank())
+```
+
+```{r}
+# ~~~~~~~ sample_interval_summary ~~~~~~ #
+# find matching files; missing or no-match files dropped by default
+interval_files <- unlist(sapply(X = samplesIDs, FUN = function(x){
+    pattern <- paste(x, '.sample_interval_summary', sep = '')
+    return(input_files[grep(pattern = pattern, x = basename(input_files))])
+}))
+
+# keep the sample names for parsing loaded files
+interval_files_names <- names(interval_files)
+
+interval_df <- do.call('rbind', lapply(setNames(interval_files_names, interval_files_names), function(nameindex) {
+    sample_name <- nameindex
+    input_file <- interval_files[[nameindex]]
+    # print(c(sample_name, input_file))
+    
+    df <- read.delim(file = input_file, header = TRUE, sep = ',', check.names = FALSE, stringsAsFactors = FALSE)
+    df[['Sample']] <- sample_name
+    
+    names(df) <- gsub(pattern = paste0(sample_name, '_'), replacement = '', x = names(df))
+    rownames(df) <- c()
+    return(df)
+}))
+rownames(interval_df) <- c()
+
+interval_df <- cbind(chrom_regions2df(interval_df[['Target']]), interval_df)
+
+interval_avg_wide <- dcast(interval_df, Target ~ Sample, value.var = "mean_cvg")
+```
+
+# Sample Coverage
+
+Depth of coverage for each sample
+
+```{r}
+coverage_df
+```
+
+Average coverage per target per sample
+
+```{r}
+interval_avg_wide
+```
+
+```{r}
+coverage_boxplot
+coverage_barplot
+```
