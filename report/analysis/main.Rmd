@@ -9,8 +9,8 @@ output:
     toc: true
     number_sections: true
 params:
-   input_dir: output/analysis
-   child: !r c("flagstat.Rmd", "haplotypecaller.Rmd")
+   input_dir: input
+   child: !r c("flagstat.Rmd", "haplotypecaller.Rmd", "lofreq.Rmd")
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report
@@ -27,12 +27,6 @@ start_child <- c(
     "samples.Rmd"
     )
 end_child <- c("sysinfo.Rmd")
-# child_docs <- c(
-#     "overview.Rmd",
-#     "samples.Rmd",
-#     "flagstat.Rmd",
-#     "sysinfo.Rmd"
-# )
 child_docs <- c(start_child, child, end_child)
 
 
@@ -52,7 +46,7 @@ find_sample_files <- function(samplesIDs, ext){
 }
 
 
-
+save.image(file = 'loaded.Rdata', compress = TRUE)
 ```
 
 ```{r, results='asis'}
@@ -60,4 +54,8 @@ for(child_doc in child_docs){
     cat(knit_child(child_doc, quiet = TRUE))
     cat('\n')
 }
+```
+
+```{r}
+save.image(file="final.Rdata",compress = TRUE)
 ```

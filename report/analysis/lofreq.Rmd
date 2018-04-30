@@ -1,18 +1,18 @@
 ```{r}
 remove_vars(vars = c(
-    "haplotypecaller_files",
-    "haplotypecaller_df",
-    "make_haplotypecaller_plots",
-    "haplotypecaller_plots"
+    "lofreq_df",
+    "lofreq_files",
+    "lofreq_plots",
+    "make_lofreq_plots"
     ))
 
 # ~~~~~~~ FUNCTIONS ~~~~~~~ #
-make_haplotypecaller_plots <- function(df){
+make_lofreq_plots <- function(df){
     plots <- list()
     if(is.data.frame(df)){
         if(nrow(df) > 0){
             # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
-            haplotypecaller_counts <- ggplot(data = df, aes(x = Sample)) +
+            lofreq_counts <- ggplot(data = df, aes(x = Sample)) +
                 geom_bar(stat="count") + 
                 ggtitle("Number of Mutations") + 
                 coord_flip() +
@@ -20,11 +20,11 @@ make_haplotypecaller_plots <- function(df){
                 theme(panel.grid.minor = element_blank()) 
             
             plots[['counts']] <- list(
-                plot = haplotypecaller_counts,
+                plot = lofreq_counts,
                 subheader = 'Counts'
             )
             # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
-            haplotypecaller_qual <- ggplot(data = df, aes(x=Sample, y=QUAL, fill=Sample)) + 
+            lofreq_qual <- ggplot(data = df, aes(x=Sample, y=QUAL, fill=Sample)) + 
                 geom_boxplot() + 
                 guides(fill=FALSE) + 
                 coord_flip() + 
@@ -33,11 +33,11 @@ make_haplotypecaller_plots <- function(df){
                 theme(panel.grid.minor = element_blank())
             
             plots[['qual']] <- list(
-                plot = haplotypecaller_qual,
+                plot = lofreq_qual,
                 subheader = 'Quality Scores'
             )
             # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
-            haplotypecaller_dp <- ggplot(data = df, aes(x=Sample, y=DP, fill=Sample)) + 
+            lofreq_dp <- ggplot(data = df, aes(x=Sample, y=DP, fill=Sample)) + 
                 geom_boxplot() + 
                 guides(fill=FALSE) + 
                 coord_flip() + 
@@ -46,11 +46,11 @@ make_haplotypecaller_plots <- function(df){
                 theme(panel.grid.minor = element_blank())
             
             plots[['dp']] <- list(
-                plot = haplotypecaller_dp,
+                plot = lofreq_dp,
                 subheader = 'Quality Scores'
             )
             # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
-            haplotypecaller_af <- ggplot(data = df, aes(x=Sample, y=AF, fill=Sample)) + 
+            lofreq_af <- ggplot(data = df, aes(x=Sample, y=AF, fill=Sample)) + 
                 geom_boxplot() + 
                 guides(fill=FALSE) + 
                 coord_flip() + 
@@ -59,7 +59,7 @@ make_haplotypecaller_plots <- function(df){
                 theme(panel.grid.minor = element_blank())
             
             plots[['af']] <- list(
-                plot = haplotypecaller_af,
+                plot = lofreq_af,
                 subheader = 'Allele Frequency'
             )
         }
@@ -69,30 +69,30 @@ make_haplotypecaller_plots <- function(df){
 
 
 # find matching files; missing or no-match files dropped by default
-haplotypecaller_files <- unlist(sapply(X = samplesIDs, FUN = function(x){
-    pattern <- paste(x, '.HaplotypeCaller.annotations.tsv', sep = '')
+lofreq_files <- unlist(sapply(X = samplesIDs, FUN = function(x){
+    pattern <- paste(x, '.LoFreq.annotations.tsv', sep = '')
     return(input_files[grep(pattern = pattern, x = basename(input_files))])
 }))
 
-haplotypecaller_df <- do.call('rbind', lapply(X = haplotypecaller_files, FUN = function(x){
+lofreq_df <- do.call('rbind', lapply(X = lofreq_files, FUN = function(x){
     df <- read.delim(file = x, header = TRUE, sep = '\t')
     return(df)
 }))
 
-haplotypecaller_plots <- make_haplotypecaller_plots(haplotypecaller_df)
+lofreq_plots <- make_lofreq_plots(lofreq_df)
 ```
 
-
-# GATK HaplotypeCaller
+# LoFreq
 
 Variant calling results
 
 ```{r, results='asis'}
 # print any results found
-if (length(haplotypecaller_plots) < 1){
+if (length(lofreq_plots) < 1){
     cat('\n\n- __No results found__\n\n')
 } else {
-    for(item in haplotypecaller_plots){
+    
+    for(item in lofreq_plots){
         subplot<- item[["plot"]]
         subheader <- item[["subheader"]]
         

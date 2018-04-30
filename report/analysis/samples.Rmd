@@ -18,3 +18,7 @@ samplesIDs <- as.character(samples[["Sample"]])
 ```{r, results='asis'}
 kable(samples[c("Sample", "Normal")], row.names = TRUE)
 ```
+
+```{r}
+save.image(file = 'samples.Rdata', compress = TRUE)
+```

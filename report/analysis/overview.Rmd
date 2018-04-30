@@ -16,3 +16,7 @@ overview <- read.delim(file = meta_file, header = TRUE, sep = '\t', check.names 
 ```{r, results='asis'}
 kable(as.data.frame(t(overview)), col.names = 'Info')
 ```
+
+```{r}
+save.image(file = 'overview.Rdata', compress = TRUE)
+```
