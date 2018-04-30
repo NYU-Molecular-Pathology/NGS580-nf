@@ -1,0 +1,10 @@
+```{r}
+remove_vars(vars = c(
+    
+    ))
+
+samplesIDs
+input_files
+df <- read.delim(file = input_files[grep(pattern = '.HaplotypeCaller.reformat.tsv', x = basename(input_files))][1], header = TRUE, sep = '\t')
+
+```

@@ -9,7 +9,8 @@ output:
     toc: true
     number_sections: true
 params:
-   input_dir: output
+   input_dir: output/analysis
+   child: !r c("flagstat.Rmd", "haplotypecaller.Rmd")
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report
@@ -18,15 +19,22 @@ library("knitr")
 library("ggplot2")
 library("reshape2")
 # ~~~~~~~ CONFIGS ~~~~~~~ #
-child_docs <- c(
-    "overview.Rmd",
-    "samples.Rmd",
-    "flagstat.Rmd",
-    "sysinfo.Rmd"
-)
-
 input_dir <- params$input_dir
 input_files <- dir(path = input_dir, recursive = TRUE, full.names = TRUE)
+child <- params$child
+start_child <- c(
+    "overview.Rmd",
+    "samples.Rmd"
+    )
+end_child <- c("sysinfo.Rmd")
+# child_docs <- c(
+#     "overview.Rmd",
+#     "samples.Rmd",
+#     "flagstat.Rmd",
+#     "sysinfo.Rmd"
+# )
+child_docs <- c(start_child, child, end_child)
+
 
 # ~~~~~~~ FUNCTIONS ~~~~~~~ #
 remove_vars <- function(vars, env){
@@ -42,6 +50,7 @@ find_sample_files <- function(samplesIDs, ext){
     pattern <- paste(samplesIDs, ext, sep = '', collapse = '|')
     return(input_files[grep(pattern = pattern, x = basename(input_files))])
 }
+
 
 
 ```
