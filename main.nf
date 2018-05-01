@@ -1578,21 +1578,28 @@ done_copy_samplesheet.concat(
     .tap { all_done1; all_done2 }
 
 process custom_report {
+    tag "${html_output}"
+    publishDir "${params.output_dir}/analysis/reports", mode: 'copy', overwrite: true
     executor "local"
-    echo true
 
     input:
     val(items) from all_done1.collect()
-    set file(report_dir), file(input_dir) from report_dirs
+    set file(report_dir), file(input_dir: "input") from report_dirs
+
+    output:
+    file("${html_output}")
 
     script:
+    prefix = "${params.runID}.${resultsID}"
+    html_output = "${prefix}.analysis_report.html"
     """
-    echo "[custom_report] everyting is done"
+    Rscript -e 'rmarkdown::render(input = "${report_dir}/analysis/main.Rmd", params = list(input_dir = "input"), output_dir = ".", knit_root_dir = ".", intermediates_dir = ".", output_format = "html_document", output_file = "${html_output}")'
     """
+    // Rscript -e 'rmarkdown::render(input = "report/analysis/main.Rmd", params = list(input_dir = "input"), output_dir = ".", knit_root_dir = ".", intermediates_dir = ".", output_format = "all")'
 }
 
 process multiqc {
-    publishDir "${params.output_dir}/analysis/multiqc", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/reports", mode: 'copy', overwrite: true
     executor "local"
 
     input:

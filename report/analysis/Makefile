@@ -2,6 +2,7 @@ RMD_TEMPLATE:=main.Rmd
 TIMESTAMP:=$(shell date +"%Y-%m-%d_%H-%M-%S")
 FMT:=html_document
 OUTPUTFILE:=report
+INPUTDIR:=input
 # all, html_document, pdf_document
 
 compile:
@@ -10,7 +11,7 @@ compile:
 	mkdir -p logs && \
 	ln -fs main.Rmd "$(OUTPUTFILE).Rmd" &&  \
 	{ \
-	Rscript -e 'rmarkdown::render(input = "$(OUTPUTFILE).Rmd", params = list(input_dir = "input"), output_format = "$(FMT)")' ; \
+	Rscript -e 'rmarkdown::render(input = "$(OUTPUTFILE).Rmd", params = list(input_dir = "$(INPUTDIR)"), output_format = "$(FMT)", output_dir = ".")' ; \
 	} 2>&1 | tee -a "$$compile_log" && \
 	echo ">>> log saved to: $$compile_log"
 
