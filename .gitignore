@@ -35,3 +35,8 @@ output
 *.png
 .gitignore
 .Rproj.user
+main_files
+*.tex
+*.pdf
+qsub-logs/
+report/analysis/input

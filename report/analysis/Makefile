@@ -19,6 +19,5 @@ clean:
 	rm -f *.html
 	rm -f *.Rdata
 	rm -f *.pdf
-	
 	[ -d main_files ] && rm -rf main_files
 	
