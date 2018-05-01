@@ -1,17 +1,22 @@
 ---
 title: "NGS580 Analysis Report"
-author: "`r Sys.info()[['user']] `"
-date: "`r format(Sys.time(), '%B %d, %Y')`"
-output: 
-  html_document: 
-    css: styles.css 
-    keep_md: yes
-    toc: true
-    number_sections: true
+author: '`r Sys.info()[["user"]] `'
+date: '`r format(Sys.time(), "%B %d, %Y")`'
+output:
+  pdf_document:
+    keep_tex: yes
+    number_sections: yes
+    toc: yes
+    df_print: kable
+  html_document:
+    css: styles.css
     df_print: paged
+    keep_md: yes
+    number_sections: yes
+    toc: yes
 params:
-   input_dir: input
-   child: !r c("flagstat.Rmd", "haplotypecaller.Rmd", "lofreq.Rmd", "sample-coverage.Rmd")
+  child: !r c("flagstat.Rmd", "haplotypecaller.Rmd", "lofreq.Rmd", "sample-coverage.Rmd")
+  input_dir: input
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report
