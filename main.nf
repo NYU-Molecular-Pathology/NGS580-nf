@@ -1429,8 +1429,12 @@ process annotate {
     annotations_tsv = "${prefix}.annotations.tsv"
     if( caller == 'HaplotypeCaller' )
         """
-        # make sure there are variants present, by checking the .TSV file; should have >1 line
-        # [ ! "\$( cat "${sample_tsv}" | wc -l )" -gt 1 ] && echo "ERROR: No variants present in ${sample_tsv}, skipping annotation..." && exit 11 || :
+        # convert to ANNOVAR format
+        convert2annovar.pl \
+        -includeinfo \
+        -format vcf4 \
+        "${sample_vcf}" > \
+        "${avinput_file}"
 
         # annovate
         table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
@@ -1439,14 +1443,17 @@ process annotate {
         --protocol "${params.ANNOVAR_PROTOCOL}" \
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
-        --vcfinput \
         --onetranscript \
         --outfile "${prefix}"
 
-        printf "Chr\tStart\tEnd\tRef\tAlt\tAF\tQuality\tAD.ALT\tCHROM\tPOS\tID\tREF\tALT\tQUAL\n" > "${avinput_tsv}"
-        cut -f1-14 ${avinput_file} >>  "${avinput_tsv}"
+        # add headers to the avinput, just the first columns
+        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\tQUAL\n" > "${avinput_tsv}"
+        cut -f1-11 "${avinput_file}" >>  "${avinput_tsv}"
 
+        # merge the tables together
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
+
+        # add the hash per variant
         hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k Chr Start End Ref Alt CHROM POS REF ALT Sample Run Results VariantCaller
         """
     else if( caller == 'LoFreq' )
