@@ -79,7 +79,10 @@ lofreq_df <- do.call('rbind', lapply(X = lofreq_files, FUN = function(x){
     return(df)
 }))
 
-lofreq_plots <- make_lofreq_plots(lofreq_df)
+
+
+# lofreq_plots <- make_lofreq_plots(lofreq_df)
+lofreq_plots <- make_lofreq_plots(annotations[annotations[["VariantCaller"]] == 'LoFreq', ])
 ```
 
 # LoFreq

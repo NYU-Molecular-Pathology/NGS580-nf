@@ -14,3 +14,11 @@ compile:
 
 pull:
 	rsync -vrthP -e ssh kellys04@phoenix.med.nyu.edu:/ifs/data/molecpathlab/development/NGS580-nf/output/analysis output --exclude='*.bam' --exclude='*.fastq.gz' --exclude='*.sam'
+
+clean:
+	rm -f *.html
+	rm -f *.Rdata
+	rm -f *.pdf
+	
+	[ -d main_files ] && rm -rf main_files
+	

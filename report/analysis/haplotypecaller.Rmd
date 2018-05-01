@@ -1,10 +1,10 @@
 ```{r}
-remove_vars(vars = c(
-    "haplotypecaller_files",
-    "haplotypecaller_df",
-    "make_haplotypecaller_plots",
-    "haplotypecaller_plots"
-    ))
+# remove_vars(vars = c(
+#     "haplotypecaller_files",
+#     "haplotypecaller_df",
+#     "make_haplotypecaller_plots",
+#     "haplotypecaller_plots"
+#     ))
 
 # ~~~~~~~ FUNCTIONS ~~~~~~~ #
 make_haplotypecaller_plots <- function(df){

@@ -76,6 +76,11 @@ coverage_df <- do.call('rbind', lapply(X = coverage_files, FUN = function(x){
 }))
 row.names(coverage_df) <- c()
 
+# reformat for better printing
+coverage_df_print <- coverage_df
+names(coverage_df_print) <- gsub(pattern = '%_bases_above_', replacement = '', x = names(coverage_df_print))
+coverage_df_print <- coverage_df_print[, names(coverage_df_print)[grep(pattern = 'granular_', x = names(coverage_df_print), invert = TRUE)] ]
+
 coverage_long <- make_coverage_cutoff_table(coverage_df)
 
 coverage_boxplot <- ggplot(data = coverage_long, 
@@ -130,10 +135,10 @@ interval_avg_wide <- dcast(interval_df, Target ~ Sample, value.var = "mean_cvg")
 
 # Sample Coverage
 
-Depth of coverage for each sample
+Depth of coverage for each sample; total depth, mean depth, and percentage of bases at cutoff thresholds
 
 ```{r}
-coverage_df
+coverage_df_print
 ```
 
 Average coverage per target per sample

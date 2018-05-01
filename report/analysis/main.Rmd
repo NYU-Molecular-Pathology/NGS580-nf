@@ -14,8 +14,9 @@ output:
     keep_md: yes
     number_sections: yes
     toc: yes
+bibliography: citations.bib
 params:
-  child: !r c("flagstat.Rmd", "haplotypecaller.Rmd", "lofreq.Rmd", "sample-coverage.Rmd")
+  child: !r c("samples.Rmd", "reads.Rmd", "coverage.Rmd", "variants.Rmd")
   input_dir: input
 ---
 ```{r setup, include=FALSE}
@@ -28,10 +29,7 @@ library("reshape2")
 input_dir <- params$input_dir
 input_files <- dir(path = input_dir, recursive = TRUE, full.names = TRUE)
 child <- params$child
-start_child <- c(
-    "overview.Rmd",
-    "samples.Rmd"
-    )
+start_child <- c("overview.Rmd")
 end_child <- c("sysinfo.Rmd")
 child_docs <- c(start_child, child, end_child)
 
@@ -67,3 +65,5 @@ for(child_doc in child_docs){
 # save environment to file
 save.image(file="final.Rdata",compress = TRUE)
 ```
+
+# References
