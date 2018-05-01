@@ -1,11 +1,5 @@
 ```{r}
 # loads sample information from samples.analysis.tsv file
-remove_vars(vars = c(
-    "samples", 
-    "samplesIDs",
-    "samples_file"
-    ))
-
 samples_file <- input_files[grep(pattern = 'samples.analysis.tsv', x = input_files)][1]
 ```
 

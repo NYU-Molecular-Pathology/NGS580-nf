@@ -1,10 +1,5 @@
 ```{r}
 # loads overview analysis metrics from meta.tsv file
-remove_vars(vars = c(
-    "overview",
-    "meta_file"
-    ))
-
 meta_file <- input_files[grep(pattern = 'meta.tsv', x = basename(input_files))][1]
 ```
 

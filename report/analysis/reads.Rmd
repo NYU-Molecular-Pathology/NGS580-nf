@@ -1,12 +1,4 @@
 ```{r}
-remove_vars(vars = c(
-    "reads_df", 
-    "read.flagstat", 
-    "read.dedup.log",
-    "metrics_long",
-    "mapping_plot"
-    ))
-
 # ~~~~~~ FUNCTIONS ~~~~~ #
 read.flagstat <- function(file){
     # reads a samtools flagstat text file to parse values

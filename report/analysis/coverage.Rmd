@@ -1,14 +1,5 @@
 ```{r}
 # summary of .sample_summary files produced by GATK DepthOfCoverage
-remove_vars(vars = c(
-    "read.sample_summary",
-    "make_coverage_cutoff_table",
-    "coverage_files",
-    "coverage_df",
-    "coverage_long",
-    "coverage_boxplot",
-    "coverage_barplot"
-))
 # ~~~~~~~ FUNCTIONS ~~~~~~~ #
 read.sample_summary <- function(file){
     # read a GATK .csv formatted DepthOfCoverage sample_summary file into a dataframe

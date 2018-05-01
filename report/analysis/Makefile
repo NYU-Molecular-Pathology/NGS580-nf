@@ -1,14 +1,16 @@
 RMD_TEMPLATE:=main.Rmd
 TIMESTAMP:=$(shell date +"%Y-%m-%d_%H-%M-%S")
 FMT:=html_document
+OUTPUTFILE:=report
 # all, html_document, pdf_document
 
 compile:
 	[ "$$(module 2>/dev/null; echo $$? )" -eq "0" ] && module load pandoc/1.13.1 || : ; \
 	compile_log="logs/compile_html.$(TIMESTAMP).log" && \
 	mkdir -p logs && \
+	ln -fs main.Rmd "$(OUTPUTFILE).Rmd" &&  \
 	{ \
-	Rscript -e 'rmarkdown::render(input = "$(RMD_TEMPLATE)", params = list(input_dir = "input"), output_format = "$(FMT)")' ; \
+	Rscript -e 'rmarkdown::render(input = "$(OUTPUTFILE).Rmd", params = list(input_dir = "input"), output_format = "$(FMT)")' ; \
 	} 2>&1 | tee -a "$$compile_log" && \
 	echo ">>> log saved to: $$compile_log"
 
@@ -19,5 +21,7 @@ clean:
 	rm -f *.html
 	rm -f *.Rdata
 	rm -f *.pdf
+	rm -f *.md
+	rm -f *.tex
 	[ -d main_files ] && rm -rf main_files
 	
