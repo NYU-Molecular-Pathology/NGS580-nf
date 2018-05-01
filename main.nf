@@ -3,6 +3,8 @@ import java.nio.file.Files;
 // ~~~~~~~~~~ SETUP PARAMETERS ~~~~~~~~~~ //
 // pipeline settings; overriden by nextflow.config and CLI args
 params.output_dir = "output"
+params.report_dir = "report"
+
 params.runID = null
 params.resultsID = null
 
@@ -19,6 +21,9 @@ if ( params.resultsID == null ) {
 
 // path to the output directory
 output_dir_path = new File(params.output_dir).getCanonicalPath()
+
+// path to the report directory
+report_dir_path = new File(params.report_dir).getCanonicalPath()
 
 // path to the current directory
 current_dir_path = new File(System.getProperty("user.dir")).getCanonicalPath()
@@ -59,6 +64,8 @@ Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref
 Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
 Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_db_dir2 }
 
+// report and output dir
+Channel.from([ [file("${report_dir_path}"), file("${output_dir_path}")] ]).set { report_dirs }
 
 // read samples from analysis samplesheet
 Channel.fromPath( file(params.samples_analysis_sheet) )
@@ -1576,6 +1583,7 @@ process custom_report {
 
     input:
     val(items) from all_done1.collect()
+    set file(report_dir), file(input_dir) from report_dirs
 
     script:
     """
