@@ -1437,7 +1437,7 @@ process annotate {
         "${avinput_file}"
 
         # annovate
-        table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
+        table_annovar.pl "${avinput_file}" "${annovar_db_dir}" \
         --buildver "${params.ANNOVAR_BUILD_VERSION}" \
         --remove \
         --protocol "${params.ANNOVAR_PROTOCOL}" \
