@@ -1,13 +1,17 @@
 #!/usr/bin/env Rscript
 args <- commandArgs(T)
 
-sampleID <- args[1]
-vcf_file <- args[2]
+sampleID <- args[1] # for labeling
+vcf_file <- args[2] # input file
+signatures_output_file <- args[3] # output data file .Rds
+signatures_plot_pdf <- args[4] # output main plot file .pdf
+signatures_plot_Rds <- args[5] # output main plot file .Rds
+signatures_pie_plot_pdf <- args[6] # output pie plot file .pdf
+signatures_pie_plot_Rds <- args[7] # output pie plot file .Rds
+
 
 message(sprintf("vcf_file: %s", vcf_file))
 message(sprintf("sampleID: %s", sampleID))
-
-save.image()
 
 library("BSgenome.Hsapiens.UCSC.hg19")
 library("deconstructSigs")
@@ -15,6 +19,8 @@ library("deconstructSigs")
 vcf_colnames <- c("CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", sampleID)
 variants <- read.delim(file = vcf_file, header = FALSE, sep = '\t',
                        comment.char = '#', col.names = vcf_colnames, check.names = FALSE)
+
+save.image(file = 'loaded.Rdata')
 
 # add sample ID column
 variants[["Sample"]] <- rep(sampleID, nrow(variants))
@@ -45,16 +51,23 @@ signatures <- whichSignatures(tumor.ref = sigs.input,
                               tri.counts.method = 'default')
 
 # save signatures
-signatures_output_file <- sprintf(sprintf('%s_signatures.Rds', sampleID))
 saveRDS(object = signatures, file = signatures_output_file, compress = TRUE)
+save.image(file = 'computed.Rdata')
 
 # make plots
-signatures_plot_file <- sprintf('%s_signatures.pdf', sampleID)
-pdf(file = signatures_plot_file)
+# https://stackoverflow.com/a/29583945/5359531
+pdf(file = signatures_plot_pdf)
+dev.control(displaylist="enable") 
 print(plotSignatures(signatures, sub = 'signatures.cosmic'))
+saveRDS(object = recordPlot(), file = signatures_plot_Rds)
 dev.off()
 
-signatures_pie_plot_file <- sprintf('%s_signatures_pie.pdf', sampleID)
-pdf(file = signatures_pie_plot_file)
+pdf(file = signatures_pie_plot_pdf)
+dev.control(displaylist="enable") 
 print(makePie(signatures, sub = 'signatures.cosmic'))
+saveRDS(object = recordPlot(), file = signatures_pie_plot_Rds)
 dev.off()
+
+# save session
+save.image(file = "session.Rdata")
+

@@ -1016,7 +1016,6 @@ sample_vcf_hc.filter{ caller, sampleID, filtered_vcf ->
 
 process deconstructSigs_signatures {
     tag { "${sampleID}" }
-    errorStrategy 'ignore'
     publishDir "${params.output_dir}/analysis/signatures_hc", mode: 'copy', overwrite: true
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
@@ -1024,18 +1023,22 @@ process deconstructSigs_signatures {
     set val(caller), val(sampleID), file(sample_vcf) from sample_vcf_hc_filtered
 
     output:
-    file "${signatures_rds}"
-    file "${signatures_pdf}" into signatures_plots
-    file "${signatures_pie_pdf}" into signatures_pie_plots
+    file("${signatures_rds}")
+    file("${signatures_plot_Rds}")
+    file("${signatures_pieplot_Rds}")
+    file("${signatures_plot_pdf}") into signatures_plots
+    file("${signatures_pieplot_pdf}") into signatures_pie_plots
     val(sampleID) into done_deconstructSigs_signatures
 
     script:
     prefix = "${sampleID}.${caller}"
     signatures_rds = "${prefix}_signatures.Rds"
-    signatures_pdf = "${prefix}_signatures.pdf"
-    signatures_pie_pdf = "${prefix}_signatures.pdf"
+    signatures_plot_pdf = "${prefix}_signatures_plot.pdf"
+    signatures_plot_Rds = "${prefix}_signatures_plot.Rds"
+    signatures_pieplot_pdf = "${prefix}_signatures_pieplot.pdf"
+    signatures_pieplot_Rds = "${prefix}_signatures_pieplot.Rds"
     """
-    deconstructSigs_make_signatures.R "${sampleID}" "${sample_vcf}"
+    deconstructSigs_make_signatures.R "${sampleID}" "${sample_vcf}" "${signatures_rds}" "${signatures_plot_pdf}" "${signatures_plot_Rds}" "${signatures_pieplot_pdf}" "${signatures_pieplot_Rds}"
     """
 }
 
@@ -1415,7 +1418,6 @@ process annotate {
     file("${avinput_file}")
     file("${avinput_tsv}")
     file("${annovar_output_txt}")
-    file("${annovar_output_vcf}")
     file("${annotations_tsv}")
     val(sampleID) into done_annotate
 

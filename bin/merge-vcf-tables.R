@@ -57,6 +57,8 @@ annovar <- read.ANNOVAR.vcf_txt(file = annovar_txt_file)
 vcf_table <- read.delim(file = vcf_tsv_file, header = TRUE, sep = '\t')
 avinput <- read.delim(file = avinput_file, header = TRUE, sep = '\t')
 
+save.image('loaded.Rdata')
+
 message(sprintf(">>> annovar: Number of rows: %s", nrow(annovar)))
 message(sprintf(">>> avinput: Number of rows: %s", nrow(avinput)))
 message(sprintf(">>> avinput: Number of rows: %s", nrow(avinput)))
@@ -71,6 +73,8 @@ message(">>> Merging tables")
 
 # merge tables
 merged_df <- Reduce(function(x, y){ merge(x, y, all = TRUE) }, list(avinput, vcf_table, annovar))
+
+save.image('merged.Rdata')
 
 message(sprintf(">>> merged_df: Number of rows: %s", nrow(merged_df)))
 
