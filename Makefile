@@ -16,7 +16,7 @@ PRODDIR:=/ifs/data/molecpathlab/production/NGS580
 # location of production demultiplexing for deployment
 FASTQDIR:=
 
-.PHONY: containers
+.PHONY: containers annovar_db ref
 
 # no default action
 none:
@@ -32,30 +32,10 @@ install: ./nextflow
 update: ./nextflow
 	./nextflow self-update
 
-# set up MultiQC in a virtualenv
-bin/multiqc-venv/bin/activate:
-	cd bin && \
-	make -f multiqc.makefile setup
-
-multiqc: bin/multiqc-venv/bin/activate
-
 # download or symlink ref dir
-ref:
-	[ -d "$(REFDIR)" ] && ln -fs $(REFDIR) ref || { wget https://genome.med.nyu.edu/results/external/NYU/snuderllab/ref.tar.gz && \
-	tar -vxzf ref.tar.gz && \
-	rm -f ref.tar.gz ; }
-
-# clean up ref tarballs 
-ref-clean:
-	rm -f ref.tar.gz*
-
-# build all Docker containers
-build-containers:
-	cd containers && make build
-
-# pull all Docker containers from Docker hub
-pull-containers:
-	cd containers && make pull
+ref: install
+	if [ ! -d "$(REFDIR)" ] ; then echo ">>> system ref dir doesnt exist, setting up local ref dir..." ; \
+	./nextflow run ref.nf -profile ref ; fi
 
 # demo pipeline dataset for testing
 NGS580-demo-data:
@@ -102,7 +82,7 @@ bin/annotate_variation.pl:
 	make -f annovar.makefile install
 
 # main setup commands to use
-setup: install ref annovar_db 
+setup: install ref annovar_db
 
 # setup commands needed for NYU phoenix HPC
 setup-phoenix: install ref annovar_db
@@ -116,32 +96,27 @@ deploy:
 	[ ! -d "$(FASTQDIR)" ] && printf "FASTQDIR is not a valid directory: $(FASTQDIR)\n" && exit 1 || :
 	repo_dir="$${PWD}" && \
 	output_dir="$(PRODDIR)/$(PROJECT)/$$(date +"%Y-%m-%d_%H-%M-%S")" && \
-	echo "> Setting up repo in location: $${output_dir}" && \
+	echo ">>> Setting up repo in location: $${output_dir}" && \
 	git clone --recursive "$${repo_dir}" "$${output_dir}" && \
 	cd "$${output_dir}" && \
-	echo "> Linking input directory: $(FASTQDIR)" && \
+	echo ">>> Linking input directory: $(FASTQDIR)" && \
 	( mkdir input ; cd input ; ln -s "$(FASTQDIR)" ) && \
-	echo "> Creating input fastq sheet" && \
+	echo ">>> Creating input fastq sheet" && \
 	python generate-samplesheets.py "$(FASTQDIR)" && \
 	run_cmd="make run-phoenix" && \
-	printf "> please run the following command to start analysis:\n\n%s\n%s\n" "cd $${output_dir}" "$${run_cmd}" 
+	printf ">>> please run the following command to start analysis:\n\n%s\n%s\n" "cd $${output_dir}" "$${run_cmd}"
 
 
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
 # run on phoenix default settings
-run-phoenix: setup-phoenix
+run-phoenix: install
 	module unload java && module load java/1.8 && \
-	./nextflow run main.nf -profile standard -resume -with-dag flowchart-NGS580.dot $(EP) 
-
-# run on phoenix Singularity head node config
-run-phoenix-head: setup-phoenix
-	module unload java && module load java/1.8 && \
-	./nextflow run main.nf -profile headnode -with-dag flowchart-NGS580.dot $(EP) 
+	./nextflow run main.nf -profile standard -resume -with-dag flowchart-NGS580.dot $(EP)
 
 # run locally default settings
 run-local: install ref
-	./nextflow run main.nf -profile local -resume -with-dag flowchart-NGS580.dot $(EP) 
+	./nextflow run main.nf -profile local -resume -with-dag flowchart-NGS580.dot $(EP)
 
 # run on Power server
 run-power: install ref
@@ -149,7 +124,7 @@ run-power: install ref
 	./nextflow run main.nf -profile power -resume -with-dag flowchart-NGS580.dot $(EP)
 
 # compile flow chart
-flowchart: 
+flowchart:
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png || echo "file flowchart-NGS580.dot not present"
 
 
