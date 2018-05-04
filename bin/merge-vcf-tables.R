@@ -51,9 +51,15 @@ annovar_txt_file <- args[2]
 avinput_file <- args[3]
 output_file <- args[4]
 
+message(">>> Loading variant tables to be merged")
+
 annovar <- read.ANNOVAR.vcf_txt(file = annovar_txt_file)
 vcf_table <- read.delim(file = vcf_tsv_file, header = TRUE, sep = '\t')
 avinput <- read.delim(file = avinput_file, header = TRUE, sep = '\t')
+
+message(sprintf(">>> annovar: Number of rows: %s", nrow(annovar)))
+message(sprintf(">>> avinput: Number of rows: %s", nrow(avinput)))
+message(sprintf(">>> avinput: Number of rows: %s", nrow(avinput)))
 
 # check that all df's have the same number of rows
 if(! all_equal(nrow(annovar), nrow(avinput), nrow(vcf_table)) ) {
@@ -61,8 +67,12 @@ if(! all_equal(nrow(annovar), nrow(avinput), nrow(vcf_table)) ) {
     quit(status = 1)
 }
 
+message(">>> Merging tables")
+
 # merge tables
 merged_df <- Reduce(function(x, y){ merge(x, y, all = TRUE) }, list(avinput, vcf_table, annovar))
+
+message(sprintf(">>> merged_df: Number of rows: %s", nrow(merged_df)))
 
 # check that all df's have the same number of rows
 if(! all_equal(nrow(annovar), nrow(avinput), nrow(vcf_table), nrow(merged_df)) ) {
