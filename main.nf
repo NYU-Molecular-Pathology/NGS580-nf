@@ -1051,15 +1051,16 @@ process merge_signatures_plots {
     file(input_files:'*') from signatures_plots.toList()
 
     output:
-    file "signatures.pdf"
-    val("signatures.pdf") into done_merge_signatures_plots
+    file("${output_file}")
+    val("${output_file}") into done_merge_signatures_plots
 
     when:
     input_files.size() > 0
 
     script:
+    output_file="genomic_signatures.pdf"
     """
-    gs -dBATCH -dNOPAUSE -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile=genomic_signatures.pdf ${input_files}
+    gs -dBATCH -dNOPAUSE -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile="${output_file}" ${input_files}
     """
 }
 
@@ -1072,15 +1073,16 @@ process merge_signatures_pie_plots {
     file(input_files:'*') from signatures_pie_plots.toList()
 
     output:
-    file "signatures_pie.pdf"
-    val("signatures_pie.pdf") into done_merge_signatures_pie_plots
+    file("${output_file}")
+    val(output_file) into done_merge_signatures_pie_plots
 
     when:
     input_files.size() > 0
 
     script:
+    output_file="genomic_signatures_pie.pdf"
     """
-    gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=genomic_signatures_pie.pdf ${input_files}
+    gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile="${output_file}" ${input_files}
     """
 }
 
@@ -1261,7 +1263,6 @@ process msisensor {
     """
 }
 
-
 process mutect2 {
     tag { "${comparisonID}:${chrom}" }
     publishDir "${params.output_dir}/analysis/vcf_mutect2", mode: 'copy', overwrite: true
@@ -1282,6 +1283,7 @@ process mutect2 {
     file("${reformat_tsv}")
     val(comparisonID) into mutect2_sampleIDs
     val(comparisonID) into done_mutect2
+
 
     script:
     caller = "MuTect2"
@@ -1387,20 +1389,8 @@ samples_lofreq_vcf.concat(sample_vcf_hc2)
 samples_mutect2.combine(annovar_db_dir2)
                 // only entries that have variants present; more than one .TSV file line
                 .filter { caller, comparisonID, tumorID, normalID, chrom, sample_vcf, sample_tsv, annovar_db ->
-                    line_count = 0
-                    num_variants = 0
-                    enough_variants = false
-                    sample_vcf.withReader { reader ->
-                        while (line = reader.readLine()) {
-                            if (!line.startsWith("#")) num_variants++
-                            if (num_variants > 1) {
-                                enough_variants = true
-                                break
-                                }
-                            line_count++
-                        }
-                    }
-                    enough_variants
+                    long count = Files.lines(sample_tsv).count()
+                    count > 1
                 }
                 .set { samples_mutect2_vcfs_tsvs_filtered }
 
@@ -1460,9 +1450,6 @@ process annotate {
         """
     else if( caller == 'LoFreq' )
         """
-        # make sure there are variants present, by checking the .TSV file; should have >1 line
-        # [ ! "\$( cat "${sample_tsv}" | wc -l )" -gt 1 ] && echo "ERROR: No variants present in ${sample_tsv}, skipping annotation..." && exit 11 || :
-
         table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
         --buildver "${params.ANNOVAR_BUILD_VERSION}" \
         --remove \
@@ -1510,9 +1497,6 @@ process annotate_pairs {
     annotations_tsv = "${prefix}.annotations.tsv"
     if( caller == 'MuTect2' )
         """
-        # make sure there are variants present, by checking the .TSV file; should have >1 line
-        # [ ! "\$( cat "${sample_tsv}" | wc -l )" -gt 1 ] && echo "ERROR: No variants present in ${sample_tsv}, skipping annotation..." && exit 11 || :
-
         table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
         --buildver "${params.ANNOVAR_BUILD_VERSION}" \
         --remove \
