@@ -129,11 +129,3 @@ clean-all: clean clean-output clean-work
 	rm -f trace*.txt*
 	rm -f *.html*
 	rm -f flowchart*.dot
-
-# remove all ANNOVAR dirs and files used for ANNOVAR ref db setup
-clean-annovar:
-	[ -d annovar_db ] && /bin/mv annovar_db annovar_dbold && rm -rf annovar_dbold &
-	[ -d annovar ] && /bin/mv annovar annovarold && rm -rf annovarold &
-	rm -f annovar.revision*.tar.gz
-
-clean-ref: ref-clean
