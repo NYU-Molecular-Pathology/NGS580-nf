@@ -61,7 +61,7 @@ save.image('loaded.Rdata')
 
 message(sprintf(">>> annovar: Number of rows: %s", nrow(annovar)))
 message(sprintf(">>> avinput: Number of rows: %s", nrow(avinput)))
-message(sprintf(">>> avinput: Number of rows: %s", nrow(avinput)))
+message(sprintf(">>> vcf_table: Number of rows: %s", nrow(vcf_table)))
 
 # check that all df's have the same number of rows
 if(! all_equal(nrow(annovar), nrow(avinput), nrow(vcf_table)) ) {
