@@ -2,8 +2,6 @@
 SHELL:=/bin/bash
 REFDIR:=/ifs/data/sequence/results/external/NYU/snuderllab/ref
 ANNOVAR_DB_DIR:=/ifs/data/molecpathlab/bin/annovar/db/hg19
-ANNOVAR_PROTOCOL:=$(shell head -1 annovar_protocol.txt)
-ANNOVAR_BUILD_VERSION:=hg19
 NXF_VER:=0.29.0
 # extra params to pass for Nextflow in some recipes
 EP:=
@@ -85,11 +83,11 @@ run-phoenix: install
 	./nextflow run main.nf -profile standard -resume -with-dag flowchart-NGS580.dot $(EP)
 
 # run locally default settings
-run-local: install ref
+run-local: install
 	./nextflow run main.nf -profile local -resume -with-dag flowchart-NGS580.dot $(EP)
 
 # run on Power server
-run-power: install ref
+run-power: install
 	source /shared/miniconda2/bin/activate /shared/biobuilds-2017.11 && \
 	./nextflow run main.nf -profile power -resume -with-dag flowchart-NGS580.dot $(EP)
 
