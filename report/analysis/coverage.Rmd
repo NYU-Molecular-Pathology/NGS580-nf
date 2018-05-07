@@ -1,4 +1,4 @@
-```{r}
+```{r load_coverage}
 # summary of .sample_summary files produced by GATK DepthOfCoverage
 # ~~~~~~~ FUNCTIONS ~~~~~~~ #
 read.sample_summary <- function(file){
@@ -52,7 +52,7 @@ chrom_regions2df <- function(regions){
 
 ```
 
-```{r}
+```{r load_sample_summary}
 # ~~~~~~~ sample_summary ~~~~~~ #
 # find matching files; missing or no-match files dropped by default
 coverage_files <- unlist(sapply(X = samplesIDs, FUN = function(x){
@@ -94,7 +94,7 @@ coverage_barplot <- ggplot(data = coverage_long,
         theme(panel.grid.minor = element_blank())
 ```
 
-```{r}
+```{r load_sample_intervals}
 # ~~~~~~~ sample_interval_summary ~~~~~~ #
 # find matching files; missing or no-match files dropped by default
 interval_files <- unlist(sapply(X = samplesIDs, FUN = function(x){
@@ -128,17 +128,17 @@ interval_avg_wide <- dcast(interval_df, Target ~ Sample, value.var = "mean_cvg")
 
 Depth of coverage for each sample; total depth, mean depth, and percentage of bases at cutoff thresholds
 
-```{r}
+```{r print_coverage}
 coverage_df_print
 ```
 
 Average coverage per target per sample
 
-```{r}
+```{r print_intervals}
 interval_avg_wide
 ```
 
-```{r}
+```{r plot_coverage}
 coverage_boxplot
 coverage_barplot
 ```

@@ -1,4 +1,4 @@
-```{r}
+```{r load_flagstat}
 # ~~~~~~ FUNCTIONS ~~~~~ #
 read.flagstat <- function(file){
     # reads a samtools flagstat text file to parse values
@@ -32,9 +32,7 @@ read.dedup.log <- function(file){
     ))
 }
 
-```
 
-```{r}
 metrics_df <- do.call('rbind', lapply(X = samplesIDs, FUN = function(samplesID){
     # raw_pattern <- paste(samplesID, '.reads.txt', sep = '', collapse = '|')
     # raw_reads_file <- input_files[grep(pattern = raw_pattern, x = basename(input_files))]
@@ -98,11 +96,11 @@ mapping_plot <- ggplot(data = metrics_long, aes(x = Sample, y = Reads, fill = Ty
 
 # Reads
 
-```{r, results='asis'}
+```{r print_reads, results='asis'}
 kable(metrics_df, row.names = TRUE)
 ```
 
-```{r}
+```{r mapping_plot}
 # , fig.height=11.5, fig.width=8
 mapping_plot
 ```

@@ -1,19 +1,16 @@
-```{r}
+```{r load_samples}
 # loads sample information from samples.analysis.tsv file
 samples_file <- input_files[grep(pattern = 'samples.analysis.tsv', x = input_files)][1]
-```
-
-```{r}
 samples <- read.delim(file = samples_file, header = TRUE, sep = '\t', check.names = FALSE)
 samplesIDs <- as.character(samples[["Sample"]])
 ```
 
 # Samples
 
-```{r, results='asis'}
+```{r print_samples, results='asis'}
 kable(samples[c("Sample", "Normal")], row.names = TRUE)
 ```
 
-```{r}
+```{r save_image_samples}
 save.image(file = 'samples.Rdata', compress = TRUE)
 ```

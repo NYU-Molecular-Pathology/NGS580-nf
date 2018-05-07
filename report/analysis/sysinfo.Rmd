@@ -1,5 +1,5 @@
 # System Information 
-```{r}
+```{r print_sysinfo}
 # {.tabset .tabset-pills} 
 # 
 # ## Hide

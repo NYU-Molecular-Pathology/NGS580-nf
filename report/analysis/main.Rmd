@@ -54,7 +54,7 @@ find_sample_files <- function(samplesIDs, ext){
 save.image(file = 'loaded.Rdata', compress = TRUE)
 ```
 
-```{r, results='asis'}
+```{r compile_child, results='asis'}
 # load and compile each child doc
 for(child_doc in child_docs){
     cat(knit_child(child_doc, quiet = TRUE))
@@ -62,7 +62,7 @@ for(child_doc in child_docs){
 }
 ```
 
-```{r}
+```{r save_image}
 # save environment to file
 save.image(file="final.Rdata",compress = TRUE)
 ```

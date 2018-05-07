@@ -1,4 +1,4 @@
-```{r variants}
+```{r load_annotations}
 # loads variant information from 'all_annotations.tsv' file
 remove_vars(vars = c(
     ))
@@ -164,7 +164,7 @@ make_lofreq_plots <- function(df){
 lofreq_plots <- make_lofreq_plots(annotations[annotations[["VariantCaller"]] == 'LoFreq', ])
 ```
 
-```{r, results='asis'}
+```{r plot_variants, results='asis'}
 # print any results found
 if (length(lofreq_plots) < 1){
     cat('\n\n- __No results found__\n\n')
