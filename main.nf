@@ -65,7 +65,17 @@ Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
 Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_db_dir2 }
 
 // report and output dir
-Channel.from([ [file("${report_dir_path}"), file("${output_dir_path}")] ]).set { report_dirs }
+Channel.fromPath("${output_dir_path}/analysis").set { analysis_output }
+// Channel.from([ [file("${report_dir_path}"), file("${output_dir_path}")] ]).set { report_dirs }
+Channel.fromPath("${report_dir_path}/analysis/*")
+        .toList()
+        .map { items ->
+            return( [items])
+        }
+        .combine( analysis_output ) // [[report files list], analysis output dir]
+        .into { analysis_report_files; analysis_report_files2 }
+
+// analysis_report_files2.subscribe{ println "[analysis_report_files2] ${it}" }
 
 // read samples from analysis samplesheet
 Channel.fromPath( file(params.samples_analysis_sheet) )
@@ -1570,14 +1580,14 @@ done_copy_samplesheet.concat(
     )
     .tap { all_done1; all_done2 }
 
-process custom_report {
+process custom_analysis_report {
     tag "${html_output}"
     publishDir "${params.output_dir}/analysis/reports", mode: 'copy', overwrite: true
-    executor "local"
+    // executor "local"
 
     input:
     val(items) from all_done1.collect()
-    set file(report_dir), file(input_dir: "input") from report_dirs
+    set file(report_items: '*'), file(input_dir: "input") from analysis_report_files
 
     output:
     file("${html_output}")
@@ -1586,14 +1596,25 @@ process custom_report {
     prefix = "${params.runID}.${resultsID}"
     html_output = "${prefix}.analysis_report.html"
     """
-    Rscript -e 'rmarkdown::render(input = "${report_dir}/analysis/main.Rmd", params = list(input_dir = "input"), output_dir = ".", knit_root_dir = ".", intermediates_dir = ".", output_format = "html_document", output_file = "${html_output}")'
+    # convert report file symlinks to copies of original files, because knitr doesnt work well unless all report files are in pwd
+    for item in *.Rmd *.css *.bib; do
+        if [ -L "\${item}" ]; then
+            sourcepath="\$(python -c "import os; print(os.path.realpath('\${item}'))")"
+            echo ">>> resolving source file: \${sourcepath}"
+            rsync -va "\${sourcepath}" "\${item}"
+        fi
+    done
+
+    Rscript -e 'rmarkdown::render(input = "main.Rmd", params = list(input_dir = "input"), output_format = "html_document", output_file = "${html_output}")'
     """
+    // , output_dir = ".", knit_root_dir = ".", intermediates_dir = ".",
+    // Rscript -e 'rmarkdown::render(input = "${report_dir}/analysis/main.Rmd", params = list(input_dir = "input"), output_dir = ".", knit_root_dir = ".", intermediates_dir = ".", output_format = "html_document", output_file = "${html_output}")'
     // Rscript -e 'rmarkdown::render(input = "report/analysis/main.Rmd", params = list(input_dir = "input"), output_dir = ".", knit_root_dir = ".", intermediates_dir = ".", output_format = "all")'
 }
 
 process multiqc {
     publishDir "${params.output_dir}/analysis/reports", mode: 'copy', overwrite: true
-    executor "local"
+    // executor "local"
 
     input:
     val(all_vals) from all_done2.collect()
