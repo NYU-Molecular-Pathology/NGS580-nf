@@ -1,0 +1,8 @@
+name: r-3.4.2
+channels:
+  - biobuilds
+dependencies:
+  - r==3.4.2
+  - r-ggplot2==2.2.1
+  - Bioconductor==3.6
+

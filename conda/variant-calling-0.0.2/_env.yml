@@ -1,0 +1,12 @@
+name: variant-calling-0.0.2
+channels:
+  - biobuilds
+  - local
+dependencies:
+  - Samtools==1.6.0
+  - lofreq_star==2.1.2
+  - annovar==150617
+  - vcflib==1.0.0_rc1_16.05.18
+  - r==3.4.2
+  - r-ggplot2==2.2.1
+
