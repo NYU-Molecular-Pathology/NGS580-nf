@@ -703,7 +703,6 @@ process qc_target_reads_gatk_pad500 {
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -742,7 +741,6 @@ process qc_target_reads_gatk_pad100 {
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitIntervalStatistics \
     --omitLocusTable \
@@ -789,7 +787,6 @@ process qc_target_reads_gatk_bed {
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
     -rf BadCigar \
-    -nt \${NSLOTS:-\${NTHREADS:-1}} \
     --logging_level ERROR \
     --omitDepthOutputAtEachBase \
     -ct 10 -ct 50 -ct 100 -ct 500 \
