@@ -326,7 +326,6 @@ process sambamba_view_sort {
     --out="${bam_file}" /dev/stdin
     """
 }
-// --memory-limit="${params.sambamba_mem_limit}" \
 
 process sambamba_flagstat {
     tag { "${sampleID}" }
@@ -337,7 +336,7 @@ process sambamba_flagstat {
     set val(sampleID), file(sample_bam) from samples_bam
 
     output:
-    file("${flagstat}")
+    set val(sampleID), file("${flagstat}") into sambamba_flagstats
     val(sampleID) into done_sambamba_flagstat
 
     script:
@@ -347,6 +346,34 @@ process sambamba_flagstat {
     sambamba flagstat "${sample_bam}" > "${flagstat}"
     """
 }
+
+process sambamba_flagstat_table {
+    tag { "${sampleID}" }
+    publishDir "${params.output_dir}/analysis/sambamba-flagstat", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), file(flagstat) from sambamba_flagstats
+
+    output:
+    file("${output_file}") into sambamba_flagstat_tables
+    val(sampleID) into done_sambamba_flagstat_table
+
+    script:
+    prefix = "${sampleID}"
+    output_file = "${prefix}.flagstat.tsv"
+    """
+    flagstat2table.R "${flagstat}" tmp.tsv
+
+    paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Results" -v "${resultsID}" | \
+    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+}
+sambamba_flagstat_tables.collectFile(name: "flagstat.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 process sambamba_dedup {
     tag { "${sampleID}" }
@@ -359,8 +386,8 @@ process sambamba_dedup {
     output:
     set val(sampleID), file("${bam_file}") into samples_dd_bam, samples_dd_bam2, samples_dd_bam3, samples_dd_bam4, samples_dd_bam5, samples_dd_bam6, samples_dd_bam7
     file("${bai_file}")
-    file("${log_file}")
-    file("${reads_log_file}") into samples_dd_reads_log
+    set val(sampleID), file("${log_file}") into sambamba_dedup_logs
+    // file("${reads_log_file}") into samples_dd_reads_log
     val(sampleID) into done_sambamba_dedup
 
     script:
@@ -368,7 +395,7 @@ process sambamba_dedup {
     bam_file = "${prefix}.dd.bam"
     bai_file = "${prefix}.dd.bam.bai"
     log_file = "${prefix}.dd.log"
-    reads_log_file = "${prefix}.dd.reads.log"
+    // reads_log_file = "${prefix}.dd.reads.log"
     """
     sambamba markdup \
     --remove-duplicates \
@@ -380,14 +407,40 @@ process sambamba_dedup {
     # make a copy of the .command.err Nextflow log file for parsing
     cat .command.err > "${log_file}"
 
-    # get values for log output
-    reads_duplicates="\$(cat .command.err | grep -m 1 "found.*duplicates" | tr -d -c 0-9)"
-    printf "Sample\tDuplicates\n%s\t%s\n" "${sampleID}" "\${reads_duplicates}" > "${reads_log_file}"
-
     samtools index "${bam_file}"
     """
+    // # get values for log output
+    // # reads_duplicates="\$(cat .command.err | grep -m 1 "found.*duplicates" | tr -d -c 0-9)"
+    // # printf "Sample\tDuplicates\n%s\t%s\n" "${sampleID}" "\${reads_duplicates}" > "${reads_log_file}"
 }
-samples_dd_reads_log.collectFile(name: "samples_dd_reads.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
+
+process sambamba_dedup_log_table {
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/bam-bwa-dd", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), file(log_file) from sambamba_dedup_logs
+
+    output:
+    file("${output_file}") into sambamba_dedup_log_tables
+    val(sampleID) into done_sambamba_dedup_log_table
+
+    script:
+    prefix = "${sampleID}"
+    output_file = "${prefix}.dd.tsv"
+    """
+    dedup-log2table.R "${log_file}" tmp.tsv
+
+    paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Results" -v "${resultsID}" | \
+    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+}
+sambamba_dedup_log_tables.collectFile(name: "reads.dedup.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 process sambamba_dedup_flagstat {
     tag { "${sampleID}" }
@@ -398,7 +451,7 @@ process sambamba_dedup_flagstat {
     set val(sampleID), file(sample_bam) from samples_dd_bam2
 
     output:
-    file "${flagstat}"
+    set val(sampleID), file("${flagstat}") into sambamba_dedup_flagstats
     val(sampleID) into done_sambamba_dedup_flagstat
 
     script:
@@ -410,8 +463,33 @@ process sambamba_dedup_flagstat {
 
 }
 
+process sambamba_dedup_flagstat_table {
+    tag { "${sampleID}" }
+    publishDir "${params.output_dir}/analysis/sambamba-dd-flagstat", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
+    input:
+    set val(sampleID), file(flagstat) from sambamba_dedup_flagstats
 
+    output:
+    file("${output_file}") into sambamba_dedup_flagstat_tables
+    val(sampleID) into done_sambamba_dedup_flagstat_table
+
+    script:
+    prefix = "${sampleID}"
+    output_file = "${prefix}.dd.flagstat.tsv"
+    """
+    flagstat2table.R "${flagstat}" tmp.tsv
+
+    paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Results" -v "${resultsID}" | \
+    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+}
+sambamba_dedup_flagstat_tables.collectFile(name: "flagstat.dedup.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 
 
@@ -1576,7 +1654,10 @@ done_copy_samplesheet.concat(
     done_mutect2,
     done_annotate,
     done_annotate_pairs,
-    done_collect_annotation_tables
+    done_collect_annotation_tables,
+    done_sambamba_dedup_log_table,
+    done_sambamba_flagstat_table,
+    done_sambamba_dedup_flagstat_table
     )
     .tap { all_done1; all_done2 }
 
@@ -1607,11 +1688,9 @@ process custom_analysis_report {
 
     Rscript -e 'rmarkdown::render(input = "main.Rmd", params = list(input_dir = "input"), output_format = "html_document", output_file = "${html_output}")'
     """
-    // , output_dir = ".", knit_root_dir = ".", intermediates_dir = ".",
-    // Rscript -e 'rmarkdown::render(input = "${report_dir}/analysis/main.Rmd", params = list(input_dir = "input"), output_dir = ".", knit_root_dir = ".", intermediates_dir = ".", output_format = "html_document", output_file = "${html_output}")'
-    // Rscript -e 'rmarkdown::render(input = "report/analysis/main.Rmd", params = list(input_dir = "input"), output_dir = ".", knit_root_dir = ".", intermediates_dir = ".", output_format = "all")'
 }
 
+disable_multiqc = true // for faster testing of the rest of the pipeline
 process multiqc {
     publishDir "${params.output_dir}/analysis/reports", mode: 'copy', overwrite: true
     // executor "local"
@@ -1623,6 +1702,9 @@ process multiqc {
     output:
     file "multiqc_report.html" // into email_files
     file "multiqc_data"
+
+    when:
+    disable_multiqc == false
 
     script:
     """
