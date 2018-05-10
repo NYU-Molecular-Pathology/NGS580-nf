@@ -31,17 +31,6 @@ current_dir_path = new File(System.getProperty("user.dir")).getCanonicalPath()
 // get the system hostname to identify which system the pipeline is running from
 String localhostname = java.net.InetAddress.getLocalHost().getHostName();
 
-// summary collectFile's
-params.qc_coverage_gatk_file_basename = "qc_coverage_gatk.csv"
-params.annotations_mutect2_file_basename = "annotations-mutect2.txt"
-params.annotations_insertions_Delly2_file_basename = "annotations-insertions-Delly2.txt"
-params.annotations_translocations_Delly2_file_basename = "annotations-translocations-Delly2.txt"
-params.annotations_inversion_Delly2_file_basename = "annotations-inversions-Delly2.txt"
-params.annotations_duplications_Delly2_file_basename = "annotations-duplications-Delly2.txt"
-params.annotations_deletions_Delly2_file_basename = "annotations-deletions-Delly2.txt"
-params.annotations_hc_file_basename = "annotations-hc.txt"
-params.annotations_lofreq_file_basename = "annotations-lofreq.txt"
-
 
 //
 // DATA INPUT CHANNELS
@@ -828,7 +817,7 @@ process update_coverage_tables {
     "${output_file}"
     """
 }
-updated_coverage_tables.collectFile(name: "${params.qc_coverage_gatk_file_basename}", storeDir: "${params.output_dir}/analysis", keepHeader: true)
+updated_coverage_tables.collectFile(name: "coverage.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 process pad_bed {
     publishDir "${params.output_dir}/analysis/targets", mode: 'copy', overwrite: true

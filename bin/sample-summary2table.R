@@ -17,6 +17,7 @@ read.sample_summary <- function(file){
     # rename some columns
     names(df)[names(df) == 'mean'] <- 'MeanCoverage'
     names(df)[names(df) == 'granular_median'] <- 'MedianCoverage'
+    names(df) <- gsub(pattern = '%_bases_above_', replacement = '', x = names(df))
     
     # remove some columns
     drops <- c("total","granular_third_quartile", "granular_first_quartile")
