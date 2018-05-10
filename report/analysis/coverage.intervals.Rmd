@@ -1,41 +1,50 @@
+```{r load_interval_coverage}
+# summary of .sample_interval_summary files produced by GATK DepthOfCoverage
+interval_coverage_file <- input_files[grep(pattern = 'coverage.intervals.tsv', x = basename(input_files))][1]
+interval_coverage_df <- read.delim(file = interval_coverage_file, header = TRUE, sep = '\t', check.names = FALSE)
 
-```{r load_sample_intervals}
-# ~~~~~~~ sample_interval_summary ~~~~~~ #
-# chrom_regions2df <- function(regions){
-#     # split the regions into chrom coordinates for BED files
-#     # regions <- c("chr1:236998847-236998987", "chr1:237001714-237001899")
-#     regions_df <- as.data.frame(do.call(rbind, strsplit(regions, ':')))
-#     regions_df <- cbind(regions_df[1],
-#                         as.data.frame(do.call(rbind, strsplit(as.character(regions_df$V2), '-'))))
-#     colnames(regions_df) <- c("Chrom", "Start", "Stop")
-#     return(regions_df)
-# }
-# 
-# # find matching files; missing or no-match files dropped by default
-# interval_files <- unlist(sapply(X = samplesIDs, FUN = function(x){
-#     pattern <- paste(x, '.sample_interval_summary', sep = '')
-#     return(input_files[grep(pattern = pattern, x = basename(input_files))])
-# }))
-# 
-# # keep the sample names for parsing loaded files
-# interval_files_names <- names(interval_files)
-# 
-# interval_df <- do.call('rbind', lapply(setNames(interval_files_names, interval_files_names), function(nameindex) {
-#     sample_name <- nameindex
-#     input_file <- interval_files[[nameindex]]
-#     # print(c(sample_name, input_file))
-#     
-#     df <- read.delim(file = input_file, header = TRUE, sep = ',', check.names = FALSE, stringsAsFactors = FALSE)
-#     df[['Sample']] <- sample_name
-#     
-#     names(df) <- gsub(pattern = paste0(sample_name, '_'), replacement = '', x = names(df))
-#     rownames(df) <- c()
-#     return(df)
-# }))
-# rownames(interval_df) <- c()
-# 
-# interval_df <- cbind(chrom_regions2df(interval_df[['Target']]), interval_df)
-# 
+# only operate on the 'bed' mode interval qc values
+interval_coverage_df <- interval_coverage_df[interval_coverage_df[["Mode"]] == 'bed', ]
+
+# calculate average coverage per interval across samples
+# NOTE!!! Low coverage control samples will affect this!
+# names(interval_coverage_df)
+interval_mean_coverage <- aggregate(MeanCoverage ~ Target, data = interval_coverage_df, FUN = mean)
+interval_samples_mean_coverage <- aggregate(MeanCoverage ~ Sample, data = interval_coverage_df, FUN = mean)
+
+# the coverages extend >10,000, need to cut off the plot for just entries <1,000
+y_lim <- 750
+
+# make plots
+interval_samples_boxplot <- ggplot(data = interval_coverage_df, aes(x = Sample, y = MeanCoverage, fill = Sample)) + 
+    geom_boxplot() +
+    ggtitle("Mean Coverage Across All Intervals") + 
+    scale_y_continuous(breaks = seq(from = 0, to = y_lim, by = 100)) + 
+    coord_flip(ylim = c(0, y_lim)) + 
+    theme_bw() +
+    theme(legend.position="none", panel.grid.minor = element_blank())
+
+interval_samples_barplot <- ggplot(data = interval_samples_mean_coverage, 
+                                   aes(x = Sample, y = MeanCoverage, fill = Sample)) + 
+    geom_bar(stat="identity", position = "dodge") + 
+    ggtitle("Average Mean Coverage Across All Intervals") + 
+    coord_flip() + 
+    theme_bw() +
+    theme(legend.position="none", panel.grid.minor = element_blank())
+
+
 # interval_avg_wide <- dcast(interval_df, Target ~ Sample, value.var = "mean_cvg")
 ```
-Average coverage per target per sample
+
+# Interval Coverage
+
+Coverage across target intervals. 
+
+## Per Sample 
+
+Per sample coverage metrics across intervals
+
+```{r}
+print(interval_samples_boxplot)
+print(interval_samples_barplot)
+```

@@ -756,11 +756,7 @@ process qc_target_reads_gatk_bed {
 
     output:
     set val(sampleID), val(mode), file("${sample_summary}") into qc_target_reads_gatk_beds
-    file("${sample_statistics}")
-    file("${sample_interval_summary}")
-    file("${sample_interval_statistics}")
-    file("${sample_cumulative_coverage_proportions}")
-    file("${sample_cumulative_coverage_counts}")
+    set val(sampleID), val(mode), file("${sample_interval_summary}") into qc_target_reads_gatk_beds_intervals
     val(sampleID) into done_qc_target_reads_gatk_bed
 
     script:
@@ -802,6 +798,7 @@ process update_coverage_tables {
 
     output:
     file("${output_file}") into updated_coverage_tables
+    val(sampleID) into done_update_coverage_tables
 
     script:
     prefix = "${sampleID}.${mode}"
@@ -817,7 +814,37 @@ process update_coverage_tables {
     "${output_file}"
     """
 }
-updated_coverage_tables.collectFile(name: "coverage.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
+updated_coverage_tables.collectFile(name: "coverage.samples.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
+
+
+process update_interval_tables {
+    tag "${prefix}"
+    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), val(mode), file(sample_interval_summary) from qc_target_reads_gatk_beds_intervals
+
+    output:
+    file("${output_file}") into updated_coverage_interval_tables
+    val(sampleID) into done_update_interval_tables
+
+    script:
+    prefix = "${sampleID}.${mode}"
+    output_file = "${prefix}.sample_interval_summary.tsv"
+    """
+    sample-interval-summary2table.R "${sample_interval_summary}" tmp.tsv
+
+    paste-col.py -i tmp.tsv --header "Mode" -v "${mode}" | \
+    paste-col.py --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Results" -v "${resultsID}" | \
+    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+}
+updated_coverage_interval_tables.collectFile(name: "coverage.intervals.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 process pad_bed {
     publishDir "${params.output_dir}/analysis/targets", mode: 'copy', overwrite: true
@@ -1321,7 +1348,7 @@ process msisensor {
 }
 
 process mutect2 {
-    tag { "${comparisonID}:${chrom}" }
+    tag "${prefix}"
     publishDir "${params.output_dir}/analysis/vcf_mutect2", mode: 'copy', overwrite: true
     publishDir "${params.output_dir}/samples/${tumorID}", overwrite: true
 
@@ -1625,7 +1652,9 @@ done_copy_samplesheet.concat(
     done_collect_annotation_tables,
     done_sambamba_dedup_log_table,
     done_sambamba_flagstat_table,
-    done_sambamba_dedup_flagstat_table
+    done_sambamba_dedup_flagstat_table,
+    done_update_coverage_tables,
+    done_update_interval_tables
     )
     .tap { all_done1; all_done2 }
 
