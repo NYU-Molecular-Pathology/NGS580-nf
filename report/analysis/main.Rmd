@@ -16,7 +16,7 @@ output:
     toc: yes
 bibliography: citations.bib
 params:
-  child: !r c("samples.Rmd", "reads.Rmd", "coverage.Rmd", "variants.Rmd")
+  child: !r c("samples.Rmd", "reads.Rmd", "coverage.samples.Rmd", "coverage.intervals.Rmd", "variants.Rmd")
   input_dir: input
 ---
 ```{r setup, include=FALSE}

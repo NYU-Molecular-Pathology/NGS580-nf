@@ -1,0 +1,75 @@
+```{r load_sample_coverage}
+# summary of .sample_summary files produced by GATK DepthOfCoverage
+coverage_file <- input_files[grep(pattern = 'coverage.tsv', x = basename(input_files))][1]
+coverage_df <- read.delim(file = coverage_file, header = TRUE, sep = '\t', check.names = FALSE)
+
+# get the column names that represent threshold cutoffs; colnames that are plain numeric values
+threshold_cols <- names(coverage_df)[!is.na(as.numeric(names(coverage_df)))]
+non_threshold_cols <- names(coverage_df)[!names(coverage_df) %in% threshold_cols]
+
+# create long format table for plotting
+coverage_long <- reshape2::melt(coverage_df,  id.vars=non_threshold_cols, variable.name="Cutoff", value.name="Percent")
+```
+
+```{r make_sample_coverage_plots}
+# make a list of plots for all coverage modes
+coverage_plots <- list()
+
+modes <- levels(coverage_long[["Mode"]])
+# put 'bed' in front, 'genome' at the end
+if("bed" %in% modes) modes <- c("bed", modes[which(modes != "bed")])
+if("genome" %in% modes) modes <- c(modes[which(modes != "genome")], "genome")
+
+for(cov_mode in modes){
+    coverage_plots[[cov_mode]] <- list()
+    coverage_plots[[cov_mode]][["boxplot"]] <- ggplot(data = droplevels(coverage_long[coverage_long[["Mode"]] == cov_mode, ]), 
+                                                      aes(x = Cutoff, 
+                                                          y = Percent, 
+                                                          fill = Cutoff)) + 
+        geom_boxplot() + 
+        ggtitle("Percent of Bases Above Coverage Cutoff") + 
+        theme_bw() +
+        theme(legend.position="none", panel.grid.minor = element_blank()) +
+        scale_y_continuous(limits = c(0, 100))
+    
+    coverage_plots[[cov_mode]][["barplot"]] <- ggplot(data = droplevels(coverage_long[coverage_long[["Mode"]] == cov_mode, ]), 
+                                                      aes(x = Sample, 
+                                                          y = Percent, 
+                                                          fill = Cutoff)) +
+        geom_bar(stat="identity", position = "dodge") + 
+        ggtitle("Percent of Bases Above Coverage Cutoff") + 
+        coord_flip() + 
+        theme_bw() +
+        theme(panel.grid.minor = element_blank()) +
+        scale_y_continuous(limits = c(0, 100))
+}
+
+```
+
+# Sample Coverage
+
+Depth of coverage for each sample; total depth, mean depth, and percentage of bases at cutoff thresholds.
+
+Coverage types:
+
+- `bed`: coverage at target intervals
+
+- `padxxx`: coverage at target interval regions with extra bp padding
+
+- `genome`: coverage across reference genome
+
+```{r print_sample_coverage_plots, results='asis'}
+if(length(coverage_plots) < 1){
+    cat('\n\n__No results found__\n\n')
+} else {
+    for(name in names(coverage_plots)){
+        subheader <- sprintf('\n\n## Coverage type: %s\n\n', name)
+        cat(subheader)
+        print(coverage_plots[[name]][["barplot"]])
+        print(coverage_plots[[name]][["boxplot"]])
+    }
+}
+
+```
+
+

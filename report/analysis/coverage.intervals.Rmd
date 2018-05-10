@@ -1,0 +1,41 @@
+
+```{r load_sample_intervals}
+# ~~~~~~~ sample_interval_summary ~~~~~~ #
+# chrom_regions2df <- function(regions){
+#     # split the regions into chrom coordinates for BED files
+#     # regions <- c("chr1:236998847-236998987", "chr1:237001714-237001899")
+#     regions_df <- as.data.frame(do.call(rbind, strsplit(regions, ':')))
+#     regions_df <- cbind(regions_df[1],
+#                         as.data.frame(do.call(rbind, strsplit(as.character(regions_df$V2), '-'))))
+#     colnames(regions_df) <- c("Chrom", "Start", "Stop")
+#     return(regions_df)
+# }
+# 
+# # find matching files; missing or no-match files dropped by default
+# interval_files <- unlist(sapply(X = samplesIDs, FUN = function(x){
+#     pattern <- paste(x, '.sample_interval_summary', sep = '')
+#     return(input_files[grep(pattern = pattern, x = basename(input_files))])
+# }))
+# 
+# # keep the sample names for parsing loaded files
+# interval_files_names <- names(interval_files)
+# 
+# interval_df <- do.call('rbind', lapply(setNames(interval_files_names, interval_files_names), function(nameindex) {
+#     sample_name <- nameindex
+#     input_file <- interval_files[[nameindex]]
+#     # print(c(sample_name, input_file))
+#     
+#     df <- read.delim(file = input_file, header = TRUE, sep = ',', check.names = FALSE, stringsAsFactors = FALSE)
+#     df[['Sample']] <- sample_name
+#     
+#     names(df) <- gsub(pattern = paste0(sample_name, '_'), replacement = '', x = names(df))
+#     rownames(df) <- c()
+#     return(df)
+# }))
+# rownames(interval_df) <- c()
+# 
+# interval_df <- cbind(chrom_regions2df(interval_df[['Target']]), interval_df)
+# 
+# interval_avg_wide <- dcast(interval_df, Target ~ Sample, value.var = "mean_cvg")
+```
+Average coverage per target per sample
