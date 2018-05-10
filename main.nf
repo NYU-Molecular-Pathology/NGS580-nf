@@ -824,7 +824,6 @@ process update_coverage_tables {
     paste-col.py --header "Run" -v "${params.runID}" | \
     paste-col.py --header "Results" -v "${resultsID}" | \
     paste-col.py --header "Location" -v "${current_dir_path}" | \
-    paste-col.py --header "VariantCaller" -v "${caller}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${output_file}"
     """
