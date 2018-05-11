@@ -52,10 +52,6 @@ annovar_db: install
 # main setup commands to use
 setup: install ref annovar_db
 
-# setup commands needed for NYU phoenix HPC
-setup-phoenix: install ref annovar_db
-
-
 # set up a new sequencing directory with a copy of this repo for analysis
 deploy:
 	@[ -z "$(PROJECT)" ] && printf "invalid PROJECT specified: $(PROJECT)\n" && exit 1 || :
@@ -80,7 +76,7 @@ deploy:
 # run on phoenix in current session
 run-phoenix: install
 	module unload java && module load java/1.8 && \
-	./nextflow run main.nf -profile standard -resume -with-dag flowchart-NGS580.dot $(EP)
+	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart-NGS580.dot $(EP)
 
 # run locally default settings
 run-local: install
