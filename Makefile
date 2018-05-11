@@ -104,7 +104,7 @@ run-phoenix-qsub: install
 	@output_file="pid.txt" ; \
 	module unload java && module load java/1.8 && \
 	JOBINFO="$${JOB_ID:-none}\t$${JOB_NAME:-none}\t$${HOSTNAME:-none}\t$${USER:-none}" ; \
-	./nextflow -config demo.config run demo.nf EP=$(EP) & \
+	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart-NGS580.dot $(EP) & \
 	pid="$$!" ; \
 	INFOSTR="$${pid}\t$${JOBINFO}\t$$(date +%s)" ; \
 	printf "$${INFOSTR}\n" ; \
