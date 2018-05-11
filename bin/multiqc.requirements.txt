@@ -1,3 +1,0 @@
-multiqc
-jinja2>=2.9
-
