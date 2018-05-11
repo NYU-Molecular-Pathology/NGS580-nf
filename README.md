@@ -93,6 +93,14 @@ To submit the parent Nextflow process as a job on the HPC system:
 make submit-phoenix
 ```
 
+### Extra Parameters
+
+You can supply extra parameters for Nextflow by using the `EP` variable included in the Makefile, like this:
+
+```
+make run-phoenix EP='--runID 180320_NB501073_0037_AH55F3BGX5 --resultsID 2018-05-10_17-33-23'
+```
+
 # Demo
 
 A demo dataset can be loaded using the following command:
