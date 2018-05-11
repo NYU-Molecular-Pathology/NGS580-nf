@@ -1,7 +1,9 @@
 # NGS580-nf
 Target exome analysis for 580 gene panel
 
-# Installation & Setup
+__NOTE:__ Details listed here may change during development
+
+# Installation 
 
 - clone this repository
 
@@ -10,38 +12,39 @@ git clone https://github.com/NYU-Molecular-Pathology/NGS580-nf.git
 cd NGS580-nf
 ```
 
-## Setup Dependencies
+# Setup 
 
-### With Docker
+## Docker
 
-If you are using Docker containers (recommended), run the following command to build the included containers:
+If you are using the included Docker containers (recommended), run the following commands to build the included containers:
+
+```
+cd containers
+make build-all-Docker
+```
+
+## Conda
+
+Conda environment recipes (equivalent to the included Docker containers) have also been included and can be created with the following commands:
+
+```
+cd conda
+make 
+```
+
+## Reference Data
+
+Nextflow pipelines have been included for downloading required reference data, including ANNOVAR reference databases. You can run them with the following command:
 
 ```
 make setup
 ```
 
-This will:
-
-- build Singularity / Docker containers
-
-- download genomic reference data and ANNOVAR databases if the pre-configured data directories are not available; if they exist, they will be symlinked instead (see Makefile for details)
-
-### NYU phoenix HPC
-
-If running on the NYU phoenix HPC cluster, use the following command:
-
-```
-make setup-phoenix
-```
-
-This will:
-
-- set up reference data as per the `setup` command
-
-- build a Python virtual environment for `multiqc` in the `bin` directory
-
+Note that this will require a version of ANNOVAR (included Docker container is used by default), along with Nextflow, which requires Java 8 and will be automatically installed in the current directory.
 
 # Usage
+
+The pipeline is designed to start from demultiplexed .fastq.gz files, produced by an Illumina sequencer, which have been split by flowcells lane (default `bcl2fastq` output format).
 
 ## Create Samplesheet
 
@@ -61,32 +64,36 @@ A samplesheet is needed to gather data about fastq.gz input files and sample IDs
 
 ## Run the pipeline:
 
-- on NYU phoenix HPC using 'module'
+To run the Nextflow pipeline in the current session:
+
+- on NYU phoenix HPC using 'module', submits jobs to SGE scheduler
     
 ```
 make run-phoenix
 ```
 
-- on MCIT Power8 server using Miniconda
+- on MCIT Power8 server using Miniconda, runs jobs on host system
 
 ```
 make run-power
 
 ```
 
-- locally using Docker
+- locally using Docker, runs jobs on host system
 
 ```
 make run-local
 ```
 
-__NOTE:__ This should be run in a `screen` session, or submitted to the HPC with the following SGE submission script:
+To submit the parent Nextflow process as a job on the HPC system:
+
+- on NYU phoenix HPC
 
 ```
-./submit.sh run
+make submit-phoenix
 ```
 
-## Demo
+# Demo
 
 A demo dataset can be loaded using the following command:
 
