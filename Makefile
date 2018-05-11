@@ -52,10 +52,6 @@ annovar_db: install
 # main setup commands to use
 setup: install ref annovar_db
 
-# setup commands needed for NYU phoenix HPC
-setup-phoenix: install ref annovar_db
-
-
 # set up a new sequencing directory with a copy of this repo for analysis
 deploy:
 	@[ -z "$(PROJECT)" ] && printf "invalid PROJECT specified: $(PROJECT)\n" && exit 1 || :
@@ -77,10 +73,10 @@ deploy:
 
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
-# run on phoenix default settings
+# run on phoenix in current session
 run-phoenix: install
 	module unload java && module load java/1.8 && \
-	./nextflow run main.nf -profile standard -resume -with-dag flowchart-NGS580.dot $(EP)
+	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart-NGS580.dot $(EP)
 
 # run locally default settings
 run-local: install
@@ -94,6 +90,35 @@ run-power: install
 # compile flow chart
 flowchart:
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png || echo "file flowchart-NGS580.dot not present"
+
+
+# submit the parent Nextflow process to phoenix HPC as a qsub job
+submit-phoenix:
+	@qsub_logdir="logs" ; \
+	mkdir -p "$${qsub_logdir}" ; \
+	job_name="NGS580-nf" ; \
+	echo 'make run-phoenix-qsub EP=$(EP)' | qsub -wd $$PWD -o :$${qsub_logdir}/ -e :$${qsub_logdir}/ -j y -N "$$job_name" -q all.q 
+
+# parent Nextflow process to be run as a qsub job
+run-phoenix-qsub: install
+	@output_file="pid.txt" ; \
+	module unload java && module load java/1.8 && \
+	JOBINFO="$${JOB_ID:-none}\t$${JOB_NAME:-none}\t$${HOSTNAME:-none}\t$${USER:-none}" ; \
+	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart-NGS580.dot $(EP) & \
+	pid="$$!" ; \
+	INFOSTR="$${pid}\t$${JOBINFO}\t$$(date +%s)" ; \
+	printf "$${INFOSTR}\n" ; \
+	printf "$${INFOSTR}\n" >> $${output_file} ; \
+	wait $${pid}
+
+# issue an interupt signal to a process (e.g. Nextflow) running on a remote server
+REMOTE:=
+PID:=
+remote-kill:
+	@[ -z "$(REMOTE)" ] && printf "invalid REMOTE specified: $(PROJECT)\n" && exit 1 || :
+	@[ -z "$(PID)" ] && printf "invalid PID specified: $(PID)\n" && exit 1 || :
+	ssh "$(REMOTE)" 'kill $(PID)'
+
 
 
 # ~~~~~ CLEANUP ~~~~~ #

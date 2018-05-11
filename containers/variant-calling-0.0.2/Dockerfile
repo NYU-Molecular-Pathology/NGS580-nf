@@ -51,7 +51,6 @@ rm -f annovar.revision150617.tar.gz
 # location to mount reference database dir:
 RUN mkdir /opt/annovar/db
 # easy script for annotating:
-ADD annotate_vcf.sh /opt/annovar/annotate_vcf.sh
 ENV PATH="/opt/annovar:${PATH}"
 
 # ~~~~~ R Libs ~~~~~ #
