@@ -1523,8 +1523,8 @@ process annotate {
         --outfile "${prefix}"
 
         # add headers to the avinput, just the first columns
-        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\tQUAL\n" > "${avinput_tsv}"
-        cut -f1-11 "${avinput_file}" >>  "${avinput_tsv}"
+        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
+        cut -f1-10 "${avinput_file}" >>  "${avinput_tsv}"
 
         # merge the tables together
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
@@ -1534,18 +1534,24 @@ process annotate {
         """
     else if( caller == 'LoFreq' )
         """
-        table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
+        # convert to ANNOVAR format
+        convert2annovar.pl \
+        -includeinfo \
+        -format vcf4 \
+        "${sample_vcf}" > \
+        "${avinput_file}"
+
+        table_annovar.pl "${avinput_file}" "${annovar_db_dir}" \
         --buildver "${params.ANNOVAR_BUILD_VERSION}" \
         --remove \
         --protocol "${params.ANNOVAR_PROTOCOL}" \
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
-        --vcfinput \
         --onetranscript \
         --outfile "${prefix}"
 
-        printf "Chr\tStart\tEnd\tRef\tAlt\tId\tQuality\tDP\tCHROM\tPOS\tID\tREF\tALT\tQUAL\n" > "${avinput_tsv}"
-        cut -f1-14 ${avinput_file} >>  "${avinput_tsv}"
+        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
+        cut -f1-10 ${avinput_file} >>  "${avinput_tsv}"
 
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
         hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k Chr Start End Ref Alt CHROM POS REF ALT Sample Run Results VariantCaller
