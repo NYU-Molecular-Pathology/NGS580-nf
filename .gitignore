@@ -40,3 +40,5 @@ main_files
 *.pdf
 qsub-logs/
 report/analysis/input
+logs
+pid.txt

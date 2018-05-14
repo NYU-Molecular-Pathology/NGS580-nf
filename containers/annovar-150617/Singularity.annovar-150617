@@ -26,15 +26,8 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     tar -vzxf annovar.revision150617.tar.gz && \
     rm -f annovar.revision150617.tar.gz
 
-    # move the wrapper script in place
-    mv /tmp/annotate_vcf.sh /opt/annovar/
-
     # location to mount reference database dir:
     mkdir -p /opt/annovar/db
-
-%files
-    # easy script for annotating:
-    annotate_vcf.sh /tmp/annotate_vcf.sh
 
 %environment
     export PATH="/opt/bin:${PATH}"

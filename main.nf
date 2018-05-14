@@ -31,17 +31,6 @@ current_dir_path = new File(System.getProperty("user.dir")).getCanonicalPath()
 // get the system hostname to identify which system the pipeline is running from
 String localhostname = java.net.InetAddress.getLocalHost().getHostName();
 
-// summary collectFile's
-params.qc_coverage_gatk_file_basename = "qc_coverage_gatk.csv"
-params.annotations_mutect2_file_basename = "annotations-mutect2.txt"
-params.annotations_insertions_Delly2_file_basename = "annotations-insertions-Delly2.txt"
-params.annotations_translocations_Delly2_file_basename = "annotations-translocations-Delly2.txt"
-params.annotations_inversion_Delly2_file_basename = "annotations-inversions-Delly2.txt"
-params.annotations_duplications_Delly2_file_basename = "annotations-duplications-Delly2.txt"
-params.annotations_deletions_Delly2_file_basename = "annotations-deletions-Delly2.txt"
-params.annotations_hc_file_basename = "annotations-hc.txt"
-params.annotations_lofreq_file_basename = "annotations-lofreq.txt"
-
 
 //
 // DATA INPUT CHANNELS
@@ -326,7 +315,6 @@ process sambamba_view_sort {
     --out="${bam_file}" /dev/stdin
     """
 }
-// --memory-limit="${params.sambamba_mem_limit}" \
 
 process sambamba_flagstat {
     tag { "${sampleID}" }
@@ -337,7 +325,7 @@ process sambamba_flagstat {
     set val(sampleID), file(sample_bam) from samples_bam
 
     output:
-    file("${flagstat}")
+    set val(sampleID), file("${flagstat}") into sambamba_flagstats
     val(sampleID) into done_sambamba_flagstat
 
     script:
@@ -347,6 +335,34 @@ process sambamba_flagstat {
     sambamba flagstat "${sample_bam}" > "${flagstat}"
     """
 }
+
+process sambamba_flagstat_table {
+    tag { "${sampleID}" }
+    publishDir "${params.output_dir}/analysis/sambamba-flagstat", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), file(flagstat) from sambamba_flagstats
+
+    output:
+    file("${output_file}") into sambamba_flagstat_tables
+    val(sampleID) into done_sambamba_flagstat_table
+
+    script:
+    prefix = "${sampleID}"
+    output_file = "${prefix}.flagstat.tsv"
+    """
+    flagstat2table.R "${flagstat}" tmp.tsv
+
+    paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Results" -v "${resultsID}" | \
+    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+}
+sambamba_flagstat_tables.collectFile(name: "flagstat.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 process sambamba_dedup {
     tag { "${sampleID}" }
@@ -359,8 +375,8 @@ process sambamba_dedup {
     output:
     set val(sampleID), file("${bam_file}") into samples_dd_bam, samples_dd_bam2, samples_dd_bam3, samples_dd_bam4, samples_dd_bam5, samples_dd_bam6, samples_dd_bam7
     file("${bai_file}")
-    file("${log_file}")
-    file("${reads_log_file}") into samples_dd_reads_log
+    set val(sampleID), file("${log_file}") into sambamba_dedup_logs
+    // file("${reads_log_file}") into samples_dd_reads_log
     val(sampleID) into done_sambamba_dedup
 
     script:
@@ -368,7 +384,7 @@ process sambamba_dedup {
     bam_file = "${prefix}.dd.bam"
     bai_file = "${prefix}.dd.bam.bai"
     log_file = "${prefix}.dd.log"
-    reads_log_file = "${prefix}.dd.reads.log"
+    // reads_log_file = "${prefix}.dd.reads.log"
     """
     sambamba markdup \
     --remove-duplicates \
@@ -380,14 +396,40 @@ process sambamba_dedup {
     # make a copy of the .command.err Nextflow log file for parsing
     cat .command.err > "${log_file}"
 
-    # get values for log output
-    reads_duplicates="\$(cat .command.err | grep -m 1 "found.*duplicates" | tr -d -c 0-9)"
-    printf "Sample\tDuplicates\n%s\t%s\n" "${sampleID}" "\${reads_duplicates}" > "${reads_log_file}"
-
     samtools index "${bam_file}"
     """
+    // # get values for log output
+    // # reads_duplicates="\$(cat .command.err | grep -m 1 "found.*duplicates" | tr -d -c 0-9)"
+    // # printf "Sample\tDuplicates\n%s\t%s\n" "${sampleID}" "\${reads_duplicates}" > "${reads_log_file}"
 }
-samples_dd_reads_log.collectFile(name: "samples_dd_reads.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
+
+process sambamba_dedup_log_table {
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/bam-bwa-dd", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), file(log_file) from sambamba_dedup_logs
+
+    output:
+    file("${output_file}") into sambamba_dedup_log_tables
+    val(sampleID) into done_sambamba_dedup_log_table
+
+    script:
+    prefix = "${sampleID}"
+    output_file = "${prefix}.dd.tsv"
+    """
+    dedup-log2table.R "${log_file}" tmp.tsv
+
+    paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Results" -v "${resultsID}" | \
+    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+}
+sambamba_dedup_log_tables.collectFile(name: "reads.dedup.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 process sambamba_dedup_flagstat {
     tag { "${sampleID}" }
@@ -398,7 +440,7 @@ process sambamba_dedup_flagstat {
     set val(sampleID), file(sample_bam) from samples_dd_bam2
 
     output:
-    file "${flagstat}"
+    set val(sampleID), file("${flagstat}") into sambamba_dedup_flagstats
     val(sampleID) into done_sambamba_dedup_flagstat
 
     script:
@@ -410,8 +452,33 @@ process sambamba_dedup_flagstat {
 
 }
 
+process sambamba_dedup_flagstat_table {
+    tag { "${sampleID}" }
+    publishDir "${params.output_dir}/analysis/sambamba-dd-flagstat", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
+    input:
+    set val(sampleID), file(flagstat) from sambamba_dedup_flagstats
 
+    output:
+    file("${output_file}") into sambamba_dedup_flagstat_tables
+    val(sampleID) into done_sambamba_dedup_flagstat_table
+
+    script:
+    prefix = "${sampleID}"
+    output_file = "${prefix}.dd.flagstat.tsv"
+    """
+    flagstat2table.R "${flagstat}" tmp.tsv
+
+    paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Results" -v "${resultsID}" | \
+    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+}
+sambamba_dedup_flagstat_tables.collectFile(name: "flagstat.dedup.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 
 
@@ -433,159 +500,6 @@ samples_dd_bam.combine(ref_fasta)
 
 
 
-
-
-// GATK RECALIBRATION AND VARIANT CALLING
-
-process qc_target_reads_gatk_genome {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
-
-    input:
-    set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict) from samples_dd_bam_ref
-
-    output:
-    file "${sample_statistics}"
-    file "${sample_summary}"
-    val(sampleID) into done_qc_target_reads_gatk_genome
-
-    script:
-    prefix = "${sampleID}.genome"
-    sample_statistics = "${prefix}.sample_statistics"
-    sample_summary = "${prefix}.sample_summary"
-    """
-    gatk.sh -T DepthOfCoverage \
-    -dt NONE \
-    -rf BadCigar \
-    -nt \${NSLOTS:-\${NTHREADS:-1}} \
-    --logging_level ERROR \
-    --omitIntervalStatistics \
-    --omitLocusTable \
-    --omitDepthOutputAtEachBase \
-    -ct 10 -ct 100 \
-    --minBaseQuality 20 \
-    --minMappingQuality 20 \
-    --reference_sequence "${ref_fasta}" \
-    --input_file "${sample_bam}" \
-    --outputFormat csv \
-    --out "${prefix}"
-    """
-}
-
-
-process qc_target_reads_gatk_pad500 {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
-
-    input:
-    set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref2
-
-    output:
-    file "${sample_statistics}"
-    file "${sample_summary}"
-    val(sampleID) into done_qc_target_reads_gatk_pad500
-
-    script:
-    prefix = "${sampleID}.pad500"
-    sample_statistics = "${prefix}.sample_statistics"
-    sample_summary = "${prefix}.sample_summary"
-    """
-    gatk.sh -T DepthOfCoverage \
-    -dt NONE \
-    -rf BadCigar \
-    -nt \${NSLOTS:-\${NTHREADS:-1}} \
-    --logging_level ERROR \
-    --omitIntervalStatistics \
-    --omitLocusTable \
-    --omitDepthOutputAtEachBase \
-    -ct 10 -ct 100 \
-    --minBaseQuality 20 \
-    --minMappingQuality 20 \
-    --reference_sequence "${ref_fasta}" \
-    --intervals "${targets_bed_file}" \
-    --interval_padding 500 \
-    --input_file "${sample_bam}" \
-    --outputFormat csv \
-    --out "${prefix}"
-    """
-}
-
-process qc_target_reads_gatk_pad100 {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
-
-    input:
-    set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref3
-
-    output:
-    file "${sample_statistics}"
-    file "${sample_summary}"
-    val(sampleID) into done_qc_target_reads_gatk_pad100
-
-    script:
-    prefix = "${sampleID}.pad100"
-    sample_statistics = "${prefix}.sample_statistics"
-    sample_summary = "${prefix}.sample_summary"
-    """
-    gatk.sh -T DepthOfCoverage \
-    -dt NONE \
-    -rf BadCigar \
-    -nt \${NSLOTS:-\${NTHREADS:-1}} \
-    --logging_level ERROR \
-    --omitIntervalStatistics \
-    --omitLocusTable \
-    --omitDepthOutputAtEachBase \
-    -ct 10 -ct 100 \
-    --minBaseQuality 20 \
-    --minMappingQuality 20 \
-    --reference_sequence "${ref_fasta}" \
-    --intervals "${targets_bed_file}" \
-    --interval_padding 100 \
-    --input_file "${sample_bam}" \
-    --outputFormat csv \
-    --out "${prefix}"
-    """
-}
-
-process qc_target_reads_gatk_bed {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
-
-    input:
-    set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_bam_ref4
-
-    output:
-    file "${sample_statistics}"
-    file "${sample_summary}"
-    val(sampleID) into done_qc_target_reads_gatk_bed
-
-    script:
-    prefix = "${sampleID}.bed"
-    sample_statistics = "${prefix}.sample_statistics"
-    sample_summary = "${prefix}.sample_summary"
-    """
-    gatk.sh -T DepthOfCoverage \
-    -dt NONE \
-    -rf BadCigar \
-    -nt \${NSLOTS:-\${NTHREADS:-1}} \
-    --logging_level ERROR \
-    --omitIntervalStatistics \
-    --omitLocusTable \
-    --omitDepthOutputAtEachBase \
-    -ct 10 -ct 100 \
-    --minBaseQuality 20 \
-    --minMappingQuality 20 \
-    --reference_sequence "${ref_fasta}" \
-    --intervals "${targets_bed_file}" \
-    --input_file "${sample_bam}" \
-    --outputFormat csv \
-    --out "${prefix}"
-    """
-}
 
 
 // MAIN REALIGNMENT AND RECALIBRATION STEP
@@ -696,84 +610,244 @@ process bam_ra_rc_gatk {
 
 
 // setup downstream Channels for per-sample analyses
+// set val(sampleID), file("${ra_rc_bam_file}"), file("${ra_rc_bai_file}") into samples_dd_ra_rc_bam
 samples_dd_ra_rc_bam.combine(ref_fasta2)
                     .combine(ref_fai2)
                     .combine(ref_dict2)
+                    .tap { samples_dd_ra_rc_bam_ref_nointervals }
                     .combine(targets_bed2)
                     .tap { samples_dd_ra_rc_bam_ref;
                             samples_dd_ra_rc_bam_ref2;
                             samples_dd_ra_rc_bam_ref3;
-                            samples_dd_ra_rc_bam_ref4;
+                            samples_dd_ra_rc_bam_ref4; // delly2
                             samples_dd_ra_rc_bam_ref5;
                             samples_dd_ra_rc_bam_ref6;
                             samples_dd_ra_rc_bam_ref7;
                             samples_dd_ra_rc_bam_ref8 }
 
 
-samples_dd_ra_rc_bam_ref2.combine( dbsnp_ref_vcf3 )
+samples_dd_ra_rc_bam_ref.combine( dbsnp_ref_vcf3 )
                         .tap { samples_dd_ra_rc_bam_ref_dbsnp;
                                 samples_dd_ra_rc_bam_ref_dbsnp2 }
 
 
 
-
-
-
-
-
-
-process qc_coverage_gatk {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/qc_coverage_gatk", mode: 'copy', overwrite: true
+process qc_target_reads_gatk_genome {
+    tag { "${prefix}" }
+    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
-    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict) from samples_dd_ra_rc_bam_ref_nointervals
 
     output:
-    file "${sample_summary}"
-    file "${sample_statistics}"
-    file "${sample_interval_summary}"
-    file "${sample_interval_statistics}"
-    file "${sample_cumulative_coverage_proportions}"
-    // file "${sample_cumulative_coverage_counts}."
-    file("${summary_csv}") into qc_coverage_gatk_summary
-    val(sampleID) into done_qc_coverage_gatk
+    set val(sampleID), val(mode), file("${sample_summary}") into qc_target_reads_gatk_genomes
+    file("${sample_statistics}")
+    val(sampleID) into done_qc_target_reads_gatk_genome
 
     script:
-    prefix = "${sampleID}"
+    mode = "genome"
+    prefix = "${sampleID}.${mode}"
+    sample_statistics = "${prefix}.sample_statistics"
+    sample_summary = "${prefix}.sample_summary"
+    """
+    gatk.sh -T DepthOfCoverage \
+    -dt NONE \
+    -rf BadCigar \
+    -nt \${NSLOTS:-\${NTHREADS:-1}} \
+    --logging_level ERROR \
+    --omitIntervalStatistics \
+    --omitLocusTable \
+    --omitDepthOutputAtEachBase \
+    -ct 10 -ct 50 -ct 100 -ct 500 \
+    --minBaseQuality 20 \
+    --minMappingQuality 20 \
+    --reference_sequence "${ref_fasta}" \
+    --input_file "${sample_bam}" \
+    --outputFormat csv \
+    --out "${prefix}"
+    """
+}
+
+
+process qc_target_reads_gatk_pad500 {
+    tag { "${prefix}" }
+    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref2
+
+    output:
+    set val(sampleID), val(mode), file("${sample_summary}") into qc_target_reads_gatk_pad500s
+    file("${sample_statistics}")
+    val(sampleID) into done_qc_target_reads_gatk_pad500
+
+    script:
+    mode = "pad500"
+    prefix = "${sampleID}.${mode}"
+    sample_statistics = "${prefix}.sample_statistics"
+    sample_summary = "${prefix}.sample_summary"
+    """
+    gatk.sh -T DepthOfCoverage \
+    -dt NONE \
+    -rf BadCigar \
+    --logging_level ERROR \
+    --omitIntervalStatistics \
+    --omitLocusTable \
+    --omitDepthOutputAtEachBase \
+    -ct 10 -ct 50 -ct 100 -ct 500 \
+    --minBaseQuality 20 \
+    --minMappingQuality 20 \
+    --reference_sequence "${ref_fasta}" \
+    --intervals "${targets_bed_file}" \
+    --interval_padding 500 \
+    --input_file "${sample_bam}" \
+    --outputFormat csv \
+    --out "${prefix}"
+    """
+}
+
+process qc_target_reads_gatk_pad100 {
+    tag { "${prefix}" }
+    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref3
+
+    output:
+    set val(sampleID), val(mode), file("${sample_summary}") into qc_target_reads_gatk_pad100s
+    file("${sample_statistics}")
+    val(sampleID) into done_qc_target_reads_gatk_pad100
+
+    script:
+    mode = "pad100"
+    prefix = "${sampleID}.${mode}"
+    sample_statistics = "${prefix}.sample_statistics"
+    sample_summary = "${prefix}.sample_summary"
+    """
+    gatk.sh -T DepthOfCoverage \
+    -dt NONE \
+    -rf BadCigar \
+    --logging_level ERROR \
+    --omitIntervalStatistics \
+    --omitLocusTable \
+    --omitDepthOutputAtEachBase \
+    -ct 10 -ct 50 -ct 100 -ct 500 \
+    --minBaseQuality 20 \
+    --minMappingQuality 20 \
+    --reference_sequence "${ref_fasta}" \
+    --intervals "${targets_bed_file}" \
+    --interval_padding 100 \
+    --input_file "${sample_bam}" \
+    --outputFormat csv \
+    --out "${prefix}"
+    """
+}
+
+process qc_target_reads_gatk_bed {
+    tag { "${prefix}" }
+    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref5
+
+    output:
+    set val(sampleID), val(mode), file("${sample_summary}") into qc_target_reads_gatk_beds
+    set val(sampleID), val(mode), file("${sample_interval_summary}") into qc_target_reads_gatk_beds_intervals
+    val(sampleID) into done_qc_target_reads_gatk_bed
+
+    script:
+    mode = "bed"
+    prefix = "${sampleID}.${mode}"
     sample_summary = "${prefix}.sample_summary"
     sample_statistics = "${prefix}.sample_statistics"
     sample_interval_summary = "${prefix}.sample_interval_summary"
     sample_interval_statistics = "${prefix}.sample_interval_statistics"
     sample_cumulative_coverage_proportions = "${prefix}.sample_cumulative_coverage_proportions"
     sample_cumulative_coverage_counts = "${prefix}.sample_cumulative_coverage_counts"
-    summary_csv = "${prefix}.summary.csv"
     """
     gatk.sh -T DepthOfCoverage \
     -dt NONE \
-    --logging_level ERROR \
     -rf BadCigar \
-    --reference_sequence "${ref_fasta}" \
-    --intervals "${targets_bed_file}" \
+    --logging_level ERROR \
     --omitDepthOutputAtEachBase \
     -ct 10 -ct 50 -ct 100 -ct 500 \
     --minBaseQuality 20 \
     --minMappingQuality 20 \
     --nBins 999 \
-    --start 1 --stop 1000 \
+    --start 1 \
+    --stop 1000 \
+    --reference_sequence "${ref_fasta}" \
+    --intervals "${targets_bed_file}" \
     --input_file "${sample_bam}" \
     --outputFormat csv \
     --out "${prefix}"
-
-    head -2 "${sample_summary}" > "${summary_csv}"
     """
 }
-qc_coverage_gatk_summary.collectFile(name: "${params.qc_coverage_gatk_file_basename}", storeDir: "${params.output_dir}/analysis", keepHeader: true)
+
+process update_coverage_tables {
+    tag "${prefix}"
+    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), val(mode), file(sample_summary) from qc_target_reads_gatk_beds.concat(qc_target_reads_gatk_pad100s, qc_target_reads_gatk_pad500s, qc_target_reads_gatk_genomes)
+
+    output:
+    file("${output_file}") into updated_coverage_tables
+    val(sampleID) into done_update_coverage_tables
+
+    script:
+    prefix = "${sampleID}.${mode}"
+    output_file = "${prefix}.sample_summary.tsv"
+    """
+    sample-summary2table.R "${sample_summary}" tmp.tsv
+
+    paste-col.py -i tmp.tsv --header "Mode" -v "${mode}" | \
+    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Results" -v "${resultsID}" | \
+    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+}
+updated_coverage_tables.collectFile(name: "coverage.samples.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
+
+
+process update_interval_tables {
+    tag "${prefix}"
+    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), val(mode), file(sample_interval_summary) from qc_target_reads_gatk_beds_intervals
+
+    output:
+    file("${output_file}") into updated_coverage_interval_tables
+    val(sampleID) into done_update_interval_tables
+
+    script:
+    prefix = "${sampleID}.${mode}"
+    output_file = "${prefix}.sample_interval_summary.tsv"
+    """
+    sample-interval-summary2table.R "${sample_interval_summary}" tmp.tsv
+
+    paste-col.py -i tmp.tsv --header "Mode" -v "${mode}" | \
+    paste-col.py --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Results" -v "${resultsID}" | \
+    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+}
+updated_coverage_interval_tables.collectFile(name: "coverage.intervals.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 process pad_bed {
     publishDir "${params.output_dir}/analysis/targets", mode: 'copy', overwrite: true
-    // publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set file(targets_bed_file), file(ref_chrom_sizes) from targets_bed3.combine(ref_chrom_sizes)
@@ -1274,7 +1348,7 @@ process msisensor {
 }
 
 process mutect2 {
-    tag { "${comparisonID}:${chrom}" }
+    tag "${prefix}"
     publishDir "${params.output_dir}/analysis/vcf_mutect2", mode: 'copy', overwrite: true
     publishDir "${params.output_dir}/samples/${tumorID}", overwrite: true
 
@@ -1449,8 +1523,8 @@ process annotate {
         --outfile "${prefix}"
 
         # add headers to the avinput, just the first columns
-        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\tQUAL\n" > "${avinput_tsv}"
-        cut -f1-11 "${avinput_file}" >>  "${avinput_tsv}"
+        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
+        cut -f1-10 "${avinput_file}" >>  "${avinput_tsv}"
 
         # merge the tables together
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
@@ -1460,18 +1534,24 @@ process annotate {
         """
     else if( caller == 'LoFreq' )
         """
-        table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
+        # convert to ANNOVAR format
+        convert2annovar.pl \
+        -includeinfo \
+        -format vcf4 \
+        "${sample_vcf}" > \
+        "${avinput_file}"
+
+        table_annovar.pl "${avinput_file}" "${annovar_db_dir}" \
         --buildver "${params.ANNOVAR_BUILD_VERSION}" \
         --remove \
         --protocol "${params.ANNOVAR_PROTOCOL}" \
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
-        --vcfinput \
         --onetranscript \
         --outfile "${prefix}"
 
-        printf "Chr\tStart\tEnd\tRef\tAlt\tId\tQuality\tDP\tCHROM\tPOS\tID\tREF\tALT\tQUAL\n" > "${avinput_tsv}"
-        cut -f1-14 ${avinput_file} >>  "${avinput_tsv}"
+        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
+        cut -f1-10 ${avinput_file} >>  "${avinput_tsv}"
 
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
         hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k Chr Start End Ref Alt CHROM POS REF ALT Sample Run Results VariantCaller
@@ -1563,7 +1643,6 @@ done_copy_samplesheet.concat(
     done_qc_target_reads_gatk_pad100,
     done_qc_target_reads_gatk_bed,
     done_bam_ra_rc_gatk,
-    done_qc_coverage_gatk,
     done_pad_bed,
     done_lofreq,
     done_gatk_hc,
@@ -1576,7 +1655,12 @@ done_copy_samplesheet.concat(
     done_mutect2,
     done_annotate,
     done_annotate_pairs,
-    done_collect_annotation_tables
+    done_collect_annotation_tables,
+    done_sambamba_dedup_log_table,
+    done_sambamba_flagstat_table,
+    done_sambamba_dedup_flagstat_table,
+    done_update_coverage_tables,
+    done_update_interval_tables
     )
     .tap { all_done1; all_done2 }
 
@@ -1607,11 +1691,9 @@ process custom_analysis_report {
 
     Rscript -e 'rmarkdown::render(input = "main.Rmd", params = list(input_dir = "input"), output_format = "html_document", output_file = "${html_output}")'
     """
-    // , output_dir = ".", knit_root_dir = ".", intermediates_dir = ".",
-    // Rscript -e 'rmarkdown::render(input = "${report_dir}/analysis/main.Rmd", params = list(input_dir = "input"), output_dir = ".", knit_root_dir = ".", intermediates_dir = ".", output_format = "html_document", output_file = "${html_output}")'
-    // Rscript -e 'rmarkdown::render(input = "report/analysis/main.Rmd", params = list(input_dir = "input"), output_dir = ".", knit_root_dir = ".", intermediates_dir = ".", output_format = "all")'
 }
 
+disable_multiqc = true // for faster testing of the rest of the pipeline
 process multiqc {
     publishDir "${params.output_dir}/analysis/reports", mode: 'copy', overwrite: true
     // executor "local"
@@ -1623,6 +1705,9 @@ process multiqc {
     output:
     file "multiqc_report.html" // into email_files
     file "multiqc_data"
+
+    when:
+    disable_multiqc == false
 
     script:
     """
