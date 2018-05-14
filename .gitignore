@@ -42,3 +42,5 @@ qsub-logs/
 report/analysis/input
 logs
 pid.txt
+Miniconda3-*.sh
+.nextflow.log

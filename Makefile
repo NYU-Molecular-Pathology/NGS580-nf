@@ -49,8 +49,12 @@ demo: samples.analysis.tsv
 annovar_db: install
 	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ;  ./nextflow run annovar_db.nf -profile annovar_db ; fi
 
+annovar_db_power: install
+	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ;  ./nextflow run annovar_db.nf -profile annovar_db_conda ; fi
+
 # main setup commands to use
 setup: install ref annovar_db
+setup-power: install ref annovar_db_power
 
 # set up a new sequencing directory with a copy of this repo for analysis
 deploy:
@@ -90,6 +94,7 @@ run-power: install
 # compile flow chart
 flowchart:
 	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png || echo "file flowchart-NGS580.dot not present"
+
 
 
 # submit the parent Nextflow process to phoenix HPC as a qsub job

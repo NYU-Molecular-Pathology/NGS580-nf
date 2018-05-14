@@ -44,9 +44,31 @@ variant-calling-0.0.2: annovar-150617
 
 
 
+# ~~~~~~ INSTALL ~~~~~~ #
+MINICONDA_sh:=Miniconda3-4.5.1-Linux-ppc64le.sh
+MINICONDA_sh_url:=https://repo.continuum.io/miniconda/$(MINICONDA_sh)
+MINICONDA_sh_md5:=454e3b786937eeaa50fb7bee991ac19e
+CONDA_INSTALL_DIR:=$(shell echo '$$HOME')/conda
+CONDA_ACTIVATE:=$(CONDA_INSTALL_DIR)/bin/activate
+
+$(MINICONDA_sh):
+	wget "$(MINICONDA_sh_url)"
 
 
+dl: $(MINICONDA_sh)
 
+$(CONDA_INSTALL_DIR): dl
+	@if [ ! -d "$(CONDA_INSTALL_DIR)" ]; then \
+	bash "$(MINICONDA_sh)" -b -p "$(CONDA_INSTALL_DIR)"; \
+	else \
+	printf "Install dir already exists: %s\nExiting..." "$(CONDA_INSTALL_DIR)"; \
+	exit 1; fi
+
+
+# install conda in the current directory and install the conda-build package to it
+install: $(CONDA_INSTALL_DIR)
+	source "$(CONDA_ACTIVATE)" && \
+	conda install -y conda-build
 
 # deprecated...
 # list-env:
