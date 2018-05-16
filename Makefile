@@ -22,6 +22,7 @@ none:
 # ~~~~~ SETUP PIPELINE ~~~~~ #
 # install Nextflow in the current directory
 ./nextflow:
+	if [ "$$( module > /dev/null 2>&1; echo $$?)" -eq 0 ]; then module unload java && module load java/1.8 ; fi ; \
 	export NXF_VER="$(NXF_VER)" && \
 	curl -fsSL get.nextflow.io | bash
 
