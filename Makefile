@@ -43,6 +43,9 @@ samples.analysis.tsv: NGS580-demo-data
 	./generate-samplesheets.py NGS580-demo-data/tiny/fastq/ && \
 	mv targets.bed targets.bed.old && \
 	/bin/cp NGS580-demo-data/tiny/targets.bed .
+	./update-samplesheets.py --tumor-normal-sheet NGS580-demo-data/tiny/samples.pairs.csv \
+	--pairs-tumor-colname '#SAMPLE-T' \
+	--pairs-normal-colname '#SAMPLE-N'
 
 demo: samples.analysis.tsv
 
