@@ -46,3 +46,4 @@ Miniconda3-*.sh
 .nextflow.log
 failed.*.tsv
 nextflow.*.stdout.log
+targets.bed.*
