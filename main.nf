@@ -62,9 +62,7 @@ Channel.fromPath("${report_dir_path}/analysis/*")
             return( [items])
         }
         .combine( analysis_output ) // [[report files list], analysis output dir]
-        .into { analysis_report_files; analysis_report_files2 }
-
-// analysis_report_files2.subscribe{ println "[analysis_report_files2] ${it}" }
+        .set { analysis_report_files }
 
 // read samples from analysis samplesheet
 Channel.fromPath( file(params.samples_analysis_sheet) )
@@ -97,10 +95,7 @@ Channel.fromPath( file(params.samples_analysis_sheet) )
         .filter { item ->
             item[1] != 'NA' // unpaired samples
         }
-        .into { samples_pairs; samples_pairs2 }
-
-// view paired entries
-samples_pairs2.subscribe { println "samples_pairs2: ${it}" }
+        .set { samples_pairs }
 
 Channel.fromPath( file(params.samples_analysis_sheet) ).set { samples_analysis_sheet }
 Channel.from([[
@@ -1093,8 +1088,11 @@ sample_vcf_hc.filter{ caller, sampleID, filtered_vcf ->
                         line_count++
                     }
                 }
-                println "[sample_vcf_hc] ${caller}, ${sampleID}, ${filtered_vcf} line_count: ${line_count},  num_variants: ${num_variants}, enough_variants: ${enough_variants} "
-                enough_variants
+                if(enough_variants == false){
+                    def reason = "Less than ${deconstructSigs_variant_min} variants in sample .vcf file for genomic signatures"
+                    println "FAILED\tsample_vcf_hc\t${caller}\t${sampleID}\t${filtered_vcf}\t${reason}\tlines read: ${line_count}\tvariants read: ${num_variants}"
+                }
+                return(enough_variants)
                 }
                 .set { sample_vcf_hc_filtered }
 
@@ -1298,9 +1296,6 @@ samples_dd_ra_rc_bam_pairs_ref.combine(dbsnp_ref_vcf2)
                             .set { samples_dd_ra_rc_bam_pairs_ref_gatk_chrom }
 
 
-
-samples_dd_ra_rc_bam_pairs2.subscribe { println "samples_dd_ra_rc_bam_pairs2: ${it}" }
-
 process tumor_normal_compare {
     tag { "${comparisonID}" }
     echo true
@@ -1466,7 +1461,12 @@ samples_lofreq_vcf.concat(sample_vcf_hc2)
                     .filter { caller, sampleID, sample_vcf, sample_tsv, annovar_db ->
                         // long count = sample_tsv.readLines().size() // <- THIS WORKS but loads entire file
                         long count = Files.lines(sample_tsv).count()
-                        count > 1
+                        def enough_variants = count > 1
+                        if(enough_variants == false){
+                            def reason = "Not enough variants in sample .tsv file for annotation"
+                            println "FAILED\tsamples_lofreq_vcf\t${caller}\t${sampleID}\t${sample_vcf}\t${sample_tsv}\t${reason}"
+                        }
+                    return(enough_variants)
                     }
                     .set { samples_vcfs_tsvs_filtered }
 
@@ -1474,7 +1474,12 @@ samples_mutect2.combine(annovar_db_dir2)
                 // only entries that have variants present; more than one .TSV file line
                 .filter { caller, comparisonID, tumorID, normalID, chrom, sample_vcf, sample_tsv, annovar_db ->
                     long count = Files.lines(sample_tsv).count()
-                    count > 1
+                    def enough_variants = count > 1
+                    if(enough_variants == false){
+                        def reason = "Not enough variants in sample .tsv file for annotation"
+                        println "FAILED\tsamples_mutect2\t${caller}\t${chrom}\t${comparisonID}\t${tumorID}\t${normalID}\t${sample_vcf}\t${sample_tsv}\t${reason}"
+                    }
+                    return(enough_variants)
                 }
                 .set { samples_mutect2_vcfs_tsvs_filtered }
 

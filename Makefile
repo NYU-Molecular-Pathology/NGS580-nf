@@ -83,8 +83,15 @@ deploy:
 # ~~~~~ RUN PIPELINE ~~~~~ #
 # run on phoenix in current session
 run-phoenix: install
-	module unload java && module load java/1.8 && \
-	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart-NGS580.dot $(EP)
+	@module unload java && module load java/1.8 && \
+	timestamp="$$(date +%s)" ; \
+	log_file="nextflow.$${timestamp}.stdout.log" ; \
+	fail_file="failed.$${timestamp}.tsv" ; \
+	echo ">>> Running Nextflow with stdout log file: $${log_file}" ; \
+	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart-NGS580.dot $(EP) | tee -a "$${log_file}" ; \
+	grep '^FAIL' "$${log_file}" > "$${fail_file}" ; \
+	echo ">>> Nextflow completed, stdout log file: $${log_file}, failed file: $${fail_file}"
+
 
 # run locally default settings
 run-local: install
@@ -150,8 +157,14 @@ clean-output:
 clean-work:
 	[ -d work ] && mv work oldwork && rm -rf oldwork &
 
+clean-old-stdout-logs:
+	find . -maxdepth 1 -mindepth 1 -type f -name "nextflow.*.stdout.log" | sort -r | tail -n +2 | xargs rm -f
+
+clean-old-failed-logs:
+	find . -maxdepth 1 -mindepth 1 -type f -name "failed.*.tsv" | sort -r | tail -n +2 | xargs rm -f
+
 # clean all files produced by previous pipeline runs
-clean: clean-logs clean-traces clean-reports clean-flowcharts
+clean: clean-logs clean-traces clean-reports clean-flowcharts clean-old-stdout-logs clean-old-failed-logs
 
 # clean all files produced by all pipeline runs
 clean-all: clean clean-output clean-work
@@ -161,3 +174,4 @@ clean-all: clean clean-output clean-work
 	rm -f trace*.txt*
 	rm -f *.html*
 	rm -f flowchart*.dot
+	rm -f nextflow.*.stdout.log
