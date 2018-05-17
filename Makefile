@@ -13,6 +13,7 @@ SEQDIR:=/ifs/data/molecpathlab/quicksilver
 PRODDIR:=/ifs/data/molecpathlab/production/NGS580
 # location of production demultiplexing for deployment
 FASTQDIR:=
+TIMESTAMP:=$(shell date +%s)
 
 .PHONY: containers annovar_db ref
 
@@ -31,7 +32,7 @@ install: ./nextflow
 update: ./nextflow
 	./nextflow self-update
 
-# download or symlink ref dir
+# setup reference data
 ref: install
 	if [ ! -d "$(REFDIR)" ] ; then echo ">>> system ref dir doesnt exist, setting up local ref dir..." ; \
 	./nextflow run ref.nf -profile ref ; fi
@@ -40,16 +41,23 @@ ref: install
 NGS580-demo-data:
 	git clone https://github.com/NYU-Molecular-Pathology/NGS580-demo-data.git
 
-samples.analysis.tsv: NGS580-demo-data
+# set up for demo with 'small' dataset (more data output)
+demo-small: NGS580-demo-data
+	./generate-samplesheets.py NGS580-demo-data/small/ && \
+	mv targets.bed "targets.bed.$(TIMESTAMP)" && \
+	/bin/cp NGS580-demo-data/small/targets.bed .
+	./update-samplesheets.py --tumor-normal-sheet NGS580-demo-data/small/samples.tumor.normal.csv
+
+# set up for demo with 'tiny' dataset (faster processing, ~1hr on NYU HPC)
+demo: NGS580-demo-data
 	./generate-samplesheets.py NGS580-demo-data/tiny/fastq/ && \
-	mv targets.bed targets.bed.old && \
+	mv targets.bed "targets.bed.$(TIMESTAMP)" && \
 	/bin/cp NGS580-demo-data/tiny/targets.bed .
 	./update-samplesheets.py --tumor-normal-sheet NGS580-demo-data/tiny/samples.pairs.csv \
 	--pairs-tumor-colname '#SAMPLE-T' \
 	--pairs-normal-colname '#SAMPLE-N'
 
-demo: samples.analysis.tsv
-
+# setup ANNOVAR reference databases
 annovar_db: install
 	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ;  ./nextflow run annovar_db.nf -profile annovar_db ; fi
 
@@ -60,7 +68,7 @@ annovar_db_power: install
 setup: install ref annovar_db
 setup-power: install ref annovar_db_power
 
-# set up a new sequencing directory with a copy of this repo for analysis
+# prepares a new directory with a copy of this repo to start analysis
 deploy:
 	@[ -z "$(PROJECT)" ] && printf "invalid PROJECT specified: $(PROJECT)\n" && exit 1 || :
 	@[ ! -d "$(SEQDIR)/$(PROJECT)" ] && printf "PROJECT is not a valid location: $(SEQDIR)/$(PROJECT)\n" && exit 1 || :
@@ -84,9 +92,8 @@ deploy:
 # run on phoenix in current session
 run-phoenix: install
 	@module unload java && module load java/1.8 && \
-	timestamp="$$(date +%s)" ; \
-	log_file="nextflow.$${timestamp}.stdout.log" ; \
-	fail_file="failed.$${timestamp}.tsv" ; \
+	log_file="nextflow.$(TIMESTAMP).stdout.log" ; \
+	fail_file="failed.$(TIMESTAMP).tsv" ; \
 	echo ">>> Running Nextflow with stdout log file: $${log_file}" ; \
 	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart-NGS580.dot $(EP) | tee -a "$${log_file}" ; \
 	grep '^FAIL' "$${log_file}" > "$${fail_file}" ; \
@@ -113,9 +120,9 @@ submit-phoenix:
 	@qsub_logdir="logs" ; \
 	mkdir -p "$${qsub_logdir}" ; \
 	job_name="NGS580-nf" ; \
-	echo 'make run-phoenix-qsub EP=$(EP)' | qsub -wd $$PWD -o :$${qsub_logdir}/ -e :$${qsub_logdir}/ -j y -N "$$job_name" -q all.q 
+	echo 'make run-phoenix-qsub EP=$(EP)' | qsub -wd "$$PWD" -o :$${qsub_logdir}/ -e :$${qsub_logdir}/ -j y -N "$$job_name" -q all.q 
 
-# parent Nextflow process to be run as a qsub job
+# parent Nextflow process to be run as a qsub job on phoenix
 run-phoenix-qsub: install
 	@output_file="pid.txt" ; \
 	module unload java && module load java/1.8 && \
@@ -127,7 +134,8 @@ run-phoenix-qsub: install
 	printf "$${INFOSTR}\n" >> $${output_file} ; \
 	wait $${pid}
 
-# issue an interupt signal to a process (e.g. Nextflow) running on a remote server
+# issue an interupt signal to a process running on a remote server
+# e.g. Nextflow running in a qsub job on a compute node
 REMOTE:=
 PID:=
 remote-kill:
