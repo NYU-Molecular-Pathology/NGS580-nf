@@ -1,6 +1,19 @@
 // NGS580 Target exome analysis for 580 gene panel
 import java.nio.file.Files;
 // ~~~~~~~~~~ SETUP PARAMETERS ~~~~~~~~~~ //
+// make sure ref_dir exists
+def ref_dir = new File("${params.ref_dir}")
+if( !ref_dir.exists() ){
+    log.error "Ref dir does not exist: ${params.ref_dir}"
+    exit 1
+}
+
+def ANNOVAR_DB_DIR = new File("${params.ANNOVAR_DB_DIR}")
+if( !ANNOVAR_DB_DIR.exists() ){
+    log.error "ANNOVAR database dir does not exist: ${params.ANNOVAR_DB_DIR}"
+    exit 1
+}
+
 // pipeline settings; overriden by nextflow.config and CLI args
 params.output_dir = "output"
 params.report_dir = "report"
@@ -1464,6 +1477,7 @@ process mutect2 {
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
     """
+
 }
 
 
