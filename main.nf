@@ -108,6 +108,9 @@ Channel.from([[
     username: "${params.username}"
     ]]).set { pipeline_metadata }
 
+// logging channels
+Channel.from("Sample\tProgram\tNote\tFiles").set { failed_samples }
+Channel.from("Comparison\tTumor\tNormal\tChrom\tProgram\tNote\tFiles").set { failed_pairs }
 
 //
 // PIPELINE TASKS
@@ -1071,30 +1074,70 @@ process delly2 {
 
 
 // Genomic Signatures
+sample_vcf_hc_good = Channel.create()
+sample_vcf_hc_bad = Channel.create()
 deconstructSigs_variant_min = 55
-sample_vcf_hc.filter{ caller, sampleID, filtered_vcf ->
-                // make sure there are enough variants in the VCF to proceed!
-                def line_count = 0
-                def num_variants = 0
-                def enough_variants = false
 
-                filtered_vcf.withReader { reader ->
-                    while (line = reader.readLine()) {
-                        if (!line.startsWith("#")) num_variants++
-                        if (num_variants > deconstructSigs_variant_min) {
-                            enough_variants = true
-                            break
-                            }
-                        line_count++
-                    }
+sample_vcf_hc.choice( sample_vcf_hc_good, sample_vcf_hc_bad ){ items ->
+    // make sure there are enough variants in the VCF to proceed!
+    def caller = items[0]
+    def sampleID = items[1]
+    def filtered_vcf = items[2]
+    def line_count = 0
+    def num_variants = 0
+    def output = 1 // bad by default
+    def enough_variants = false // bad by default
+
+    // count number of variants in the vcf file
+    filtered_vcf.withReader { reader ->
+        while (line = reader.readLine()) {
+            if (!line.startsWith("#")) num_variants++
+            if (num_variants > deconstructSigs_variant_min) {
+                enough_variants = true
+                break
                 }
-                if(enough_variants == false){
-                    def reason = "Less than ${deconstructSigs_variant_min} variants in sample .vcf file for genomic signatures"
-                    println "FAILED\tsample_vcf_hc\t${caller}\t${sampleID}\t${filtered_vcf}\t${reason}\tlines read: ${line_count}\tvariants read: ${num_variants}"
-                }
-                return(enough_variants)
-                }
-                .set { sample_vcf_hc_filtered }
+            line_count++
+        }
+    }
+
+    if ( enough_variants==false ) {
+        output = 1
+    } else if ( enough_variants==true ) {
+        output = 0
+    }
+    return(output)
+}
+
+sample_vcf_hc_bad.map {  caller, sampleID, filtered_vcf ->
+    def reason = "Fewer than ${deconstructSigs_variant_min} variants in .vcf file, skipping genomic signatures"
+    def output = [sampleID, caller, reason, filtered_vcf].join('\t')
+    return(output)
+}.set { sample_vcf_hc_bad_logs }
+
+
+// sample_vcf_hc.filter{ caller, sampleID, filtered_vcf ->
+//                 // make sure there are enough variants in the VCF to proceed!
+//                 def line_count = 0
+//                 def num_variants = 0
+//                 def enough_variants = false
+//
+//                 filtered_vcf.withReader { reader ->
+//                     while (line = reader.readLine()) {
+//                         if (!line.startsWith("#")) num_variants++
+//                         if (num_variants > deconstructSigs_variant_min) {
+//                             enough_variants = true
+//                             break
+//                             }
+//                         line_count++
+//                     }
+//                 }
+//                 if(enough_variants == false){
+//                     def reason = "Less than ${deconstructSigs_variant_min} variants in sample .vcf file for genomic signatures"
+//                     println "FAILED\tsample_vcf_hc\t${caller}\t${sampleID}\t${filtered_vcf}\t${reason}\tlines read: ${line_count}\tvariants read: ${num_variants}"
+//                 }
+//                 return(enough_variants)
+//                 }
+//                 .set { sample_vcf_hc_filtered }
 
 process deconstructSigs_signatures {
     tag { "${sampleID}" }
@@ -1102,7 +1145,7 @@ process deconstructSigs_signatures {
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
-    set val(caller), val(sampleID), file(sample_vcf) from sample_vcf_hc_filtered
+    set val(caller), val(sampleID), file(sample_vcf) from sample_vcf_hc_good
 
     output:
     file("${signatures_rds}")
@@ -1455,33 +1498,51 @@ process mutect2 {
 
 
 // ~~~~~~ ANNOTATION ~~~~~~ //
-samples_lofreq_vcf.concat(sample_vcf_hc2)
-                    .combine(annovar_db_dir)
-                    // only entries that have variants present; more than one .TSV file line
-                    .filter { caller, sampleID, sample_vcf, sample_tsv, annovar_db ->
-                        // long count = sample_tsv.readLines().size() // <- THIS WORKS but loads entire file
-                        long count = Files.lines(sample_tsv).count()
-                        def enough_variants = count > 1
-                        if(enough_variants == false){
-                            def reason = "Not enough variants in sample .tsv file for annotation"
-                            println "FAILED\tsamples_lofreq_vcf\t${caller}\t${sampleID}\t${sample_vcf}\t${sample_tsv}\t${reason}"
-                        }
-                    return(enough_variants)
-                    }
-                    .set { samples_vcfs_tsvs_filtered }
+samples_vcfs_tsvs_good = Channel.create()
+samples_vcfs_tsvs_bad = Channel.create()
+pairs_vcfs_tsvs_good = Channel.create()
+pairs_vcfs_tsvs_bad = Channel.create()
 
-samples_mutect2.combine(annovar_db_dir2)
-                // only entries that have variants present; more than one .TSV file line
-                .filter { caller, comparisonID, tumorID, normalID, chrom, sample_vcf, sample_tsv, annovar_db ->
-                    long count = Files.lines(sample_tsv).count()
-                    def enough_variants = count > 1
-                    if(enough_variants == false){
-                        def reason = "Not enough variants in sample .tsv file for annotation"
-                        println "FAILED\tsamples_mutect2\t${caller}\t${chrom}\t${comparisonID}\t${tumorID}\t${normalID}\t${sample_vcf}\t${sample_tsv}\t${reason}"
-                    }
-                    return(enough_variants)
-                }
-                .set { samples_mutect2_vcfs_tsvs_filtered }
+samples_lofreq_vcf.concat(sample_vcf_hc2).set { samples_vcfs_tsvs }
+
+// filter out samples with empty variant tables
+samples_vcfs_tsvs.choice( samples_vcfs_tsvs_good, samples_vcfs_tsvs_bad ){ items ->
+    def caller =  items[0]
+    def sampleID =  items[1]
+    def sample_vcf =  items[2]
+    def sample_tsv =  items[3]
+    def output = 1 // bad by default
+    long count = Files.lines(sample_tsv).count()
+    if (count > 1) output = 0 // good if has >1 lines
+    return(output)
+}
+
+samples_vcfs_tsvs_bad.map { caller, sampleID, sample_vcf, sample_tsv ->
+    def reason = "Too few lines in sample_tsv, skipping annotation"
+    def output = [sampleID, caller, reason, "${sample_vcf},${sample_tsv}"].join('\t')
+    return(output)
+}.set { samples_vcfs_tsvs_bad_logs }
+
+samples_mutect2.choice( pairs_vcfs_tsvs_good, pairs_vcfs_tsvs_bad ){ items ->
+    def caller = items[0]
+    def comparisonID = items[1]
+    def tumorID = items[2]
+    def normalID = items[3]
+    def chrom = items[4]
+    def sample_vcf = items[5]
+    def sample_tsv = items[6]
+    def output = 1 // bad by default
+    long count = Files.lines(sample_tsv).count()
+    if (count > 1) output = 0 // good if has >1 lines
+    return(output)
+}
+
+pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chrom, sample_vcf, sample_tsv ->
+    def reason = "Too few lines in sample_tsv, skipping annotation"
+    def output = [comparisonID, tumorID, normalID, chrom, caller, reason, "${sample_vcf},${sample_tsv}"].join('\t')
+    return(output)
+}.set { pairs_vcfs_tsvs_bad_logs }
+
 
 process annotate {
     // annotate the VCF file
@@ -1490,7 +1551,7 @@ process annotate {
     publishDir "${params.output_dir}/analysis/annotate", overwrite: true
 
     input:
-    set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_vcfs_tsvs_filtered
+    set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_vcfs_tsvs_good.combine(annovar_db_dir)
 
     output:
     file("${annotations_tsv}") into annotations_tables
@@ -1571,7 +1632,7 @@ process annotate_pairs {
     publishDir "${params.output_dir}/analysis/annotate", overwrite: true
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_mutect2_vcfs_tsvs_filtered
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from pairs_vcfs_tsvs_good.combine(annovar_db_dir2)
 
     output:
     file("${annotations_tsv}") into annotations_tables_pairs
@@ -1721,9 +1782,15 @@ process multiqc {
 }
 
 
+// ~~~~~~~~~~~~~~~ PIPELINE COMPLETION EVENTS ~~~~~~~~~~~~~~~~~~~ //
+// gather email file attachments
 Channel.fromPath( file(params.samples_analysis_sheet) ).set{ samples_analysis_sheet }
 def attachments = samples_analysis_sheet.toList().getVal()
-// ~~~~~~~~~~~~~~~ PIPELINE COMPLETION EVENTS ~~~~~~~~~~~~~~~~~~~ //
+
+// collect failed log messages
+failed_samples.mix(samples_vcfs_tsvs_bad_logs, sample_vcf_hc_bad_logs).collectFile(name: "failed.txt", storeDir: "${params.output_dir}", newLine: true)
+failed_pairs.mix(pairs_vcfs_tsvs_bad_logs).collectFile(name: "failed.pairs.txt", storeDir: "${params.output_dir}", newLine: true)
+
 workflow.onComplete {
 
     def status = "NA"
