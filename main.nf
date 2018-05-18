@@ -374,7 +374,6 @@ process sambamba_dedup {
     set val(sampleID), file("${bam_file}") into samples_dd_bam, samples_dd_bam2, samples_dd_bam3, samples_dd_bam4, samples_dd_bam5, samples_dd_bam6, samples_dd_bam7
     file("${bai_file}")
     set val(sampleID), file("${log_file}") into sambamba_dedup_logs
-    // file("${reads_log_file}") into samples_dd_reads_log
     val(sampleID) into done_sambamba_dedup
 
     script:
@@ -382,7 +381,6 @@ process sambamba_dedup {
     bam_file = "${prefix}.dd.bam"
     bai_file = "${prefix}.dd.bam.bai"
     log_file = "${prefix}.dd.log"
-    // reads_log_file = "${prefix}.dd.reads.log"
     """
     sambamba markdup \
     --remove-duplicates \
@@ -396,9 +394,6 @@ process sambamba_dedup {
 
     samtools index "${bam_file}"
     """
-    // # get values for log output
-    // # reads_duplicates="\$(cat .command.err | grep -m 1 "found.*duplicates" | tr -d -c 0-9)"
-    // # printf "Sample\tDuplicates\n%s\t%s\n" "${sampleID}" "\${reads_duplicates}" > "${reads_log_file}"
 }
 
 process sambamba_dedup_log_table {
@@ -608,7 +603,6 @@ process bam_ra_rc_gatk {
 
 
 // setup downstream Channels for per-sample analyses
-// set val(sampleID), file("${ra_rc_bam_file}"), file("${ra_rc_bai_file}") into samples_dd_ra_rc_bam
 samples_dd_ra_rc_bam.combine(ref_fasta2)
                     .combine(ref_fai2)
                     .combine(ref_dict2)
@@ -1114,30 +1108,6 @@ sample_vcf_hc_bad.map {  caller, sampleID, filtered_vcf ->
     return(output)
 }.set { sample_vcf_hc_bad_logs }
 
-
-// sample_vcf_hc.filter{ caller, sampleID, filtered_vcf ->
-//                 // make sure there are enough variants in the VCF to proceed!
-//                 def line_count = 0
-//                 def num_variants = 0
-//                 def enough_variants = false
-//
-//                 filtered_vcf.withReader { reader ->
-//                     while (line = reader.readLine()) {
-//                         if (!line.startsWith("#")) num_variants++
-//                         if (num_variants > deconstructSigs_variant_min) {
-//                             enough_variants = true
-//                             break
-//                             }
-//                         line_count++
-//                     }
-//                 }
-//                 if(enough_variants == false){
-//                     def reason = "Less than ${deconstructSigs_variant_min} variants in sample .vcf file for genomic signatures"
-//                     println "FAILED\tsample_vcf_hc\t${caller}\t${sampleID}\t${filtered_vcf}\t${reason}\tlines read: ${line_count}\tvariants read: ${num_variants}"
-//                 }
-//                 return(enough_variants)
-//                 }
-//                 .set { sample_vcf_hc_filtered }
 
 process deconstructSigs_signatures {
     tag { "${sampleID}" }
