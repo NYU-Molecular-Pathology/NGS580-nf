@@ -6,24 +6,30 @@ VAR:=
 none:
 
 # ~~~~~ BUILD ~~~~~ #
-check: 
+check-dir: 
 	@if [ ! -d "$(VAR)" ]; then echo "ERROR: VAR is not a valid directory; VAR=$(VAR)"; exit 1; fi
 
+check-env:
+	@if [ ! "$$( source "$(CONDA)/bin/activate" "$(VAR)" >/dev/null 2>&1 ; echo $$? )" -eq 0 ]; \
+	then printf ">>> ERROR: Env '$(VAR)' does not exist for conda '$(CONDA)'" ; \
+	exit 1 ; \
+	fi
+
 # standard env build methods
-create: check
+create: check-dir
 	source "$(CONDA)/bin/activate" && \
 	conda env create --file "$(VAR)/env.yml" --name "$(VAR)"
 
-remove:
+remove-env:
 	source "$(CONDA)/bin/activate" && \
-	conda env remove -n "$(VAR)"
-
+	conda env remove -y -n "$(VAR)"
 
 # custom package builds
-annovar-150617:
+annovar-150617: VAR=annovar-150617
+annovar-150617: check-env 
 	source "$(CONDA)/bin/activate" && \
 	conda-build annovar-150617 && \
-	conda create -y -c local -n annovar-150617 annovar==150617
+	conda create --clobber -y -c local -n annovar-150617 annovar==150617
 
 # custom env builds
 r-3.4.2/install.R:
@@ -92,4 +98,3 @@ install: $(CONDA_INSTALL_DIR)
 # 	mv /home/kellys04/conda-bld /home/kellys04/conda-bld$$(date +%s) && \
 # 	conda remove -y --name annovar-150617 --all && \
 # 	conda remove -y --name annovar --all
-

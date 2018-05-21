@@ -59,10 +59,14 @@ demo: NGS580-demo-data
 
 # setup ANNOVAR reference databases
 annovar_db: install
-	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ;  ./nextflow run annovar_db.nf -profile annovar_db ; fi
+	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ; \
+	./nextflow run annovar_db.nf -profile annovar_db $(EP) ; \
+	fi
 
 annovar_db_power: install
-	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ;  ./nextflow run annovar_db.nf -profile annovar_db_conda ; fi
+	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ; \
+	./nextflow run annovar_db.nf -profile annovar_db_conda $(EP) ; \
+	fi
 
 # main setup commands to use
 setup: install ref annovar_db
