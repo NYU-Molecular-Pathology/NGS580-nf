@@ -883,7 +883,6 @@ process lofreq {
     file("${norm_vcf}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
-    file("${eval_file}")
     file("${tsv_file}")
     file("${reformat_tsv}")
     file("${filtered_vcf}")
@@ -898,7 +897,6 @@ process lofreq {
     filtered_vcf = "${prefix}.filtered.vcf"
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
-    eval_file = "${prefix}.eval.grp"
     tsv_file = "${prefix}.tsv"
     reformat_tsv = "${prefix}.reformat.tsv"
     """
@@ -965,7 +963,6 @@ process gatk_hc {
     file("${vcf_file}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
-    file("${eval_file}")
     file("${norm_vcf}")
     file("${tsv_file}")
     file("${reformat_tsv}")
@@ -980,7 +977,6 @@ process gatk_hc {
     filtered_vcf = "${prefix}.filtered.vcf"
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
-    eval_file = "${prefix}.eval.grp"
     tsv_file = "${prefix}.tsv"
     reformat_tsv = "${prefix}.reformat.tsv"
     """
@@ -1411,7 +1407,6 @@ process mutect2 {
     file("${filtered_vcf}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
-    file("${eval_file}")
     file("${tsv_file}")
     file("${reformat_tsv}")
     val(comparisonID) into mutect2_sampleIDs
@@ -1427,7 +1422,6 @@ process mutect2 {
     filtered_vcf = "${prefix}.filtered.vcf"
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
-    eval_file = "${prefix}.eval.grp"
     tsv_file = "${prefix}.tsv"
     reformat_tsv = "${prefix}.reformat.tsv"
     """
