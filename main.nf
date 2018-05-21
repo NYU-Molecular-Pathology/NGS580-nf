@@ -941,11 +941,6 @@ process lofreq {
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
     """
-    // gatk.sh -T VariantEval \
-    // -R "${ref_fasta}" \
-    // -o "${eval_file}" \
-    // --dbsnp "${dbsnp_ref_vcf}" \
-    // --eval "${filtered_vcf}"
 }
 
 process gatk_hc {
@@ -1028,11 +1023,6 @@ process gatk_hc {
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
     """
-    // gatk.sh -T VariantEval \
-    // -R "${ref_fasta}" \
-    // -o "${eval_file}" \
-    // --dbsnp "${dbsnp_ref_vcf}" \
-    // --eval "${filtered_vcf}"
 }
 
 sample_vcf_hc3.mix(samples_lofreq_vcf2)
@@ -1492,12 +1482,6 @@ process mutect2 {
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
     """
-    // # check some quality metrics
-    // gatk.sh -T VariantEval \
-    // -R "${ref_fasta}" \
-    // -o "${eval_file}" \
-    // --dbsnp "${dbsnp_ref_vcf}" \
-    // --eval "${filtered_vcf}"
 }
 
 
