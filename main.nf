@@ -53,18 +53,19 @@ Channel.fromPath( file(params.targets_bed) ).set{ targets_bed }
 
 // reference files
 Channel.fromPath( file(params.targets_bed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4 }
-Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3 }
-Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3 }
-Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3 }
+Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5 }
+Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5 }
+Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5 }
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
 Channel.fromPath( file(params.ref_fa_bwa_dir) ).set{ ref_fa_bwa_dir }
 Channel.fromPath( file(params.gatk_1000G_phase1_indels_hg19_vcf) ).set{ gatk_1000G_phase1_indels_vcf }
 Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf) ).set{ mills_and_1000G_gold_standard_indels_vcf }
-Channel.fromPath( file(params.dbsnp_ref_vcf) ).into{ dbsnp_ref_vcf; dbsnp_ref_vcf2; dbsnp_ref_vcf3 }
+Channel.fromPath( file(params.dbsnp_ref_vcf) ).into{ dbsnp_ref_vcf; dbsnp_ref_vcf2; dbsnp_ref_vcf3; dbsnp_ref_vcf4; dbsnp_ref_vcf5 }
 Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref_vcf2 }
 Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
 Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_db_dir2 }
+
 
 // report and output dir
 Channel.fromPath("${output_dir_path}/analysis").set { analysis_output }
@@ -877,6 +878,7 @@ process lofreq {
 
     output:
     set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_lofreq_vcf
+    set val(caller), val(sampleID), file("${filtered_vcf}") into samples_lofreq_vcf2
     file("${vcf_file}")
     file("${norm_vcf}")
     file("${multiallelics_stats}")
@@ -924,12 +926,6 @@ process lofreq {
     -select "AF > 0.01"  \
     > "${filtered_vcf}"
 
-    gatk.sh -T VariantEval \
-    -R "${ref_fasta}" \
-    -o "${eval_file}" \
-    --dbsnp "${dbsnp_ref_vcf}" \
-    --eval "${filtered_vcf}"
-
     gatk.sh -T VariantsToTable \
     -R "${ref_fasta}" \
     -V "${filtered_vcf}" \
@@ -947,6 +943,11 @@ process lofreq {
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
     """
+    // gatk.sh -T VariantEval \
+    // -R "${ref_fasta}" \
+    // -o "${eval_file}" \
+    // --dbsnp "${dbsnp_ref_vcf}" \
+    // --eval "${filtered_vcf}"
 }
 
 process gatk_hc {
@@ -960,6 +961,7 @@ process gatk_hc {
     output:
     set val(caller), val(sampleID), file("${filtered_vcf}") into sample_vcf_hc
     set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into sample_vcf_hc2
+    set val(caller), val(sampleID), file("${filtered_vcf}") into sample_vcf_hc3
     file("${vcf_file}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
@@ -1012,12 +1014,6 @@ process gatk_hc {
     -select "vc.getGenotype('${sampleID}').getDP() > 0" \
     > "${filtered_vcf}"
 
-    gatk.sh -T VariantEval \
-    -R "${ref_fasta}" \
-    -o "${eval_file}" \
-    --dbsnp "${dbsnp_ref_vcf}" \
-    --eval "${filtered_vcf}"
-
     gatk.sh -T VariantsToTable \
     -R "${ref_fasta}" \
     -V "${filtered_vcf}" \
@@ -1036,10 +1032,41 @@ process gatk_hc {
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
     """
+    // gatk.sh -T VariantEval \
+    // -R "${ref_fasta}" \
+    // -o "${eval_file}" \
+    // --dbsnp "${dbsnp_ref_vcf}" \
+    // --eval "${filtered_vcf}"
 }
 
+sample_vcf_hc3.mix(samples_lofreq_vcf2)
+                .combine(dbsnp_ref_vcf4)
+                .combine(ref_fasta4)
+                .combine(ref_fai4)
+                .combine(ref_dict4)
+                .set { samples_filtered_vcfs }
+process eval_sample_vcf {
+    tag { "${sampleID}" }
+    publishDir "${params.output_dir}/analysis/vcf_eval", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
+    input:
+    set val(caller), val(sampleID), file(sample_vcf), file(dbsnp_ref_vcf), file(ref_fasta), file(ref_fai), file(ref_dict4) from samples_filtered_vcfs
 
+    output:
+    file("${eval_file}")
+
+    script:
+    prefix = "${sampleID}.${caller}"
+    eval_file = "${prefix}.eval.grp"
+    """
+    gatk.sh -T VariantEval \
+    -R "${ref_fasta}" \
+    -o "${eval_file}" \
+    --dbsnp "${dbsnp_ref_vcf}" \
+    --eval "${sample_vcf}"
+    """
+}
 
 
 //
@@ -1378,6 +1405,7 @@ process mutect2 {
 
     output:
     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_mutect2
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file("${filtered_vcf}") into samples_mutect3
     file("${vcf_file}")
     file("${norm_vcf}")
     file("${filtered_vcf}")
@@ -1449,13 +1477,6 @@ process mutect2 {
     -select 'vc.isNotFiltered()' \
     > "${filtered_vcf}"
 
-    # check some quality metrics
-    gatk.sh -T VariantEval \
-    -R "${ref_fasta}" \
-    -o "${eval_file}" \
-    --dbsnp "${dbsnp_ref_vcf}" \
-    --eval "${filtered_vcf}"
-
     # convert VCF to TSV
     gatk.sh -T VariantsToTable \
     -R "${ref_fasta}" \
@@ -1477,9 +1498,42 @@ process mutect2 {
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
     """
-
+    // # check some quality metrics
+    // gatk.sh -T VariantEval \
+    // -R "${ref_fasta}" \
+    // -o "${eval_file}" \
+    // --dbsnp "${dbsnp_ref_vcf}" \
+    // --eval "${filtered_vcf}"
 }
 
+
+samples_mutect3.combine(dbsnp_ref_vcf5)
+                .combine(ref_fasta5)
+                .combine(ref_fai5)
+                .combine(ref_dict5)
+                .set { pairs_filtered_vcfs }
+process eval_pair_vcf {
+    tag "${prefix}"
+    publishDir "${params.output_dir}/analysis/vcf_eval", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${tumorID}", overwrite: true
+
+    input:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(pairs_vcf), file(dbsnp_ref_vcf), file(ref_fasta), file(ref_fai), file(ref_dict4) from pairs_filtered_vcfs
+
+    output:
+    file("${eval_file}")
+
+    script:
+    prefix = "${comparisonID}.${chrom}.${caller}"
+    eval_file = "${prefix}.eval.grp"
+    """
+    gatk.sh -T VariantEval \
+    -R "${ref_fasta}" \
+    -o "${eval_file}" \
+    --dbsnp "${dbsnp_ref_vcf}" \
+    --eval "${pairs_vcf}"
+    """
+}
 
 // ~~~~~~ ANNOTATION ~~~~~~ //
 samples_vcfs_tsvs_good = Channel.create()
