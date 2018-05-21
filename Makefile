@@ -120,7 +120,7 @@ submit-phoenix:
 	@qsub_logdir="logs" ; \
 	mkdir -p "$${qsub_logdir}" ; \
 	job_name="NGS580-nf" ; \
-	echo 'make run-phoenix-qsub EP=$(EP)' | qsub -wd "$$PWD" -o :$${qsub_logdir}/ -e :$${qsub_logdir}/ -j y -N "$$job_name" -q all.q 
+	echo 'make run-phoenix-qsub EP="$(EP)"' | qsub -wd "$$PWD" -o :$${qsub_logdir}/ -e :$${qsub_logdir}/ -j y -N "$$job_name" -q all.q 
 
 # parent Nextflow process to be run as a qsub job on phoenix
 run-phoenix-qsub: install
