@@ -1041,6 +1041,7 @@ process eval_sample_vcf {
 
     output:
     file("${eval_file}")
+    val("${sampleID}") into done_eval_sample_vcf
 
     script:
     prefix = "${sampleID}.${caller}"
@@ -1500,6 +1501,7 @@ process eval_pair_vcf {
 
     output:
     file("${eval_file}")
+    val("${comparisonID}") into done_eval_pair_vcf
 
     script:
     prefix = "${comparisonID}.${chrom}.${caller}"
@@ -1742,7 +1744,9 @@ done_copy_samplesheet.concat(
     done_sambamba_flagstat_table,
     done_sambamba_dedup_flagstat_table,
     done_update_coverage_tables,
-    done_update_interval_tables
+    done_update_interval_tables,
+    done_eval_sample_vcf,
+    done_eval_pair_vcf
     )
     .tap { all_done1; all_done2 }
 
