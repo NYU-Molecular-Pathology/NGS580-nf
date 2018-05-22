@@ -6,13 +6,13 @@ get_signatures <- function(){
         {
             output <- list()
                 
-            signaturesRds <- input_files[grep(pattern = '_signatures.Rds', x = input_files)][1]
+            signaturesRds <- input_files[grep(pattern = paste0(sampleID, '.*_signatures.Rds$'), x = input_files)][1]
             signatures <- readRDS(signaturesRds)
             
-            signatures_plotRds <- input_files[grep(pattern = '_signatures_plot.Rds', x = input_files)][1]
+            signatures_plotRds <- input_files[grep(pattern = paste0(sampleID, '.*_signatures_plot.Rds$'), x = input_files)][1]
             signatures_plot <- readRDS(signatures_plotRds)
             
-            signatures_pieplotRds <- input_files[grep(pattern = "_signatures_pieplot.Rds", x = input_files)][1]
+            signatures_pieplotRds <- input_files[grep(pattern =  paste0(sampleID, '.*_signatures_pieplot.Rds$'), x = input_files)][1]
             signatures_pieplot <- readRDS(signatures_pieplotRds)
             
             weights <- as.data.frame(t(signatures[["weights"]]))
