@@ -1,15 +1,6 @@
 # Genomic Signatures
 
 ```{r signatures_load}
-# signaturesRds <- input_files[grep(pattern = '_signatures.Rds', x = input_files)][1]
-# signatures <- readRDS(signaturesRds)
-# 
-# signatures_plotRds <- input_files[grep(pattern = '_signatures_plot.Rds', x = input_files)][1]
-# signatures_plot <- readRDS(signatures_plotRds)
-# 
-# signatures_pieplotRds <- input_files[grep(pattern = "_signatures_pieplot.Rds", x = input_files)][1]
-# signatures_pieplot <- readRDS(signatures_pieplotRds)
-
 get_signatures <- function(){
     signatures <- tryCatch(
         {
@@ -34,12 +25,10 @@ get_signatures <- function(){
             output
         },
         error=function(cond) {
-            output <- list()
-            return(output)
+            return(list())
         },
         warning=function(cond) {
-            output <- list()
-            return(output)
+            return(list())
         }
     )    
     return(signatures)
