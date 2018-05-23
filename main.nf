@@ -68,7 +68,7 @@ Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_d
 
 
 // report and output dir
-Channel.fromPath("${output_dir_path}/analysis").set { analysis_output }
+Channel.fromPath("${output_dir_path}/analysis").into { analysis_output; analysis_output2 }
 // Channel.from([ [file("${report_dir_path}"), file("${output_dir_path}")] ]).set { report_dirs }
 Channel.fromPath("${report_dir_path}/analysis/*")
         .toList()
@@ -77,6 +77,14 @@ Channel.fromPath("${report_dir_path}/analysis/*")
         }
         .combine( analysis_output ) // [[report files list], analysis output dir]
         .set { analysis_report_files }
+
+Channel.fromPath("${report_dir_path}/samples/*")
+        .toList()
+        .map { items ->
+            return( [items])
+        }
+        .combine( analysis_output2 ) // [[report files list], analysis output dir]
+        .set { samples_report_files }
 
 // read samples from analysis samplesheet
 Channel.fromPath( file(params.samples_analysis_sheet) )
@@ -110,6 +118,16 @@ Channel.fromPath( file(params.samples_analysis_sheet) )
             item[1] != 'NA' // unpaired samples
         }
         .set { samples_pairs }
+
+// read sample IDs from analysis sheet
+Channel.fromPath( file(params.samples_analysis_sheet) )
+        .splitCsv(header: true, sep: '\t')
+        .map{row ->
+            def sampleID = row['Sample']
+            return(sampleID)
+        }
+        .unique()
+        .set { sampleIDs }
 
 Channel.fromPath( file(params.samples_analysis_sheet) ).set { samples_analysis_sheet }
 Channel.from([[
@@ -1748,7 +1766,7 @@ done_copy_samplesheet.concat(
     done_eval_sample_vcf,
     done_eval_pair_vcf
     )
-    .tap { all_done1; all_done2 }
+    .tap { all_done1; all_done2; all_done3 }
 
 process custom_analysis_report {
     tag "${html_output}"
@@ -1776,6 +1794,19 @@ process custom_analysis_report {
     done
 
     Rscript -e 'rmarkdown::render(input = "main.Rmd", params = list(input_dir = "input"), output_format = "html_document", output_file = "${html_output}")'
+    """
+}
+
+process custom_sample_report {
+    tag "${sampleID}"
+    executor "local"
+    echo true
+    input:
+    val(items) from all_done3.collect()
+    set val(sampleID), file(report_items: '*'), file(input_dir: "input") from sampleIDs.combine(samples_report_files)
+    script:
+    """
+    echo "[custom_sample_report] sampleID: ${sampleID}, report_items: ${report_items}, input_dir: ${input_dir}"
     """
 }
 
