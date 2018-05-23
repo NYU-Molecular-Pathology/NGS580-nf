@@ -26,15 +26,12 @@ remove-env:
 
 # custom package builds
 annovar-150617: VAR=annovar-150617
-annovar-150617: check-env 
+annovar-150617: 
 	source "$(CONDA)/bin/activate" && \
 	conda-build annovar-150617 && \
 	conda create --clobber -y -c local -n annovar-150617 annovar==150617
 
 # custom env builds
-r-3.4.2/install.R:
-	/bin/cp ../bin/install.R r-3.4.2/
-
 r-3.4.2: r-3.4.2/install.R
 	source "$(CONDA)/bin/activate" && \
 	conda env create --file r-3.4.2/_env.yml --name r-3.4.2 && \

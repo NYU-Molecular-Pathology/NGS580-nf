@@ -24,7 +24,7 @@ ENVNAMES:=$(shell find . -name env.yml -exec dirname {} \; | cut -d '/' -f2- | x
 .PHONY: $(ENVNAMES) r-3.4.2 variant-calling-0.0.2 annovar-150617
 remove: $(ENVNAMES) r-3.4.2 variant-calling-0.0.2 annovar-150617
 $(ENVNAMES) r-3.4.2 variant-calling-0.0.2 annovar-150617:
-	env="$@" ; \
+	@env="$@" ; \
 	if [ "$$( source "$(CONDA)/bin/activate" "$${env}" >/dev/null 2>&1 ; echo $$? )" -eq 0 ] ; then \
 	make -f conda.makefile remove-env VAR="$$env" CONDA="$(CONDA)" ; \
 	else printf ">>> Skipping env that doesnt exist: $${env}\n" ; \
