@@ -35,13 +35,13 @@ RUN conda config --add channels bioconda
 
 # ~~~~~ SAMTOOLS, etc. ~~~~~ #
 RUN conda install -y -c bioconda -c r \
-samtools=0.1.19 \
+samtools==1.3 \
 htslib=1.7 \
 vcflib=1.0.0 \
 lofreq=2.1.2 \
 r=3.3.2 \
 r-base=3.3.2 \
-r-ggplot2==2.2.1
+r-ggplot2==2.2.1 
 # comes with R 3.1.1 by default
 
 # ~~~~~ ANNOVAR ~~~~~ #
