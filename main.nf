@@ -187,9 +187,9 @@ process print_metadata {
 
 process fastq_merge {
     // merge the R1 and R2 fastq files into a single fastq each
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/fastq-merge", mode: 'copy', overwrite: true
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    tag "${sampleID}"
+    // publishDir "${params.output_dir}/analysis/fastq-merged", mode: 'copy', overwrite: true
+    // publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(fastq_r1: "*"), file(fastq_r2: "*") from samples_R1_R2
@@ -221,8 +221,8 @@ process fastq_merge {
 
 
 process trimmomatic {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/fastq-trim", mode: 'copy', overwrite: true
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/fastq-trimmed", overwrite: true // mode: 'copy',
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -266,8 +266,8 @@ process trimmomatic {
 
 
 process fastqc_trim {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/fastqc-trim", mode: 'copy', overwrite: true
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/fastqc", overwrite: true // mode: 'copy',
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -295,8 +295,7 @@ process fastqc_trim {
 
 process bwa_mem {
     // first pass alignment with BWA
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/bam-bwa-dd", mode: 'copy', overwrite: true
+    tag "${sampleID}"
 
     input:
     set val(sampleID), file(fastq_R1_trim), file(fastq_R2_trim), file(ref_fa_bwa_dir) from samples_fastq_trimmed.combine(ref_fa_bwa_dir)
@@ -321,7 +320,8 @@ process bwa_mem {
 
 
 process sambamba_view_sort {
-    tag { "${sampleID}" }
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/bam", overwrite: true //, mode: 'copy'
 
     input:
     set val(sampleID), file(sample_sam) from samples_bwa_sam
@@ -347,8 +347,8 @@ process sambamba_view_sort {
 }
 
 process sambamba_flagstat {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/sambamba-flagstat", mode: 'copy', overwrite: true
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/flagstat", overwrite: true //, mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -367,8 +367,8 @@ process sambamba_flagstat {
 }
 
 process sambamba_flagstat_table {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/sambamba-flagstat", mode: 'copy', overwrite: true
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/flagstat", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -395,8 +395,8 @@ process sambamba_flagstat_table {
 sambamba_flagstat_tables.collectFile(name: "flagstat.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 process sambamba_dedup {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/bam-bwa-dd", mode: 'copy', overwrite: true
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/bam-dd", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -430,7 +430,7 @@ process sambamba_dedup {
 
 process sambamba_dedup_log_table {
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/bam-bwa-dd", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/bam-dd", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -457,8 +457,8 @@ process sambamba_dedup_log_table {
 sambamba_dedup_log_tables.collectFile(name: "reads.dedup.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 process sambamba_dedup_flagstat {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/sambamba-dd-flagstat", mode: 'copy', overwrite: true
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/flagstat", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -478,8 +478,8 @@ process sambamba_dedup_flagstat {
 }
 
 process sambamba_dedup_flagstat_table {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/sambamba-dd-flagstat", mode: 'copy', overwrite: true
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/flagstat", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -529,8 +529,8 @@ samples_dd_bam.combine(ref_fasta)
 
 // MAIN REALIGNMENT AND RECALIBRATION STEP
 process bam_ra_rc_gatk {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/bam_dd_ra_rc_gatk", mode: 'copy', overwrite: true
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/bam_dd_ra_rc", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -657,8 +657,8 @@ samples_dd_ra_rc_bam_ref.combine( dbsnp_ref_vcf3 )
 
 
 process qc_target_reads_gatk_genome {
-    tag { "${prefix}" }
-    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    tag "${prefix}"
+    publishDir "${params.output_dir}/analysis/qc", overwrite: true //, mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -695,8 +695,8 @@ process qc_target_reads_gatk_genome {
 
 
 process qc_target_reads_gatk_pad500 {
-    tag { "${prefix}" }
-    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    tag "${prefix}"
+    publishDir "${params.output_dir}/analysis/qc", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -733,8 +733,8 @@ process qc_target_reads_gatk_pad500 {
 }
 
 process qc_target_reads_gatk_pad100 {
-    tag { "${prefix}" }
-    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    tag "${prefix}"
+    publishDir "${params.output_dir}/analysis/qc", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -771,8 +771,8 @@ process qc_target_reads_gatk_pad100 {
 }
 
 process qc_target_reads_gatk_bed {
-    tag { "${prefix}" }
-    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    tag "${prefix}"
+    publishDir "${params.output_dir}/analysis/qc", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -814,7 +814,7 @@ process qc_target_reads_gatk_bed {
 
 process update_coverage_tables {
     tag "${prefix}"
-    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/qc", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -843,7 +843,7 @@ updated_coverage_tables.collectFile(name: "coverage.samples.tsv", storeDir: "${p
 
 process update_interval_tables {
     tag "${prefix}"
-    publishDir "${params.output_dir}/analysis/qc-target-reads", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/qc", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -871,7 +871,7 @@ process update_interval_tables {
 updated_coverage_interval_tables.collectFile(name: "coverage.intervals.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
 process pad_bed {
-    publishDir "${params.output_dir}/analysis/targets", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/targets", overwrite: true // , mode: 'copy'
 
     input:
     set file(targets_bed_file), file(ref_chrom_sizes) from targets_bed3.combine(ref_chrom_sizes)
@@ -887,8 +887,8 @@ process pad_bed {
 }
 
 process lofreq {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/vcf_lofreq", mode: 'copy', overwrite: true
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/vcf", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -962,8 +962,8 @@ process lofreq {
 }
 
 process gatk_hc {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/vcf_hc", mode: 'copy', overwrite: true
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/vcf", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -1050,8 +1050,8 @@ sample_vcf_hc3.mix(samples_lofreq_vcf2)
                 .combine(ref_dict4)
                 .set { samples_filtered_vcfs }
 process eval_sample_vcf {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/vcf_eval", mode: 'copy', overwrite: true
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/vcf", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -1086,8 +1086,8 @@ delly2_modes = [
 ['insertions', 'INS']
 ]
 process delly2 {
-    tag { "${sampleID}-${type}" }
-    publishDir "${params.output_dir}/analysis/snv-${type}-Delly2", mode: 'copy', overwrite: true
+    tag "${sampleID}-${type}"
+    publishDir "${params.output_dir}/analysis/snv", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -1155,8 +1155,8 @@ sample_vcf_hc_bad.map {  caller, sampleID, filtered_vcf ->
 
 
 process deconstructSigs_signatures {
-    tag { "${sampleID}" }
-    publishDir "${params.output_dir}/analysis/signatures_hc", mode: 'copy', overwrite: true
+    tag "${sampleID}"
+    publishDir "${params.output_dir}/analysis/signatures", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -1185,7 +1185,7 @@ process deconstructSigs_signatures {
 
 process merge_signatures_plots {
     executor "local"
-    publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis", overwrite: true // , mode: 'copy'
 
     input:
     file(input_files:'*') from signatures_plots.toList()
@@ -1207,7 +1207,7 @@ process merge_signatures_plots {
 
 process merge_signatures_pie_plots {
     executor "local"
-    publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis", overwrite: true // , mode: 'copy'
 
     input:
     file(input_files:'*') from signatures_pie_plots.toList()
@@ -1355,8 +1355,7 @@ samples_dd_ra_rc_bam_pairs_ref.combine(dbsnp_ref_vcf2)
 
 
 process tumor_normal_compare {
-    tag { "${comparisonID}" }
-    echo true
+    tag "${comparisonID}"
     executor "local"
 
     input:
@@ -1375,7 +1374,7 @@ process tumor_normal_compare {
 // REQUIRES PAIRED SAMPLES BAM FILES
 process msisensor {
     // disable this since it always breaks on small sample datasets
-    tag { "${comparisonID}" }
+    tag "${comparisonID}"
     validExitStatus 0,139 // allow '139' failure from small dataset; 23039 Segmentation fault      (core dumped)
     errorStrategy 'ignore'
     publishDir "${params.output_dir}/analysis/microsatellites", mode: 'copy', overwrite: true
@@ -1402,7 +1401,7 @@ process msisensor {
 
 process mutect2 {
     tag "${prefix}"
-    publishDir "${params.output_dir}/analysis/vcf_mutect2", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/vcf", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${tumorID}", overwrite: true
 
     input:
@@ -1508,7 +1507,7 @@ samples_mutect3.combine(dbsnp_ref_vcf5)
                 .set { pairs_filtered_vcfs }
 process eval_pair_vcf {
     tag "${prefix}"
-    publishDir "${params.output_dir}/analysis/vcf_eval", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/vcf", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${tumorID}", overwrite: true
 
     input:
@@ -1580,8 +1579,8 @@ pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chrom, sample
 process annotate {
     // annotate the VCF file
     tag "${prefix}"
-    publishDir "${params.output_dir}/samples/${sampleID}/${caller}", mode: 'copy', overwrite: true
-    publishDir "${params.output_dir}/analysis/annotate", overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
+    publishDir "${params.output_dir}/analysis/annotations", overwrite: true
 
     input:
     set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_vcfs_tsvs_good.combine(annovar_db_dir)
@@ -1661,8 +1660,8 @@ process annotate {
 
 process annotate_pairs {
     tag "${prefix}"
-    publishDir "${params.output_dir}/samples/${sampleID}/${caller}", mode: 'copy', overwrite: true
-    publishDir "${params.output_dir}/analysis/annotate", overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
+    publishDir "${params.output_dir}/analysis/annotations", overwrite: true
 
     input:
     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from pairs_vcfs_tsvs_good.combine(annovar_db_dir2)
@@ -1709,7 +1708,7 @@ process annotate_pairs {
 
 }
 process collect_annotation_tables {
-    publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis", overwrite: true // , mode: 'copy'
 
     input:
     file('table*') from annotations_tables.concat(annotations_tables_pairs).collect()
@@ -1767,7 +1766,7 @@ done_copy_samplesheet.concat(
 
 process custom_analysis_report {
     tag "${html_output}"
-    publishDir "${params.output_dir}/analysis/reports", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/reports", overwrite: true // , mode: 'copy'
     executor "local"
 
     input:
@@ -1797,8 +1796,8 @@ process custom_analysis_report {
 process custom_sample_report {
     tag "${sampleID}"
     executor "local"
-    publishDir "${params.output_dir}/samples/${sampleID}", mode: 'copy', overwrite: true
-    publishDir "${params.output_dir}/analysis/reports", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
+    publishDir "${params.output_dir}/analysis/reports", overwrite: true // , mode: 'copy'
 
     input:
     val(items) from all_done3.collect()
@@ -1827,7 +1826,7 @@ process custom_sample_report {
 
 disable_multiqc = true // for faster testing of the rest of the pipeline
 process multiqc {
-    publishDir "${params.output_dir}/analysis/reports", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/reports", overwrite: true // , mode: 'copy'
     // executor "local"
 
     input:
