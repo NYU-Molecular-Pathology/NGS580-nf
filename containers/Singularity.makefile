@@ -28,6 +28,16 @@ convert-Docker: check-Docker-image
 clean-imagefiles:
 	find . -maxdepth 2 -type f -name "*.img" -delete
 
+fix-imagefile-names:
+	for item in $$(find . -maxdepth 2 -type f -name "*.img"); do \
+	dir_name="$$(basename "$$(dirname "$${item}")")" ; \
+	old_name="$$(basename "$${item}")" ; \
+	pattern="stevekm_ngs580-nf_$${dir_name}" ; \
+	new_name="$$(echo "$${old_name}" | sed -e "s|\(^$${pattern}\)\(.*\)\(.img$$\)|\1\3|g")" ; \
+	new_path="$${dir_name}/$${new_name}" ; \
+	mv "$${item}" "$${new_path}" ; \
+	done
+
 upload-imagefiles:
 	rsync -vrthPlz -e ssh ./ $(USERNAME)@$(SERVER):$(REMOTE_CONTAINER_DIR) --include="*/" --include="*.img" --exclude="*" --prune-empty-dirs
 

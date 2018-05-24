@@ -1,0 +1,13 @@
+# System Information 
+```{r print_sysinfo}
+# {.tabset .tabset-pills} 
+# 
+# ## Hide
+# 
+# ## Show
+cat(sprintf("System:\n%s\n%s", system("hostname", intern = TRUE), system("uname -srv", intern = TRUE)))
+cat(sprintf("System user:\n%s", system("whoami", intern = TRUE)))
+cat(sprintf("System location:\n%s", system('pwd',intern=T)))
+cat(sprintf("Time and Date of report creation:\n%s", system("date", intern = TRUE)))
+sessionInfo()
+```
