@@ -99,6 +99,9 @@ run-phoenix: install
 	grep '^FAIL' "$${log_file}" > "$${fail_file}" ; \
 	echo ">>> Nextflow completed, stdout log file: $${log_file}, failed file: $${fail_file}"
 
+run-phoenix-singularity: install
+	@module unload java && module load java/1.8 && \
+	./nextflow run main.nf -profile phoenixSingularity -resume -with-dag flowchart-NGS580.dot $(EP) 
 
 # run locally default settings
 run-local: install
