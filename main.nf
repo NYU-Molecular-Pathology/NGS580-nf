@@ -1416,9 +1416,6 @@ process mutect2 {
     tsv_file = "${prefix}.tsv"
     reformat_tsv = "${prefix}.reformat.tsv"
     """
-    module list
-    bcftools --version
-
     # subset the target regions for the given chromosome
     subset_bed.py "${chrom}" "${targets_bed}" > "${bed_subset}"
 
