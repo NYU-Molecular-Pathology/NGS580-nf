@@ -1,0 +1,53 @@
+---
+title: "NGS580 Sample Report"
+author: '`r Sys.info()[["user"]] `'
+date: '`r format(Sys.time(), "%B %d, %Y")`'
+output:
+  html_document:
+    df_print: paged
+    keep_md: yes
+    number_sections: yes
+    toc: yes
+  pdf_document:
+    df_print: kable
+    keep_tex: yes
+    number_sections: yes
+    toc: yes
+params:
+  input_dir: input
+  child: !r c("signatures.Rmd")
+  sampleID: null
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library("knitr")
+# ~~~~~~~ CONFIGS ~~~~~~~ #
+pwd <- getwd()
+input_dir <- params$input_dir
+input_files <- dir(path = input_dir, recursive = TRUE, full.names = TRUE)
+child <- params$child
+sampleID <- params$sampleID
+end_child <- c("sysinfo.Rmd")
+child_docs <- c(child, end_child)
+
+save.image(file = "loaded.Rdata")
+```
+
+```{r compile_child, results='asis', warning=FALSE}
+if(is.null(sampleID) | length(sampleID) < 1 | sampleID==""){
+    cat('\n\n__ERROR: No sample ID passed__')
+} else {
+    # load and compile each child doc
+    for(child_doc in child_docs){
+        cat(knit_child(child_doc, quiet = TRUE))
+        cat('\n')
+    }
+}
+```
+
+```{r}
+save.image(file = "final.Rdata")
+```
+
+# References
