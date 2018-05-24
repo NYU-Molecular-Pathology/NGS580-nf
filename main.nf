@@ -1771,7 +1771,7 @@ done_copy_samplesheet.concat(
 process custom_analysis_report {
     tag "${html_output}"
     publishDir "${params.output_dir}/analysis/reports", mode: 'copy', overwrite: true
-    // executor "local"
+    executor "local"
 
     input:
     val(items) from all_done1.collect()
@@ -1800,13 +1800,31 @@ process custom_analysis_report {
 process custom_sample_report {
     tag "${sampleID}"
     executor "local"
-    echo true
+    publishDir "${params.output_dir}/samples/${sampleID}", mode: 'copy', overwrite: true
+    publishDir "${params.output_dir}/analysis/reports", mode: 'copy', overwrite: true
+
     input:
     val(items) from all_done3.collect()
     set val(sampleID), file(report_items: '*'), file(input_dir: "input") from sampleIDs.combine(samples_report_files)
+
+    output:
+    file("${html_output}")
+
     script:
+    prefix = "${sampleID}.${params.runID}.${resultsID}"
+    html_output = "${prefix}.analysis_report.html"
     """
-    echo "[custom_sample_report] sampleID: ${sampleID}, report_items: ${report_items}, input_dir: ${input_dir}"
+    # echo "[custom_sample_report] sampleID: ${sampleID}, report_items: ${report_items}, input_dir: ${input_dir}"
+    # convert report file symlinks to copies of original files, because knitr doesnt work well unless all report files are in pwd
+    for item in *.Rmd *.css *.bib; do
+        if [ -L "\${item}" ]; then
+            sourcepath="\$(python -c "import os; print(os.path.realpath('\${item}'))")"
+            echo ">>> resolving source file: \${sourcepath}"
+            rsync -va "\${sourcepath}" "\${item}"
+        fi
+    done
+
+    Rscript -e 'rmarkdown::render(input = "main.Rmd", params = list(input_dir = "input", sampleID = "${sampleID}"), output_format = "html_document", output_file = "${html_output}")'
     """
 }
 
