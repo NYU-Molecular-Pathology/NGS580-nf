@@ -13,11 +13,11 @@ $(publishDirLinks):
 	destination="$@"; \
 	sourcepath="$$(python -c "import os; print(os.path.realpath('$@'))")" ; \
 	if [ ! -e "$${sourcepath}" ]; then echo "ERROR: Source does not exist: $${sourcepath}"; \
-	elif [ -f "$${sourcepath}" ]; then rsync -va --remove-source-files "$$sourcepath" "$$destination" ; \
+	elif [ -f "$${sourcepath}" ]; then rsync -va "$$sourcepath" "$$destination" ; \
 	elif [ -d "$${sourcepath}" ]; then { \
 	timestamp="$$(date +%s)" ; \
 	tmpdir="$${destination}.$${timestamp}" ; \
-	rsync -va --remove-source-files "$${sourcepath}/" "$${tmpdir}" && \
+	rsync -va "$${sourcepath}/" "$${tmpdir}" && \
 	rm -f "$${destination}" && \
 	mv "$${tmpdir}" "$${destination}" ; } ; \
 	fi ; }
