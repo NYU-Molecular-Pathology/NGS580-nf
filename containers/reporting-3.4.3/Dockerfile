@@ -1,4 +1,4 @@
-# NGS580 container for general R 3.3.2 installation & libraries
+# NGS580 container for making reports with R 3.4.3
 FROM stevekm/ngs580-nf:base
 
 MAINTAINER Stephen M. Kelly
@@ -8,10 +8,7 @@ RUN apt-get update && \
 apt-get install -y wget \
 bzip2 \
 make \
-gcc \
-g++ \
-gfortran \
-libxml2-dev \
+rsync \
 libcairo2-dev
 
 # ~~~~~ MINICONDA ~~~~~ #
@@ -22,10 +19,10 @@ ENV PATH="/conda/bin:${PATH}"
 
 # ~~~~~ R ~~~~~ #
 RUN conda install -y -c r r-base \
-r=3.3.2 \
-r-base=3.3.2 \
+r=3.4.3 \
+r-base=3.4.3 \
+pandoc \
+r-reshape2 \
+r-knitr \
+r-rmarkdown \
 r-ggplot2
-
-ADD install.R /install.R
-RUN chmod +x /install.R
-RUN Rscript install.R
