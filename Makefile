@@ -285,3 +285,16 @@ $(NXFWORKFILES):
 	@printf 'Creating file stub: $@\n' && rm -f "$@" && touch "$@"
 .PHONY: $(NXFWORKFILES)
 
+
+# remove all symlinks in 'work' dirs
+NXFWORKLINKS:=
+FIND_NXFWORKLINKS:=
+ifneq ($(FIND_NXFWORKLINKS),)
+NXFWORKLINKS:=$(shell find "$(workDir)/" -type l)
+endif
+finalize-work-unlink:
+	$(MAKE) finalize-work-unlink-recurse FIND_NXFWORKLINKS=1
+finalize-work-unlink-recurse: $(NXFWORKLINKS)
+$(NXFWORKLINKS): 
+	@printf "Removing symlink: $@\n" && unlink "$@"
+.PHONY: $(NXFWORKLINKS)
