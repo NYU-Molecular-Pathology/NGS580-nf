@@ -1904,7 +1904,7 @@ workflow.onComplete {
         sendMail {
             to "${params.email_to}"
             from "${params.email_from}"
-            attach attachments
+            // attach attachments // attachments keep breaking hold off on these
             subject "[${params.workflow_label}] ${status}"
 
             body
