@@ -21,7 +21,15 @@ rm -f Miniconda3-4.4.10-Linux-x86_64.sh
 ENV PATH="/conda/bin:${PATH}"
 
 # ~~~~~ R ~~~~~ #
-RUN conda install -y -c r r-base r=3.3.2 r-base=3.3.2
+RUN conda install -y -c r r-base \
+r=3.3.2 \
+r-base=3.3.2 \
+pandoc==1.15.0.6 \
+r-reshape2 \
+r-knitr \
+r-rmarkdown \
+r-ggplot2
+
 ADD install.R /install.R
 RUN chmod +x /install.R
 RUN Rscript install.R

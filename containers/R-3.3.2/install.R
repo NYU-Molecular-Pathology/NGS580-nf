@@ -1,9 +1,9 @@
 #!/usr/bin/env Rscript
 
 # base R packages
-install.packages(c(
-    "ggplot2"
-    ), repos='http://cran.us.r-project.org', dependencies = TRUE)
+# install.packages(c(
+#     "ggplot2"
+#     ), repos='http://cran.us.r-project.org', dependencies = TRUE)
 
 # bioconductor packages
 source("https://bioconductor.org/biocLite.R")
