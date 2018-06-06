@@ -53,7 +53,47 @@ import json
 import argparse
 
 # ~~~~~ FUNCTIONS ~~~~~ #
-def main(search_dirs, output_prefix = None, NA_value = "NA", tumor_colname = 'Tumor', normal_colname = 'Normal', r1_colname = 'R1', r2_colname = 'R2', sample_colname = 'Sample'):
+def get_samplename(fastq, mode = "default"):
+    """
+    Derives a sample name from a .fastq filename, using Illumina standard filenaming syntax
+
+    Parameters
+    ----------
+    fastq: str
+        a character string representing the path to a file to be parsed
+
+    Returns
+    -------
+    str
+        A string representing the derived sample name
+    """
+    if mode == "default":
+        sample_name = re.sub(r'_S[0-9]{1,3}_L00[0-9]_R[1-2].*', '', os.path.basename(fastq))
+    elif mode == "noLaneSplit":
+        sample_name = re.sub(r'_S[0-9]{1,3}_R[1-2].*', '', os.path.basename(fastq))
+    else:
+        print("ERROR: invalid mode")
+        raise
+    return(sample_name)
+
+def write_tsv(samples, output_file, fieldnames):
+    """
+    save long version of the table; one line per R1 R2 pair
+    """
+    with open(output_file, 'w') as f:
+        writer = csv.DictWriter(f, delimiter= '\t', fieldnames = fieldnames)
+        writer.writeheader()
+        for item in samples:
+            writer.writerow(item)
+
+def write_json(samples, output_file):
+    """
+    save a JSON
+    """
+    with open(output_file, 'w') as f:
+        json.dump(samples, f, sort_keys = True, indent = 4)
+
+def main(**kwargs):
     """
     Main control function for the script
 
@@ -62,6 +102,21 @@ def main(search_dirs, output_prefix = None, NA_value = "NA", tumor_colname = 'Tu
     search_dirs: list
         list of paths to directories to use
     """
+    # get args
+    search_dirs = kwargs.pop('search_dirs')
+    output_prefix = kwargs.pop('output_prefix', None)
+    NA_value = kwargs.pop('NA_value', "NA")
+    tumor_colname = kwargs.pop('tumor_colname', 'Tumor')
+    normal_colname = kwargs.pop('normal_colname', 'Normal')
+    r1_colname = kwargs.pop('r1_colname', 'R1')
+    r2_colname = kwargs.pop('r2_colname', 'R2')
+    sample_colname = kwargs.pop('sample_colname', 'Sample')
+    name_mode = kwargs.pop('name_mode', 'default')
+
+    write_long_tsv = kwargs.pop('write_long_tsv', False)
+    write_long_json = kwargs.pop('write_long_json', False)
+    write_analysis_json = kwargs.pop('write_analysis_json', False)
+
     # validate inputs
     if len(search_dirs) < 1:
         print("ERROR: no directories provided")
@@ -99,7 +154,7 @@ def main(search_dirs, output_prefix = None, NA_value = "NA", tumor_colname = 'Tu
         if not os.path.exists(R2_name): R2_name = None
 
         # extract sample name
-        sample_name = re.sub(r'_S[0-9]{1,3}_L00[0-9]_R1.*', '', os.path.basename(R1_name))
+        sample_name = get_samplename(fastq = R1_name, mode = name_mode)
         sample_dict = {
             str(sample_colname): sample_name,
             str(r1_colname): R1_name,
@@ -108,15 +163,12 @@ def main(search_dirs, output_prefix = None, NA_value = "NA", tumor_colname = 'Tu
         samples.append(sample_dict)
 
     # save long version of the table; one line per R1 R2 pair
-    # with open(samples_fastq_long_tsv, 'w') as f:
-    #     writer = csv.DictWriter(f, delimiter= '\t', fieldnames=[str(sample_colname), str(r1_colname), str(r2_colname)])
-    #     writer.writeheader()
-    #     for item in samples:
-    #         writer.writerow(item)
+    if write_long_tsv:
+        write_tsv(samples = samples, output_file = samples_fastq_long_tsv, fieldnames=[str(sample_colname), str(r1_colname), str(r2_colname)])
 
     # save a JSON
-    # with open(samples_fastq_long_json, 'w') as f:
-    #     json.dump(samples, f, sort_keys = True, indent = 4)
+    if write_long_json:
+        write_json(samples = samples, output_file = samples_fastq_long_json)
 
     # reduce to condensed version; one entry per sample with all R1 and R2
     samples_collapsed = collapse.collapse(dicts = samples, collapse_key = str(sample_colname))
@@ -127,8 +179,8 @@ def main(search_dirs, output_prefix = None, NA_value = "NA", tumor_colname = 'Tu
         sample_dict[str(normal_colname)] = str(NA_value)
 
     # save a JSON
-    # with open(samples_analysis_json, 'w') as f:
-    #     json.dump(samples_collapsed, f, sort_keys = True, indent = 4)
+    if write_analysis_json:
+        write_json(samples = samples_collapsed, output_file = samples_analysis_json)
 
     # prepare dicts for .tsv printing
     samples_to_print = []
@@ -141,11 +193,7 @@ def main(search_dirs, output_prefix = None, NA_value = "NA", tumor_colname = 'Tu
         samples_to_print.append(sample_dict)
 
     # write to file
-    with open(samples_analysis_tsv, 'w') as f:
-        writer = csv.DictWriter(f, delimiter= '\t', fieldnames=[str(sample_colname), str(tumor_colname), str(normal_colname), str(r1_colname), str(r2_colname)])
-        writer.writeheader()
-        for item in samples_to_print:
-            writer.writerow(item)
+    write_tsv(samples = samples_to_print, output_file = samples_analysis_tsv, fieldnames=[str(sample_colname), str(tumor_colname), str(normal_colname), str(r1_colname), str(r2_colname)])
 
 def parse():
     """
@@ -154,11 +202,10 @@ def parse():
     parser = argparse.ArgumentParser(description='This script will generate samplesheets for the analysis based on .fastq.gz files in the supplied directories')
     parser.add_argument("search_dirs", help="Paths to input samplesheet file", nargs="+")
     parser.add_argument("-p", default = None, dest = 'output_prefix', metavar = 'prefix', help="Prefix for samplesheet files")
+    parser.add_argument("-name-mode", default = 'default', dest = 'name_mode', metavar = 'filename mode', help="Mode for parsing fastq filenames. Default: 'default', alternative: 'noLaneSplit'")
 
     args = parser.parse_args()
-    search_dirs = args.search_dirs
-    output_prefix = args.output_prefix
-    main(search_dirs = search_dirs, output_prefix = output_prefix)
+    main(**vars(args))
 
 if __name__ == '__main__':
     parse()
