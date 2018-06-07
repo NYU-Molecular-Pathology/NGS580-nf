@@ -76,7 +76,7 @@ def get_samplename(fastq, mode = "default"):
         raise
     return(sample_name)
 
-def write_tsv(samples, output_file, fieldnames):
+def write_tsv(samples, output_file, fieldnames, append = False):
     """
     save a TSV file
 
@@ -87,13 +87,20 @@ def write_tsv(samples, output_file, fieldnames):
     output_file: str
         path to output file
     fieldnames: list
-        list of column headers to use for the output file
+        list of column headers to use for the output file1
+    append: bool
+        ``True`` or ``False``, whether to append to the current output file
     """
-    with open(output_file, 'w') as f:
-        writer = csv.DictWriter(f, delimiter= '\t', fieldnames = fieldnames)
+    if append:
+        fout = open(output_file, "a")
+        writer = csv.DictWriter(fout, delimiter= '\t', fieldnames = fieldnames)
+    else:
+        fout = open(output_file, "w")
+        writer = csv.DictWriter(fout, delimiter= '\t', fieldnames = fieldnames)
         writer.writeheader()
-        for item in samples:
-            writer.writerow(item)
+    for item in samples:
+        writer.writerow(item)
+    fout.close()
 
 def write_json(samples, output_file):
     """
@@ -130,6 +137,7 @@ def main(**kwargs):
     samples_fastq_long_json = kwargs.pop('samples_fastq_long_json', 'samples.fastq.json')
     samples_analysis_json = kwargs.pop('samples_analysis_json', 'samples.analysis.json')
     samples_analysis_tsv = kwargs.pop('samples_analysis_tsv', 'samples.analysis.tsv')
+    append = kwargs.pop('append', False)
 
     # validate inputs
     if len(search_dirs) < 1:
@@ -147,6 +155,7 @@ def main(**kwargs):
         samples_analysis_tsv = '{0}.{1}'.format(str(output_prefix), samples_analysis_tsv)
 
     # find the R1 fastq files
+    # TODO: clean this up
     fastqs_R1 = []
     for search_dir in search_dirs:
         for fastq_R1 in sorted(find.find(search_dir = search_dir,
@@ -156,6 +165,7 @@ def main(**kwargs):
     fastqs_R1 = list(sorted(set((fastqs_R1))))
 
     # parse the files into samples
+    # TODO: clean this up too
     samples = []
     for R1_name in fastqs_R1:
         # generate R2 filename
@@ -173,7 +183,7 @@ def main(**kwargs):
 
     # save long version of the table; one line per R1 R2 pair
     if write_long_tsv:
-        write_tsv(samples = samples, output_file = samples_fastq_long_tsv, fieldnames=[str(sample_colname), str(r1_colname), str(r2_colname)])
+        write_tsv(samples = samples, output_file = samples_fastq_long_tsv, fieldnames=[str(sample_colname), str(r1_colname), str(r2_colname)], append = append)
 
     # save a JSON
     if write_long_json:
@@ -202,7 +212,7 @@ def main(**kwargs):
         samples_to_print.append(sample_dict)
 
     # write to file
-    write_tsv(samples = samples_to_print, output_file = samples_analysis_tsv, fieldnames=[str(sample_colname), str(tumor_colname), str(normal_colname), str(r1_colname), str(r2_colname)])
+    write_tsv(samples = samples_to_print, output_file = samples_analysis_tsv, fieldnames=[str(sample_colname), str(tumor_colname), str(normal_colname), str(r1_colname), str(r2_colname)], append = append)
 
 def parse():
     """
@@ -212,6 +222,7 @@ def parse():
     parser.add_argument("search_dirs", help="Paths to input samplesheet file", nargs="+")
     parser.add_argument("-p", default = None, dest = 'output_prefix', metavar = 'prefix', help="Prefix for samplesheet files")
     parser.add_argument("-name-mode", default = 'default', dest = 'name_mode', metavar = 'filename mode', help="Mode for parsing fastq filenames. Default: 'default', alternative: 'noLaneSplit'")
+    parser.add_argument("--append", action = 'store_true', dest = 'append', help="Prefix for samplesheet files")
 
     args = parser.parse_args()
     main(**vars(args))
