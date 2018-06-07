@@ -78,7 +78,16 @@ def get_samplename(fastq, mode = "default"):
 
 def write_tsv(samples, output_file, fieldnames):
     """
-    save long version of the table; one line per R1 R2 pair
+    save a TSV file
+
+    Parameters
+    ----------
+    samples: list
+        a list of dictionaries to be written to the file
+    output_file: str
+        path to output file
+    fieldnames: list
+        list of column headers to use for the output file
     """
     with open(output_file, 'w') as f:
         writer = csv.DictWriter(f, delimiter= '\t', fieldnames = fieldnames)
@@ -88,7 +97,14 @@ def write_tsv(samples, output_file, fieldnames):
 
 def write_json(samples, output_file):
     """
-    save a JSON
+    save a JSON file
+
+    Parameters
+    ----------
+    samples: list
+        a list of dictionaries to be written to the file
+    output_file: str
+        path to output file
     """
     with open(output_file, 'w') as f:
         json.dump(samples, f, sort_keys = True, indent = 4)
@@ -96,11 +112,6 @@ def write_json(samples, output_file):
 def main(**kwargs):
     """
     Main control function for the script
-
-    Parameters
-    ----------
-    search_dirs: list
-        list of paths to directories to use
     """
     # get args
     search_dirs = kwargs.pop('search_dirs')
@@ -112,10 +123,13 @@ def main(**kwargs):
     r2_colname = kwargs.pop('r2_colname', 'R2')
     sample_colname = kwargs.pop('sample_colname', 'Sample')
     name_mode = kwargs.pop('name_mode', 'default')
-
     write_long_tsv = kwargs.pop('write_long_tsv', False)
     write_long_json = kwargs.pop('write_long_json', False)
     write_analysis_json = kwargs.pop('write_analysis_json', False)
+    samples_fastq_long_tsv = kwargs.pop('samples_fastq_long_tsv', 'samples.fastq.tsv')
+    samples_fastq_long_json = kwargs.pop('samples_fastq_long_json', 'samples.fastq.json')
+    samples_analysis_json = kwargs.pop('samples_analysis_json', 'samples.analysis.json')
+    samples_analysis_tsv = kwargs.pop('samples_analysis_tsv', 'samples.analysis.tsv')
 
     # validate inputs
     if len(search_dirs) < 1:
@@ -126,11 +140,6 @@ def main(**kwargs):
             print("ERROR: '{0}' is not a directory;".format(search_dir))
             sys.exit(1)
 
-    # output files
-    samples_fastq_long_tsv = 'samples.fastq.tsv'
-    samples_fastq_long_json = 'samples.fastq.json'
-    samples_analysis_json = 'samples.analysis.json'
-    samples_analysis_tsv = 'samples.analysis.tsv'
     if output_prefix:
         samples_fastq_long_tsv = '{0}.{1}'.format(str(output_prefix), samples_fastq_long_tsv)
         samples_fastq_long_json = '{0}.{1}'.format(str(output_prefix), samples_fastq_long_json)
