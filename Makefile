@@ -195,22 +195,25 @@ clean-all: clean clean-output clean-work
 #
 #  Makefile configured for parallel processing of files
 #
-#  run with `make <recipe> -j8`
-#
-
-LSFILEREGEX:=\.ls\.txt
-# files in work subdirs to keep
-NXFWORKFILES:='.command.begin|.command.err|.command.log|.command.out|.command.run|.command.sh|.command.stub|.command.trace|.exitcode|$(LSFILE)'
-NXFWORKFILESREGEX:='.*\.command\.begin\|.*\.command\.err\|.*\.command\.log\|.*\.command\.out\|.*\.command\.run\|.*\.command\.sh\|.*\.command\.stub\|.*\.command\.trace\|.*\.exitcode\|.*$(LSFILEREGEX)'
-# Nextflow 'trace' file with record of completed pipeline tasks
-
-#
-
-# .PHONY: $(publishDirLinks) $(NXFWORKSUBDIRS)
-
+#  run with `make finalize -j8`
 
 # Nextflow "publishDir" directory of files to keep
 publishDir:=output
+# Nextflow "work" directory
+workDir:=work
+TRACEFILE:=trace.txt
+
+# remove extraneous work dirs
+# resolve publishDir output symlinks
+# write work 'ls' files
+# create work dir file stubs
+finalize:
+	$(MAKE) finalize-work-rm
+	$(MAKE) finalize-output
+	$(MAKE) finalize-work-ls
+	$(MAKE) finalize-work-stubs
+
+## ~~~ convert all symlinks to their linked items ~~~ ##
 # symlinks in the publishDir to convert to files
 publishDirLinks:=
 FIND_publishDirLinks:=
@@ -218,6 +221,7 @@ ifneq ($(FIND_FILES),)
 publishDirLinks:=$(shell find $(publishDir)/ -type l)
 endif
 finalize-output:
+	@echo ">>> Converting symlinks in output dir '$(publishDir)' to their targets..."
 	$(MAKE) finalize-output-recurse FIND_publishDirLinks=1
 finalize-output-recurse: $(publishDirLinks)
 # convert all symlinks to their linked items
@@ -237,36 +241,29 @@ $(publishDirLinks):
 .PHONY: $(publishDirLinks)
 
 
-# Nextflow "work" directory of items to be removed
-workDir:=work
+## ~~~ write list of files in each subdir to file '.ls.txt' ~~~ ##
 # subdirs in the 'work' dir
 NXFWORKSUBDIRS:=
 FIND_NXFWORKSUBDIRS:=
-# regex from the hashes of tasks in the tracefile to match against work subdirs
-HASHPATTERN:=
-TRACEFILE:=trace.txt
 ifneq ($(FIND_NXFWORKSUBDIRS),)
 NXFWORKSUBDIRS:=$(shell find "$(workDir)/" -maxdepth 2 -mindepth 2)
-HASHPATTERN:=$(shell python -c 'import csv; reader = csv.DictReader(open("$(TRACEFILE)"), delimiter = "\t"); print("|".join([row["hash"] for row in reader]))')
 endif
 # file to write 'ls' contents of 'work' subdirs to
 LSFILE:=.ls.txt
 finalize-work-ls:
+	@echo ">>> Writing list of directory contents for each subdir in Nextflow work directory '$(workDir)'..."
 	$(MAKE) finalize-work-ls-recurse FIND_NXFWORKSUBDIRS=1
 finalize-work-ls-recurse: $(NXFWORKSUBDIRS)
 # print the 'ls' contents of each subdir to a file, or delete the subdir
 $(NXFWORKSUBDIRS):
-	@if [ "$$(echo '$@' | grep -q -E "$(HASHPATTERN)"; echo $$? )" -eq 0 ]; then \
-	ls_file="$@/$(LSFILE)" ; \
-	ls -1 "$@" > "$${ls_file}" ; \
-	else \
-	echo "$@ is not in the trace file, deleting..." ; rm -rf "$@" ; \
-	fi
+	@ls_file="$@/$(LSFILE)" ; \
+	echo ">>> Writing file list: $${ls_file}" ; \
+	ls -1 "$@" > "$${ls_file}"
 .PHONY: $(NXFWORKSUBDIRS)
 
 
 
-# replace all files in 'work' dirs with empty file stubs
+## ~~~ replace all files in 'work' dirs with empty file stubs ~~~ ##
 NXFWORKFILES:=
 FIND_NXFWORKFILES:=
 # files in work subdirs to keep
@@ -276,23 +273,32 @@ NXFWORKFILESREGEX:='.*\.command\.begin\|.*\.command\.err\|.*\.command\.log\|.*\.
 ifneq ($(FIND_NXFWORKFILES),)
 NXFWORKFILES:=$(shell find -P "$(workDir)/" -type f ! -regex $(NXFWORKFILESREGEX))
 endif
-finalize-work-rm:
-	$(MAKE) finalize-work-rm-recurse FIND_NXFWORKFILES=1
-finalize-work-rm-recurse: $(NXFWORKFILES)
+finalize-work-stubs:
+	$(MAKE) finalize-work-stubs-recurse FIND_NXFWORKFILES=1
+finalize-work-stubs-recurse: $(NXFWORKFILES)
 $(NXFWORKFILES):
-	@printf 'Creating file stub: $@\n' && rm -f "$@" && touch "$@"
+	@printf '>>> Creating file stub: $@\n' && rm -f "$@" && touch "$@"
 .PHONY: $(NXFWORKFILES)
 
 
-# remove all symlinks in 'work' dirs
-NXFWORKLINKS:=
-FIND_NXFWORKLINKS:=
-ifneq ($(FIND_NXFWORKLINKS),)
-NXFWORKLINKS:=$(shell find "$(workDir)/" -type l)
+## ~~~ remove 'work' subdirs that are not in the latest trace file (e.g. most previous run) ~~~ ##
+# subdirs in the 'work' dir
+NXFWORKSUBDIRSRM:=
+FIND_NXFWORKSUBDIRSRM:=
+# regex from the hashes of tasks in the tracefile to match against work subdirs
+HASHPATTERN:=
+ifneq ($(FIND_NXFWORKSUBDIRSRM),)
+NXFWORKSUBDIRSRM:=$(shell find "$(workDir)/" -maxdepth 2 -mindepth 2)
+HASHPATTERN:=$(shell python -c 'import csv; reader = csv.DictReader(open("$(TRACEFILE)"), delimiter = "\t"); print("|".join([row["hash"] for row in reader]))')
 endif
-finalize-work-unlink:
-	$(MAKE) finalize-work-unlink-recurse FIND_NXFWORKLINKS=1
-finalize-work-unlink-recurse: $(NXFWORKLINKS)
-$(NXFWORKLINKS):
-	@printf "Removing symlink: $@\n" && unlink "$@"
-.PHONY: $(NXFWORKLINKS)
+finalize-work-rm:
+	@echo ">>> Removing subdirs in Nextflow work directory '$(workDir)' which are not included in Nextflow trace file '$(TRACEFILE)'..."
+	$(MAKE) finalize-work-rm-recurse FIND_NXFWORKSUBDIRSRM=1
+finalize-work-rm-recurse: $(NXFWORKSUBDIRSRM)
+# remove the subdir if its not listed in the trace hashes
+$(NXFWORKSUBDIRSRM):
+	@if [ ! "$$(echo '$@' | grep -q -E "$(HASHPATTERN)"; echo $$? )" -eq 0 ]; then \
+	echo ">>> Removing subdir: $@" ; \
+	rm -rf "$@" ; \
+	fi
+.PHONY: $(NXFWORKSUBDIRSRM)
