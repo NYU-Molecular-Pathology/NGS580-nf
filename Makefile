@@ -92,26 +92,24 @@ deploy:
 # run on phoenix in current session
 run-phoenix: install
 	@module unload java && module load java/1.8 && \
-	log_file="nextflow.$(TIMESTAMP).stdout.log" ; \
-	fail_file="failed.$(TIMESTAMP).tsv" ; \
+	log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
 	echo ">>> Running Nextflow with stdout log file: $${log_file}" ; \
-	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart-NGS580.dot $(EP) | tee -a "$${log_file}" ; \
-	grep '^FAIL' "$${log_file}" > "$${fail_file}" ; \
-	echo ">>> Nextflow completed, stdout log file: $${log_file}, failed file: $${fail_file}"
+	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart.dot $(EP) | tee -a "$${log_file}" ; \
+	echo ">>> Nextflow completed, stdout log file: $${log_file}"
 
 
 # run locally default settings
 run-local: install
-	./nextflow run main.nf -profile local -resume -with-dag flowchart-NGS580.dot $(EP)
+	./nextflow run main.nf -profile local -resume -with-dag flowchart.dot $(EP)
 
 # run on Power server
 run-power: install
 	source /shared/miniconda2/bin/activate /shared/biobuilds-2017.11 && \
-	./nextflow run main.nf -profile power -resume -with-dag flowchart-NGS580.dot $(EP)
+	./nextflow run main.nf -profile power -resume -with-dag flowchart.dot $(EP)
 
 # compile flow chart
 flowchart:
-	[ -f flowchart-NGS580.dot ] && dot flowchart-NGS580.dot -Tpng -o flowchart-NGS580.png || echo "file flowchart-NGS580.dot not present"
+	[ -f flowchart.dot ] && dot flowchart.dot -Tpng -o flowchart.png || echo "file flowchart.dot not present"
 
 
 
@@ -120,14 +118,14 @@ submit-phoenix:
 	@qsub_logdir="logs" ; \
 	mkdir -p "$${qsub_logdir}" ; \
 	job_name="NGS580-nf" ; \
-	echo 'make run-phoenix-qsub EP="$(EP)"' | qsub -wd "$$PWD" -o :$${qsub_logdir}/ -e :$${qsub_logdir}/ -j y -N "$$job_name" -q all.q 
+	echo 'make run-phoenix-qsub EP="$(EP)"' | qsub -wd "$$PWD" -o :$${qsub_logdir}/ -e :$${qsub_logdir}/ -j y -N "$$job_name" -q all.q
 
 # parent Nextflow process to be run as a qsub job on phoenix
 run-phoenix-qsub: install
 	@output_file="pid.txt" ; \
 	module unload java && module load java/1.8 && \
 	JOBINFO="$${JOB_ID:-none}\t$${JOB_NAME:-none}\t$${HOSTNAME:-none}\t$${USER:-none}" ; \
-	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart-NGS580.dot $(EP) & \
+	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart.dot $(EP) & \
 	pid="$$!" ; \
 	INFOSTR="$${pid}\t$${JOBINFO}\t$$(date +%s)" ; \
 	printf "$${INFOSTR}\n" ; \
@@ -194,11 +192,11 @@ clean-all: clean clean-output clean-work
 #  files in the 'publishDir' are often symlinked to items in the 'work' dir;
 #  these symlinks should be replaced with copies of the original file
 #  all files in the 'work' dir should be removed, except for the log files
-# 
+#
 #  Makefile configured for parallel processing of files
-# 
+#
 #  run with `make <recipe> -j8`
-# 
+#
 
 LSFILEREGEX:=\.ls\.txt
 # files in work subdirs to keep
@@ -206,7 +204,7 @@ NXFWORKFILES:='.command.begin|.command.err|.command.log|.command.out|.command.ru
 NXFWORKFILESREGEX:='.*\.command\.begin\|.*\.command\.err\|.*\.command\.log\|.*\.command\.out\|.*\.command\.run\|.*\.command\.sh\|.*\.command\.stub\|.*\.command\.trace\|.*\.exitcode\|.*$(LSFILEREGEX)'
 # Nextflow 'trace' file with record of completed pipeline tasks
 
-# 
+#
 
 # .PHONY: $(publishDirLinks) $(NXFWORKSUBDIRS)
 
@@ -246,9 +244,9 @@ NXFWORKSUBDIRS:=
 FIND_NXFWORKSUBDIRS:=
 # regex from the hashes of tasks in the tracefile to match against work subdirs
 HASHPATTERN:=
-TRACEFILE:=trace-NGS580.txt
+TRACEFILE:=trace.txt
 ifneq ($(FIND_NXFWORKSUBDIRS),)
-NXFWORKSUBDIRS:=$(shell find "$(workDir)/" -maxdepth 2 -mindepth 2) 
+NXFWORKSUBDIRS:=$(shell find "$(workDir)/" -maxdepth 2 -mindepth 2)
 HASHPATTERN:=$(shell python -c 'import csv; reader = csv.DictReader(open("$(TRACEFILE)"), delimiter = "\t"); print("|".join([row["hash"] for row in reader]))')
 endif
 # file to write 'ls' contents of 'work' subdirs to
@@ -256,8 +254,8 @@ LSFILE:=.ls.txt
 finalize-work-ls:
 	$(MAKE) finalize-work-ls-recurse FIND_NXFWORKSUBDIRS=1
 finalize-work-ls-recurse: $(NXFWORKSUBDIRS)
-# print the 'ls' contents of each subdir to a file, or delete the subdir 
-$(NXFWORKSUBDIRS): 
+# print the 'ls' contents of each subdir to a file, or delete the subdir
+$(NXFWORKSUBDIRS):
 	@if [ "$$(echo '$@' | grep -q -E "$(HASHPATTERN)"; echo $$? )" -eq 0 ]; then \
 	ls_file="$@/$(LSFILE)" ; \
 	ls -1 "$@" > "$${ls_file}" ; \
@@ -295,6 +293,6 @@ endif
 finalize-work-unlink:
 	$(MAKE) finalize-work-unlink-recurse FIND_NXFWORKLINKS=1
 finalize-work-unlink-recurse: $(NXFWORKLINKS)
-$(NXFWORKLINKS): 
+$(NXFWORKLINKS):
 	@printf "Removing symlink: $@\n" && unlink "$@"
 .PHONY: $(NXFWORKLINKS)
