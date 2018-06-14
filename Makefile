@@ -6,7 +6,7 @@ NXF_VER:=0.29.0
 # extra params to pass for Nextflow in some recipes
 EP:=
 # sequencing run name for deployment
-PROJECT:=
+RUNID:=
 # location of production sequencing directory
 SEQDIR:=/ifs/data/molecpathlab/quicksilver
 # location of production deployment for analysis
@@ -14,7 +14,8 @@ PRODDIR:=/ifs/data/molecpathlab/production/NGS580
 # location of production demultiplexing for deployment
 FASTQDIR:=
 TIMESTAMP:=$(shell date +%s)
-
+REMOTE_ssh:=git@github.com:NYU-Molecular-Pathology/NGS580-nf.git
+REMOTE_http:=https://github.com/NYU-Molecular-Pathology/NGS580-nf.git
 .PHONY: containers annovar_db ref
 
 # no default action
@@ -69,23 +70,28 @@ setup: install ref annovar_db
 setup-power: install ref annovar_db_power
 
 # prepares a new directory with a copy of this repo to start analysis
+# `make deploy RUNID=180316_NB501073_0036_AH3VFKBGX5 FASTQDIR=/ifs/data/molecpathlab/production/Demultiplexing/180316_NB501073_0036_AH3VFKBGX5/output/Unaligned/NS18-7`
 deploy:
-	@[ -z "$(PROJECT)" ] && printf "invalid PROJECT specified: $(PROJECT)\n" && exit 1 || :
-	@[ ! -d "$(SEQDIR)/$(PROJECT)" ] && printf "PROJECT is not a valid location: $(SEQDIR)/$(PROJECT)\n" && exit 1 || :
+	@[ -z "$(RUNID)" ] && printf "invalid RUNID specified: $(RUNID)\n" && exit 1 || :
+	@[ ! -d "$(SEQDIR)/$(RUNID)" ] && printf "RUNID is not a valid location: $(SEQDIR)/$(RUNID)\n" && exit 1 || :
 	@[ -z "$(FASTQDIR)" ] && printf "invalid FASTQDIR specified: $(FASTQDIR)\n" && exit 1 || :
 	@[ ! -d "$(FASTQDIR)" ] && printf "FASTQDIR is not a valid directory: $(FASTQDIR)\n" && exit 1 || :
 	repo_dir="$${PWD}" && \
-	output_dir="$(PRODDIR)/$(PROJECT)/$$(date +"%Y-%m-%d_%H-%M-%S")" && \
+	output_dir="$(PRODDIR)/$(RUNID)" && \
 	echo ">>> Setting up repo in location: $${output_dir}" && \
 	git clone --recursive "$${repo_dir}" "$${output_dir}" && \
 	cd "$${output_dir}" && \
 	echo ">>> Linking input directory: $(FASTQDIR)" && \
-	( mkdir input ; cd input ; ln -s "$(FASTQDIR)" ) && \
+	ln -s "$(FASTQDIR)" input && \
 	echo ">>> Creating input fastq sheet" && \
-	python generate-samplesheets.py "$(FASTQDIR)" && \
-	run_cmd="make run-phoenix" && \
-	printf ">>> please run the following command to start analysis:\n\n%s\n%s\n" "cd $${output_dir}" "$${run_cmd}"
+	python generate-samplesheets.py input && \
+	printf ">>> NGS580 analysis directory prepared:\n\n%s\n" "cd $${output_dir}"
 
+# update the repo remote for ssh
+remote-ssh:
+	git remote set-url origin "$(REMOTE_ssh)"
+remote:
+	git remote set-url origin "$(REMOTE_http)"
 
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
@@ -114,6 +120,7 @@ flowchart:
 
 
 # submit the parent Nextflow process to phoenix HPC as a qsub job
+# `make submit-phoenix EP='--runID 180316_NB501073_0036_AH3VFKBGX5'`
 submit-phoenix:
 	@qsub_logdir="logs" ; \
 	mkdir -p "$${qsub_logdir}" ; \
@@ -137,7 +144,7 @@ run-phoenix-qsub: install
 REMOTE:=
 PID:=
 remote-kill:
-	@[ -z "$(REMOTE)" ] && printf "invalid REMOTE specified: $(PROJECT)\n" && exit 1 || :
+	@[ -z "$(REMOTE)" ] && printf "invalid REMOTE server specified: $(REMOTE)\n" && exit 1 || :
 	@[ -z "$(PID)" ] && printf "invalid PID specified: $(PID)\n" && exit 1 || :
 	ssh "$(REMOTE)" 'kill $(PID)'
 
