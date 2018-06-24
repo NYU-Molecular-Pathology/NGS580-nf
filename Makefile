@@ -224,7 +224,7 @@ finalize:
 # symlinks in the publishDir to convert to files
 publishDirLinks:=
 FIND_publishDirLinks:=
-ifneq ($(FIND_FILES),)
+ifneq ($(FIND_publishDirLinks),)
 publishDirLinks:=$(shell find $(publishDir)/ -type l)
 endif
 finalize-output:
