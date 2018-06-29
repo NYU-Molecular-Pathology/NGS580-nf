@@ -2,7 +2,7 @@
 SHELL:=/bin/bash
 REFDIR:=/ifs/data/sequence/results/external/NYU/snuderllab/ref
 ANNOVAR_DB_DIR:=/ifs/data/molecpathlab/bin/annovar/db/hg19
-NXF_VER:=0.29.0
+NXF_VER:=0.30.2
 # extra params to pass for Nextflow in some recipes
 EP:=
 # sequencing run name for deployment
