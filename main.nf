@@ -1777,7 +1777,7 @@ process custom_analysis_report {
     file("${html_output}")
 
     script:
-    prefix = "${params.runID}.${resultsID}"
+    prefix = "${params.runID}"
     html_output = "${prefix}.analysis_report.html"
     """
     # convert report file symlinks to copies of original files, because knitr doesnt work well unless all report files are in pwd
@@ -1807,7 +1807,7 @@ process custom_sample_report {
     file("${html_output}")
 
     script:
-    prefix = "${sampleID}.${params.runID}.${resultsID}"
+    prefix = "${sampleID}.${params.runID}"
     html_output = "${prefix}.analysis_report.html"
     """
     # echo "[custom_sample_report] sampleID: ${sampleID}, report_items: ${report_items}, input_dir: ${input_dir}"
