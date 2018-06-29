@@ -33,6 +33,7 @@ read.dedup.log <- function(file){
 }
 
 
+# ~~~~~~ AGGREGATE METRICS ~~~~~ #
 metrics_df <- do.call('rbind', lapply(X = samplesIDs, FUN = function(samplesID){
     # raw_pattern <- paste(samplesID, '.reads.txt', sep = '', collapse = '|')
     # raw_reads_file <- input_files[grep(pattern = raw_pattern, x = basename(input_files))]
@@ -44,24 +45,24 @@ metrics_df <- do.call('rbind', lapply(X = samplesIDs, FUN = function(samplesID){
     
     # stats from sambamba stderr dedup message 
     dd_pattern <- paste(samplesID, '.dd.log', sep = '', collapse = '|')
-    dd_file <- input_files[grep(pattern = dd_pattern, x = basename(input_files))]
-    dedup <- read.dedup.log(dd_file) 
-    duplicates <- dedup['Duplicates'][[1]]
+    dedup <- search_parse_file(pattern = dd_pattern, files = input_files, FUN = read.dedup.log, na = list())
+    duplicates <- get_element_default(object = dedup, name = "Duplicates", default = NA)
+    duplicates <- get_element_default(object = duplicates, name = 1, default = NA, is.index = TRUE)
+
     
     # stats from BWA alignment
     flagstat_pattern <- paste(samplesID, '.flagstat.txt', sep = '', collapse = '|')
-    flagstat_file <- input_files[grep(pattern = flagstat_pattern, x = basename(input_files))]
-    flagstat <- read.flagstat(flagstat_file)
-    
-    mapped_reads <- flagstat["MappedReads"][[1]]
-    chimeric_reads <- flagstat["ChimericReads"][[1]]
+    flagstat <- search_parse_file(pattern = flagstat_pattern, files = input_files, FUN = read.flagstat, na = list())
+    mapped_reads <- get_element_default(object = flagstat, name = "MappedReads", default = NA)
+    mapped_reads <- get_element_default(object = mapped_reads, name = 1, default = NA, is.index = TRUE)
+    chimeric_reads <- get_element_default(object = flagstat, name = "ChimericReads", default = NA)
+    chimeric_reads <- get_element_default(object = chimeric_reads, name = 1, default = NA, is.index = TRUE)
     
     # stats from deduplication
     flagstat_dd_pattern <- paste(samplesID, '.dd.flagstat.txt', sep = '', collapse = '|')
-    flagstat_dd_file <- input_files[grep(pattern = flagstat_dd_pattern, x = basename(input_files))]
-    flagstat_dd <- read.flagstat(flagstat_dd_file)
-    
-    dedup_reads <- flagstat_dd["MappedReads"][[1]]
+    flagstat_dd <- search_parse_file(pattern = flagstat_dd_pattern, files = input_files, FUN = read.flagstat, na = list())
+    dedup_reads <- get_element_default(object = flagstat_dd, name = "MappedReads", default = NA)
+    dedup_reads <- get_element_default(object = dedup_reads, name = 1, default = NA, is.index = TRUE)
     
     # mapped_pcnt <- mapped_reads / raw_reads
     # chimeric_pcnt <- chimeric_reads / mapped_reads
@@ -78,7 +79,6 @@ metrics_df <- do.call('rbind', lapply(X = samplesIDs, FUN = function(samplesID){
         # ChimericPercent = chimeric_pcnt
     ))
 }))
-
 
 metrics_long <- reshape2::melt(metrics_df[c('Sample', 'MappedReads', 'DeduplicatedReads')], id.vars="Sample", variable.name="Type", value.name="Reads")
 metrics_long[["Reads"]] <- as.numeric(metrics_long[["Reads"]]) / 1e6
