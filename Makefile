@@ -7,8 +7,6 @@ NXF_VER:=0.30.2
 EP:=
 # sequencing run name for deployment
 RUNID:=
-# location of production sequencing directory
-SEQDIR:=/ifs/data/molecpathlab/quicksilver
 # location of production deployment for analysis
 PRODDIR:=/ifs/data/molecpathlab/production/NGS580
 # location of production demultiplexing for deployment
@@ -73,7 +71,6 @@ setup-power: install ref annovar_db_power
 # `make deploy RUNID=180316_NB501073_0036_AH3VFKBGX5 FASTQDIR=/ifs/data/molecpathlab/production/Demultiplexing/180316_NB501073_0036_AH3VFKBGX5/output/Unaligned/NS18-7`
 deploy:
 	@[ -z "$(RUNID)" ] && printf "invalid RUNID specified: $(RUNID)\n" && exit 1 || :
-	@[ ! -d "$(SEQDIR)/$(RUNID)" ] && printf "RUNID is not a valid location: $(SEQDIR)/$(RUNID)\n" && exit 1 || :
 	@[ -z "$(FASTQDIR)" ] && printf "invalid FASTQDIR specified: $(FASTQDIR)\n" && exit 1 || :
 	@[ ! -d "$(FASTQDIR)" ] && printf "FASTQDIR is not a valid directory: $(FASTQDIR)\n" && exit 1 || :
 	repo_dir="$${PWD}" && \
