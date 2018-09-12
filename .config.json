@@ -1,5 +1,7 @@
 {
+    "pairsheet": null,
+    "samplesheet": null,
     "runID": null,
-    "runDir": null,
-    "samplesheet": null
+    "fastqDirs": []
 }
+
