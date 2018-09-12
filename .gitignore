@@ -49,3 +49,5 @@ nextflow.*.stdout.log
 targets.bed.*
 output*
 *work*
+input
+config.json

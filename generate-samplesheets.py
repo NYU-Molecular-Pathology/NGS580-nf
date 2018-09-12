@@ -18,10 +18,10 @@ Output
 ------
 Files output by this script:
 
-    - ``samples.fastq.tsv``: one line per R1 R2 fastq file pair
-    - ``samples.fastq.json``: one entry per R1 R2 fastq file pair
-    - ``samples.analysis.tsv``: one line per sample with R1 R2 file pairs and metadata
-    - ``samples.analysis.json``: one entry per sample with R1 R2 file pairs and metadata
+    - ``samples.fastq.tsv``: one line per R1 R2 fastq file pair (optional)
+    - ``samples.fastq.json``: one entry per R1 R2 fastq file pair (optional)
+    - ``samples.analysis.tsv``: one line per sample with R1 R2 file pairs and metadata (default)
+    - ``samples.analysis.json``: one entry per sample with R1 R2 file pairs and metadata (optional)
 
 Notes
 ------
@@ -211,7 +211,7 @@ def main(**kwargs):
         sample_dict[str(r2_colname)] = new_R2
         samples_to_print.append(sample_dict)
 
-    # write to file
+    # write to file; `samples.analysis.tsv`
     write_tsv(samples = samples_to_print, output_file = samples_analysis_tsv, fieldnames=[str(sample_colname), str(tumor_colname), str(normal_colname), str(r1_colname), str(r2_colname)], append = append)
 
 def parse():
@@ -219,10 +219,10 @@ def parse():
     Parses script arguments
     """
     parser = argparse.ArgumentParser(description='This script will generate samplesheets for the analysis based on .fastq.gz files in the supplied directories')
-    parser.add_argument("search_dirs", help="Paths to input samplesheet file", nargs="+")
+    parser.add_argument("search_dirs", help="Paths to input directories to search for .fastq files to use for samplesheet creation", nargs="+")
     parser.add_argument("-p", default = None, dest = 'output_prefix', metavar = 'prefix', help="Prefix for samplesheet files")
-    parser.add_argument("-name-mode", default = 'default', dest = 'name_mode', metavar = 'filename mode', help="Mode for parsing fastq filenames. Default: 'default', alternative: 'noLaneSplit'")
-    parser.add_argument("--append", action = 'store_true', dest = 'append', help="Prefix for samplesheet files")
+    parser.add_argument("--name-mode", default = 'default', dest = 'name_mode', metavar = 'filename mode', help="Mode for parsing fastq filenames. Default: 'default', alternative: 'noLaneSplit'")
+    parser.add_argument("--append", action = 'store_true', dest = 'append', help="Append newly discovered samples to existing samplesheet")
 
     args = parser.parse_args()
     main(**vars(args))

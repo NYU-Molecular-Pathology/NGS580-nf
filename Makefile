@@ -92,7 +92,7 @@ check-fastqdir:
 # - check that valid args were passed
 # - clone current repo into destination for analysis
 # - create symlink to fastq dir for input
-# - create samplesheet
+# - create samplesheet; assume '--name-mode noLaneSplit' by default
 deploy:
 	@$(MAKE) check-runid
 	@$(MAKE) check-fastqdir	
@@ -104,7 +104,7 @@ deploy:
 	echo ">>> Linking input directory: $(FASTQDIR)" && \
 	ln -s "$(FASTQDIR)" input && \
 	echo ">>> Creating input fastq sheet" && \
-	python generate-samplesheets.py '$(FASTQDIR)' && \
+	python generate-samplesheets.py --name-mode noLaneSplit '$(FASTQDIR)' && \
 	echo ">>> Creating config file..." && \
 	$(MAKE) config CONFIG_OUTPUT="$${output_dir}/config.json" && \
 	printf ">>> NGS580 analysis directory prepared:\n\n%s\n" "cd $${output_dir}"
