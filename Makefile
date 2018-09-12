@@ -154,7 +154,7 @@ update-submodules: remote
 remote-ssh:
 	@git remote set-url origin "$(REMOTE_ssh)"
 remote:
-	@echo ">>> Setting git remote origin to $(REMOTE_http)
+	@echo ">>> Setting git remote origin to $(REMOTE_http)"
 	@git remote set-url origin "$(REMOTE_http)"
 
 
