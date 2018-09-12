@@ -20,16 +20,30 @@ REMOTE_http:=https://github.com/NYU-Molecular-Pathology/NGS580-nf.git
 none:
 
 # ~~~~~ SETUP PIPELINE ~~~~~ #
+HOSTNAME:=$(shell echo $$HOSTNAME)
+USER_HOME=$(shell echo "$$HOME")
+USER_DATE:=$(shell date +%s)
+NXF_FRAMEWORK_DIR:=$(USER_HOME)/.nextflow/framework/$(NXF_VER)
+# gets stuck on NFS drive and prevents install command from finishing
+remove-framework:
+	@if [ -e "$(NXF_FRAMEWORK_DIR)" ]; then \
+	new_framework="$(NXF_FRAMEWORK_DIR).$(USER_DATE)" ; \
+	echo ">>> Moving old Nextflow framework dir $(NXF_FRAMEWORK_DIR) to $${new_framework}" ; \
+	mv "$(NXF_FRAMEWORK_DIR)" "$${new_framework}" ; \
+	fi
+
 # install Nextflow in the current directory
+# - removes user Nextflow framework dir if exists
+# - if on 'phoenix' HPC, need to load Java module
 ./nextflow:
-	if [ "$$( module > /dev/null 2>&1; echo $$?)" -eq 0 ]; then module unload java && module load java/1.8 ; fi ; \
+	@[ -d "$(NXF_FRAMEWORK_DIR)" ] && $(MAKE) remove-framework || :
+	@if grep -q 'phoenix' <<<'$(HOSTNAME)'; then module unload java && module load java/1.8; fi ; \
 	export NXF_VER="$(NXF_VER)" && \
 	curl -fsSL get.nextflow.io | bash
 
 install: ./nextflow
-
-update: ./nextflow
-	./nextflow self-update
+# update: ./nextflow
+# 	./nextflow self-update
 
 # setup reference data
 ref: install
@@ -67,12 +81,21 @@ annovar_db_power: install
 setup: install ref annovar_db
 setup-power: install ref annovar_db_power
 
-# prepares a new directory with a copy of this repo to start analysis
-# `make deploy RUNID=180316_NB501073_0036_AH3VFKBGX5 FASTQDIR=/ifs/data/molecpathlab/production/Demultiplexing/180316_NB501073_0036_AH3VFKBGX5/output/Unaligned/NS18-7`
-deploy:
+check-runid:
 	@[ -z "$(RUNID)" ] && printf "invalid RUNID specified: $(RUNID)\n" && exit 1 || :
+check-fastqdir:
 	@[ -z "$(FASTQDIR)" ] && printf "invalid FASTQDIR specified: $(FASTQDIR)\n" && exit 1 || :
 	@[ ! -d "$(FASTQDIR)" ] && printf "FASTQDIR is not a valid directory: $(FASTQDIR)\n" && exit 1 || :
+
+# prepares a new directory with a copy of this repo to start analysis
+# `make deploy RUNID=180316_NB501073_0036_AH3VFKBGX5 FASTQDIR=/ifs/data/molecpathlab/production/Demultiplexing/180316_NB501073_0036_AH3VFKBGX5/output/Unaligned/NS18-7`
+# - check that valid args were passed
+# - clone current repo into destination for analysis
+# - create symlink to fastq dir for input
+# - create samplesheet
+deploy:
+	@$(MAKE) check-runid
+	@$(MAKE) check-fastqdir	
 	repo_dir="$${PWD}" && \
 	output_dir="$(PRODDIR)/$(RUNID)" && \
 	echo ">>> Setting up repo in location: $${output_dir}" && \
@@ -81,14 +104,58 @@ deploy:
 	echo ">>> Linking input directory: $(FASTQDIR)" && \
 	ln -s "$(FASTQDIR)" input && \
 	echo ">>> Creating input fastq sheet" && \
-	python generate-samplesheets.py input && \
+	python generate-samplesheets.py '$(FASTQDIR)' && \
+	echo ">>> Creating config file..." && \
+	$(MAKE) config CONFIG_OUTPUT="$${output_dir}/config.json" && \
 	printf ">>> NGS580 analysis directory prepared:\n\n%s\n" "cd $${output_dir}"
+
+CONFIG_INPUT:=.config.json
+CONFIG_OUTPUT:=config.json
+$(CONFIG_OUTPUT):
+	@echo ">>> Creating $(CONFIG_OUTPUT)"
+	@cp "$(CONFIG_INPUT)" "$(CONFIG_OUTPUT)"
+
+SAMPLESHEET:=
+PAIRSHEET:=
+config: $(CONFIG_OUTPUT)
+	@[ -n "$(RUNID)" ] && echo ">>> Updating runID config" && python config.py --update "$(CONFIG_OUTPUT)" --runID "$(RUNID)" || :
+	@[ -n "$(SAMPLESHEET)" ] && echo ">>> Updating samplesheet config" && python config.py --update "$(CONFIG_OUTPUT)" --samplesheet "$(SAMPLESHEET)" || :
+	@[ -n "$(PAIRSHEET)" ] && echo ">>> Updating pairs sheet config" && python config.py --update "$(CONFIG_OUTPUT)" --pairsheet "$(PAIRSHEET)" || :
+	@[ -n "$(FASTQDIR)" ] && echo ">>> Updating fastqDirs config" && python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs "$(FASTQDIR)" || :
+
+# ~~~~~ UPDATE THIS REPO ~~~~~ #
+update: pull update-submodules update-nextflow
+
+pull: remote
+	@echo ">>> Updating repo"
+	@git pull
+
+# # update the repo remote for ssh
+# ORIGIN:=git@github.com:NYU-Molecular-Pathology/NGS580-nf.git
+# remote:
+# 	@echo ">>> Setting git remote origin to $(ORIGIN)"
+# 	@git remote set-url origin $(ORIGIN)
+
+update-nextflow:
+	@if [ -f nextflow ]; then \
+	echo ">>> Removing old Nextflow" && \
+	rm -f nextflow && \
+	echo ">>> Reinstalling Nextflow" && \
+	$(MAKE) install ; \
+	else $(MAKE) install ; fi
+
+# pull the latest version of all submodules
+update-submodules: remote
+	@echo ">>> Updating git submodules"
+	@git submodule update --recursive --remote --init
+
 
 # update the repo remote for ssh
 remote-ssh:
-	git remote set-url origin "$(REMOTE_ssh)"
+	@git remote set-url origin "$(REMOTE_ssh)"
 remote:
-	git remote set-url origin "$(REMOTE_http)"
+	@echo ">>> Setting git remote origin to $(REMOTE_http)
+	@git remote set-url origin "$(REMOTE_http)"
 
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
