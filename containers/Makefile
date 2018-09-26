@@ -89,3 +89,11 @@ singularity-sync:
 	@$(MAKE) check-singularityimage
 	@echo 'command:'
 	@echo 'rsync --dry-run -vrhP -e ssh $(IMG) $(USER)@$(REMOTE):$(REMOTEDIR)'
+
+SINGULARITYCONTAINERS:=$(shell find . -mindepth 2 -type f -name "Singularity.*" ! -name "Singularity.base" ! -name "Singularity.R-3.2.3" ! -name "Singularity.multiqc-1.4" ! -name "Singularity.variant-calling-0.0.1" ! -name "Singularity.makefile" -exec bash -c 'basename $$(dirname {})' \;)
+singularity-build-all:
+	containers="$(SINGULARITYCONTAINERS)" ;\
+	for item in $${containers}; do \
+	echo "$$item" ;\
+	done
+# $(MAKE) singularity-build VAR=$${item}
