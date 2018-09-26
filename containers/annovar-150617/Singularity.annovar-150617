@@ -2,23 +2,11 @@ BootStrap: debootstrap
 OSVersion: xenial
 MirrorURL: http://us.archive.ubuntu.com/ubuntu/
 
-%setup
-    # /bin/mv annovar ${SINGULARITY_ROOTFS}/opt/
-
 %post
     # ~~~~~ BASIC SETUP ~~~~~ #
     apt-get update && \
     apt-get install -y wget \
     perl
-
-    # location for misc scripts
-    mkdir -p /opt/bin
-
-    # location for misc data
-    mkdir -p /data
-
-    # mount point for for NYULMC phoenix (Singluarity)
-    mkdir /ifs
 
     # download ANNOVAR
     cd /opt && \
@@ -30,6 +18,5 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     mkdir -p /opt/annovar/db
 
 %environment
-    export PATH="/opt/bin:${PATH}"
     export PATH="/opt:${PATH}"
     export PATH="/opt/annovar:${PATH}"

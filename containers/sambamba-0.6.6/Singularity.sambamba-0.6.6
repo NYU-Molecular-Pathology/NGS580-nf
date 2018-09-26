@@ -8,6 +8,7 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     apt-get update && \
     apt-get install -y wget \
     bzip2
+
     # for Samtools
     apt-get update && \
     apt-get install -y gcc \
@@ -17,23 +18,12 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     libbz2-dev \
     liblzma-dev
 
-    # location for misc scripts
-    mkdir -p /opt/bin
-
-    # location for misc data
-    mkdir -p /data
-
-    # mount point for for NYULMC phoenix (Singluarity)
-    mkdir /ifs
-
     # ~~~~~ SAMBAMBA ~~~~~ #
     cd /opt && \
     wget https://github.com/biod/sambamba/releases/download/v0.6.6/sambamba_v0.6.6_linux.tar.bz2 && \
     tar xvjf sambamba_v0.6.6_linux.tar.bz2 && \
     rm -f sambamba_v0.6.6_linux.tar.bz2 && \
     ln -s sambamba_v0.6.6 sambamba
-
-
 
     # ~~~~~ SAMTOOLS ~~~~~ #
     cd /opt && \
@@ -45,9 +35,11 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     make && \
     make install
 
+%test
+    samtools --version
+    sambamba --version
 
 %environment
-    export PATH="/opt/bin:${PATH}"
     export PATH="/opt:${PATH}"
     export LC_ALL="C.UTF-8"
     export LANG="C.UTF-8"

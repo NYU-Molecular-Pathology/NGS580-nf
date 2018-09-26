@@ -11,15 +11,6 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     zlib1g-dev \
     python
 
-    # location for misc scripts
-    mkdir -p /opt/bin
-
-    # location for misc data
-    mkdir -p /data
-
-    # mount point for for NYULMC phoenix (Singluarity)
-    mkdir /ifs
-
     # ~~~~~ BEDTOOLS ~~~~~ #
     cd /opt && \
     wget https://github.com/arq5x/bedtools2/releases/download/v2.26.0/bedtools-2.26.0.tar.gz && \
@@ -28,7 +19,9 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     cd /opt/bedtools2 && \
     make
 
+%test
+    bedtools --version
+
 %environment
-    export PATH="/opt/bin:${PATH}"
     export PATH="/opt:${PATH}"
     export PATH="/opt/bedtools2/bin:${PATH}"

@@ -8,15 +8,6 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     apt-get install -y wget \
     bzip2
 
-    # location for misc scripts
-    mkdir -p /opt/bin
-
-    # location for misc data
-    mkdir -p /data
-
-    # mount point for for NYULMC phoenix (Singluarity)
-    mkdir /ifs
-
     # ~~~~~ MINICONDA ~~~~~ #
     wget https://repo.continuum.io/miniconda/Miniconda3-4.4.10-Linux-x86_64.sh && \
     bash Miniconda3-4.4.10-Linux-x86_64.sh -b -p /conda && \
@@ -26,11 +17,13 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     conda config --add channels bioconda
 
     # ~~~~~ MULTIQC ~~~~~ #
-    conda install -y -c bioconda multiqc multiqc=1.5
+    conda install -y -c bioconda multiqc=1.5
+
+%test
+    multiqc --version
+
 
 %environment
-    export PATH="/opt/bin:${PATH}"
-    export PATH="/opt:${PATH}"
     export PATH="/conda/bin:${PATH}"
     export LC_ALL="C.UTF-8"
     export LANG="C.UTF-8"
