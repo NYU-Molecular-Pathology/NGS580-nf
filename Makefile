@@ -96,9 +96,9 @@ PRODDIR:=/gpfs/data/molecpathlab/production/NGS580
 deploy:
 	@$(MAKE) check-runid
 	@$(MAKE) check-fastqdir	
-	repo_dir="$${PWD}" && \
+	@repo_dir="$${PWD}" && \
 	output_dir="$(PRODDIR)/$(RUNID)" && \
-	echo ">>> Setting up repo in location: $${output_dir}" && \
+	echo ">>> Setting up new repo in location: $${output_dir}" && \
 	git clone --recursive "$${repo_dir}" "$${output_dir}" && \
 	cd "$${output_dir}" && \
 	echo ">>> Linking input directory: $(FASTQDIR)" && \
@@ -107,7 +107,7 @@ deploy:
 	python generate-samplesheets.py --name-mode noLaneSplit '$(FASTQDIR)' && \
 	echo ">>> Creating config file..." && \
 	$(MAKE) config CONFIG_OUTPUT="$${output_dir}/config.json" && \
-	printf ">>> NGS580 analysis directory prepared:\n\n%s\n" "cd $${output_dir}"
+	printf ">>> NGS580 analysis directory prepared: $${output_dir}\n"
 
 CONFIG_INPUT:=.config.json
 CONFIG_OUTPUT:=config.json
