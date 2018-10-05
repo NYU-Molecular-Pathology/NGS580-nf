@@ -83,7 +83,7 @@ singularity-test:
 # copy all image files to Big Purple HPC
 USER:=$(shell echo $$USER)
 REMOTE:=bigpurple.nyumc.org
-REMOTEDIR:=/gpfs/home/$(USER)/containers/NGS580-nf
+REMOTEDIR:=/gpfs/data/molecpathlab/containers/NGS580-nf/
 singularity-sync:
 	@$(MAKE) check-var
 	@$(MAKE) check-singularityimage

@@ -6,7 +6,8 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     # ~~~~~ BASIC SETUP ~~~~~ #
     apt-get update && \
     apt-get install -y wget \
-    perl
+    perl \
+    unzip
 
     # download ANNOVAR
     cd /opt && \
