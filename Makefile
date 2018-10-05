@@ -1,16 +1,8 @@
 # Makefile to run the pipeline
 SHELL:=/bin/bash
-REFDIR:=/ifs/data/sequence/results/external/NYU/snuderllab/ref
-ANNOVAR_DB_DIR:=/ifs/data/molecpathlab/bin/annovar/db/hg19
 NXF_VER:=0.30.2
 # extra params to pass for Nextflow in some recipes
 EP:=
-# sequencing run name for deployment
-RUNID:=
-# location of production deployment for analysis
-PRODDIR:=/ifs/data/molecpathlab/production/NGS580
-# location of production demultiplexing for deployment
-FASTQDIR:=
 TIMESTAMP:=$(shell date +%s)
 REMOTE_ssh:=git@github.com:NYU-Molecular-Pathology/NGS580-nf.git
 REMOTE_http:=https://github.com/NYU-Molecular-Pathology/NGS580-nf.git
@@ -46,6 +38,7 @@ install: ./nextflow
 # 	./nextflow self-update
 
 # setup reference data
+REFDIR:=/ifs/data/sequence/results/external/NYU/snuderllab/ref
 ref: install
 	if [ ! -d "$(REFDIR)" ] ; then echo ">>> system ref dir doesnt exist, setting up local ref dir..." ; \
 	./nextflow run ref.nf -profile ref ; fi
@@ -71,6 +64,7 @@ demo: NGS580-demo-data
 	--pairs-normal-colname '#SAMPLE-N'
 
 # setup ANNOVAR reference databases
+ANNOVAR_DB_DIR:=/ifs/data/molecpathlab/bin/annovar/db/hg19
 annovar_db: install
 	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ;  ./nextflow run annovar_db.nf -profile annovar_db ; fi
 
@@ -93,6 +87,12 @@ check-fastqdir:
 # - clone current repo into destination for analysis
 # - create symlink to fastq dir for input
 # - create samplesheet; assume '--name-mode noLaneSplit' by default
+# location of production demultiplexing for deployment
+FASTQDIR:=
+# sequencing run name for deployment
+RUNID:=
+# location of production deployment for analysis
+PRODDIR:=/gpfs/data/molecpathlab/production/NGS580
 deploy:
 	@$(MAKE) check-runid
 	@$(MAKE) check-fastqdir	
