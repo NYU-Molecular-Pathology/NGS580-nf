@@ -38,9 +38,9 @@ install: ./nextflow
 # 	./nextflow self-update
 
 # setup reference data
-REFDIR:=/ifs/data/sequence/results/external/NYU/snuderllab/ref
+REFDIR:=/gpfs/data/molecpathlab/ref
 ref: install
-	if [ ! -d "$(REFDIR)" ] ; then echo ">>> system ref dir doesnt exist, setting up local ref dir..." ; \
+	@if [ ! -d "$(REFDIR)" ] ; then echo ">>> system ref dir doesnt exist, setting up local ref dir..." ; \
 	./nextflow run ref.nf -profile ref ; fi
 
 # demo pipeline dataset for testing
@@ -64,12 +64,16 @@ demo: NGS580-demo-data
 	--pairs-normal-colname '#SAMPLE-N'
 
 # setup ANNOVAR reference databases
-ANNOVAR_DB_DIR:=/ifs/data/molecpathlab/bin/annovar/db/hg19
+ANNOVAR_DB_DIR:=/gpfs/data/molecpathlab/ref/annovar/db
 annovar_db: install
 	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ;  ./nextflow run annovar_db.nf -profile annovar_db ; fi
 
 annovar_db_power: install
 	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ;  ./nextflow run annovar_db.nf -profile annovar_db_conda ; fi
+
+annovar_db_bigpurple: install
+	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ;  ./nextflow run annovar_db.nf -profile annovar_db_bigpurple ; fi
+
 
 # main setup commands to use
 setup: install ref annovar_db
@@ -167,6 +171,8 @@ run-phoenix: install
 	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart.dot $(EP) | tee -a "$${log_file}" ; \
 	echo ">>> Nextflow completed, stdout log file: $${log_file}"
 
+# run on NYU Big Purple HPC 
+run-bigpurple: install
 
 # run locally default settings
 run-local: install
