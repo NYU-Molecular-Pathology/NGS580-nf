@@ -19,6 +19,16 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     # ~~~~~ TRIMMOMATIC ~~~~~ #
     conda install -y -c bioconda trimmomatic=0.36
 
+    # wrapper script for backwards workflow compatibility
+    echo '#!/bin/bash' > /conda/bin/trimmomatic.sh
+    echo 'trimmomatic "$@"' >> /conda/bin/trimmomatic.sh
+    chmod +x /conda/bin/trimmomatic.sh
+
+%test
+    trimmomatic -version
+    which trimmomatic.sh
+    trimmomatic.sh -version
+
 %environment
     export PATH="/conda/bin:${PATH}"
     export LC_ALL="C.UTF-8"
