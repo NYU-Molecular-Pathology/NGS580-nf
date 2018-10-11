@@ -36,6 +36,12 @@ From: broadinstitute/gatk3:3.8-0
     r-plyr=1.8.4
     # comes with R 3.1.1 by default
 
+    # wrapper script for pipeline compatibility
+    echo '#!/bin/bash' > /usr/gatk.sh
+    echo 'java -jar $(dirname $0)/GenomeAnalysisTK.jar "$@"' >> /usr/gatk.sh
+    chmod +x /usr/gatk.sh
+
 
 %environment
     export PATH="/conda/bin:${PATH}"
+    export PATH="/usr:${PATH}"
