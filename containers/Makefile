@@ -22,6 +22,12 @@ check-singularityfile:
 check-singularityimage:
 	@[ ! -f "$(IMG)" ] && { echo ">>> ERROR: Singularity image file '$(IMG)' does not exist" ; exit 1 ; } || :
 
+check-Dockerfile:
+	@[ ! -f "$(DOCKERFILE)" ] && { echo ">>> ERROR: DOCKERFILE file '$(DOCKERFILE)' does not exist" ; exit 1 ; } || :
+
+check-Docker-image:
+	@docker image inspect "$(DOCKERTAG)" >/dev/null 2>&1
+
 # ~~~~~~ SETUP ~~~~~ #
 Vagrantfile:
 	vagrant init singularityware/singularity-2.4
@@ -97,3 +103,32 @@ singularity-build-all:
 	echo "$$item" ;\
 	done
 # $(MAKE) singularity-build VAR=$${item}
+
+
+# build a Singularity container using the Docker image containing Singularity
+SINGULARITYDIR:=$(shell python -c 'import os; print(os.path.realpath("$(VAR)"))')
+SINGULARITYIMGDOCKER:=$(VAR).simg
+SINGULARITYFILEDOCKER:=Singularity.$(VAR)
+SINGULARITYDOCKERTAG:=stevekm/containers:Singularity-2.4
+singularity-build-docker:
+	@$(MAKE) check-var
+	@$(MAKE) check-var-dir
+	@$(MAKE) check-Docker-image DOCKERTAG=$(SINGULARITYDOCKERTAG)
+	@[ -f "$(IMG)" ] && { echo ">>> Removing previous image file: $(IMG)" ; rm -f "$(IMG)" ; wait $$! ; } ; \
+	docker run --privileged --rm -ti -v "$(SINGULARITYDIR):/image" "$(SINGULARITYDOCKERTAG)" bash -c 'cd /image && sudo singularity build $(SINGULARITYIMGDOCKER) $(SINGULARITYFILEDOCKER)'
+
+# ~~~~~ DOCKER ~~~~~ #
+DOCKERFILE:=$(VAR)/Dockerfile
+DOCKERREPO:=stevekm/ngs580-nf
+DOCKERTAG:=$(DOCKERREPO):$(VAR)
+docker-build:
+	@$(MAKE) check-Docker
+	@$(MAKE) check-var
+	@$(MAKE) check-var-dir
+	@$(MAKE) check-Dockerfile
+	cd $(VAR) && \
+	docker build -t "$(DOCKERTAG)" .
+
+docker-test:
+	@$(MAKE) check-Docker-image || { echo ">>> Docker image does not exist, building...";  $(MAKE) docker-build; }
+	@docker run --rm -ti "$(DOCKERTAG)" bash

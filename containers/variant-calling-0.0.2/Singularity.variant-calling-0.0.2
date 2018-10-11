@@ -41,6 +41,11 @@ From: broadinstitute/gatk3:3.8-0
     echo 'java -jar $(dirname $0)/GenomeAnalysisTK.jar "$@"' >> /usr/gatk.sh
     chmod +x /usr/gatk.sh
 
+%test
+    which gatk.sh
+    gatk.sh -version
+    samtools --version
+    which lofreq
 
 %environment
     export PATH="/conda/bin:${PATH}"
