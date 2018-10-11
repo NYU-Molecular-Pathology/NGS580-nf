@@ -16,7 +16,14 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     conda config --add channels bioconda
 
     # ~~~~~ SAMBAMBA ~~~~~ #
-    conda install -y -c bioconda sambamba=0.6.6
+    conda install -y -c bioconda -c conda-forge \
+    sambamba=0.6.6 \
+    samtools=1.7 \
+    ncurses=6.1
+
+%test
+    sambamba --version
+    samtools --version
 
 %environment
     export PATH="/conda/bin:${PATH}"
