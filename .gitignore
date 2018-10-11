@@ -52,3 +52,4 @@ output*
 input
 config.json
 **.simg
+*/test/*

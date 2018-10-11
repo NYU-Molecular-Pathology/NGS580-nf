@@ -4,42 +4,19 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
 
 %post
     # ~~~~~ BASIC SETUP ~~~~~ #
-    # for Sambamaba
     apt-get update && \
     apt-get install -y wget \
     bzip2
 
-    # for Samtools
-    apt-get update && \
-    apt-get install -y gcc \
-    make \
-    libncurses5-dev \
-    zlib1g-dev \
-    libbz2-dev \
-    liblzma-dev
+    # ~~~~~ MINICONDA ~~~~~ #
+    wget https://repo.continuum.io/miniconda/Miniconda3-4.4.10-Linux-x86_64.sh && \
+    bash Miniconda3-4.4.10-Linux-x86_64.sh -b -p /conda && \
+    rm -f Miniconda3-4.4.10-Linux-x86_64.sh
+    conda config --add channels defaults
+    conda config --add channels bioconda
 
     # ~~~~~ SAMBAMBA ~~~~~ #
-    cd /opt && \
-    wget https://github.com/biod/sambamba/releases/download/v0.6.6/sambamba_v0.6.6_linux.tar.bz2 && \
-    tar xvjf sambamba_v0.6.6_linux.tar.bz2 && \
-    rm -f sambamba_v0.6.6_linux.tar.bz2 && \
-    ln -s sambamba_v0.6.6 sambamba
-
-    # ~~~~~ SAMTOOLS ~~~~~ #
-    cd /opt && \
-    wget https://github.com/samtools/samtools/releases/download/1.7/samtools-1.7.tar.bz2 && \
-    tar xvjf samtools-1.7.tar.bz2 && \
-    rm -f samtools-1.7.tar.bz2 && \
-    cd /opt/samtools-1.7/ && \
-    ./configure && \
-    make && \
-    make install
-
-%test
-    samtools --version
-    sambamba --version
+    conda install -y -c bioconda sambamba=0.6.6
 
 %environment
-    export PATH="/opt:${PATH}"
-    export LC_ALL="C.UTF-8"
-    export LANG="C.UTF-8"
+    export PATH="/conda/bin:${PATH}"
