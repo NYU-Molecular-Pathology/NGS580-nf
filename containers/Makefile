@@ -109,7 +109,7 @@ singularity-build-all:
 SINGULARITYDIR:=$(shell python -c 'import os; print(os.path.realpath("$(VAR)"))')
 SINGULARITYIMGDOCKER:=$(VAR).simg
 SINGULARITYFILEDOCKER:=Singularity.$(VAR)
-SINGULARITYDOCKERTAG:=stevekm/containers:Singularity-2.4
+SINGULARITYDOCKERTAG:=stevekm/ngs580-nf:Singularity-2.4
 singularity-build-docker:
 	@$(MAKE) check-var
 	@$(MAKE) check-var-dir
