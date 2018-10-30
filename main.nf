@@ -346,7 +346,7 @@ process sambamba_view_sort {
     """
 }
 
-process sambamba_flagstat {
+process samtools_flagstat {
     tag "${sampleID}"
     publishDir "${params.output_dir}/analysis/flagstat", overwrite: true //, mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
@@ -355,24 +355,26 @@ process sambamba_flagstat {
     set val(sampleID), file(sample_bam) from samples_bam
 
     output:
-    set val(sampleID), file("${flagstat}") into sambamba_flagstats
+    set val(sampleID), file("${flagstat}") into flagstats
     val(sampleID) into done_sambamba_flagstat
 
     script:
     prefix = "${sampleID}"
     flagstat = "${prefix}.flagstat.txt"
     """
-    sambamba flagstat "${sample_bam}" > "${flagstat}"
+    samtools flagstat "${sample_bam}" > "${flagstat}" & pid="\$(echo \$!)"
+    echo "[\$HOSTNAME] pid is \${pid}"
+    wait \${pid}
     """
 }
 
-process sambamba_flagstat_table {
+process samtools_flagstat_table {
     tag "${sampleID}"
     publishDir "${params.output_dir}/analysis/flagstat", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
-    set val(sampleID), file(flagstat) from sambamba_flagstats
+    set val(sampleID), file(flagstat) from flagstats
 
     output:
     file("${output_file}") into sambamba_flagstat_tables
@@ -456,7 +458,7 @@ process sambamba_dedup_log_table {
 }
 sambamba_dedup_log_tables.collectFile(name: "reads.dedup.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
 
-process sambamba_dedup_flagstat {
+process samtools_dedup_flagstat {
     tag "${sampleID}"
     publishDir "${params.output_dir}/analysis/flagstat", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
@@ -465,25 +467,25 @@ process sambamba_dedup_flagstat {
     set val(sampleID), file(sample_bam) from samples_dd_bam2
 
     output:
-    set val(sampleID), file("${flagstat}") into sambamba_dedup_flagstats
+    set val(sampleID), file("${flagstat}") into dedup_flagstats
     val(sampleID) into done_sambamba_dedup_flagstat
 
     script:
     prefix = "${sampleID}"
     flagstat = "${prefix}.dd.flagstat.txt"
     """
-    sambamba flagstat "${sample_bam}" > "${flagstat}"
+    samtools flagstat "${sample_bam}" > "${flagstat}"
     """
 
 }
 
-process sambamba_dedup_flagstat_table {
+process samtools_dedup_flagstat_table {
     tag "${sampleID}"
     publishDir "${params.output_dir}/analysis/flagstat", overwrite: true // , mode: 'copy'
     publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
 
     input:
-    set val(sampleID), file(flagstat) from sambamba_dedup_flagstats
+    set val(sampleID), file(flagstat) from dedup_flagstats
 
     output:
     file("${output_file}") into sambamba_dedup_flagstat_tables

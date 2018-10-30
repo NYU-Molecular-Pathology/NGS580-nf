@@ -1,6 +1,6 @@
 # Makefile to run the pipeline
 SHELL:=/bin/bash
-NXF_VER:=0.30.2
+NXF_VER:=0.32.0
 # extra params to pass for Nextflow in some recipes
 EP:=
 TIMESTAMP:=$(shell date +%s)
@@ -30,8 +30,8 @@ remove-framework:
 ./nextflow:
 	@[ -d "$(NXF_FRAMEWORK_DIR)" ] && $(MAKE) remove-framework || :
 	@if grep -q 'phoenix' <<<'$(HOSTNAME)'; then module unload java && module load java/1.8; fi ; \
-	export NXF_VER="$(NXF_VER)" && \
 	curl -fsSL get.nextflow.io | bash
+# export NXF_VER="$(NXF_VER)" && \
 
 install: ./nextflow
 # update: ./nextflow
@@ -99,7 +99,7 @@ RUNID:=
 PRODDIR:=/gpfs/data/molecpathlab/production/NGS580
 deploy:
 	@$(MAKE) check-runid
-	@$(MAKE) check-fastqdir	
+	@$(MAKE) check-fastqdir
 	@repo_dir="$${PWD}" && \
 	output_dir="$(PRODDIR)/$(RUNID)" && \
 	echo ">>> Setting up new repo in location: $${output_dir}" && \
@@ -171,8 +171,13 @@ run-phoenix: install
 	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart.dot $(EP) | tee -a "$${log_file}" ; \
 	echo ">>> Nextflow completed, stdout log file: $${log_file}"
 
-# run on NYU Big Purple HPC 
+# run on NYU Big Purple HPC
+Q:=cpu_medium
 run-bigpurple: install
+	log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
+	echo ">>> Running Nextflow with stdout log file: $${log_file}" ; \
+	./nextflow run main.nf -profile bigPurple -resume -with-dag flowchart.dot --queue $(Q) $(EP) | tee -a "$${log_file}" ; \
+	echo ">>> Nextflow completed, stdout log file: $${log_file}"
 
 # run locally default settings
 run-local: install
