@@ -6,6 +6,7 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     # ~~~~~ BASIC SETUP ~~~~~ #
     apt-get update && \
     apt-get install -y wget \
+    bzip2 \
     perl \
     unzip
 
@@ -15,9 +16,15 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     tar -vzxf annovar.revision150617.tar.gz && \
     rm -f annovar.revision150617.tar.gz
 
-    # location to mount reference database dir:
-    mkdir -p /opt/annovar/db
+    # ~~~~~ MINICONDA ~~~~~ #
+    wget https://repo.continuum.io/miniconda/Miniconda3-4.4.10-Linux-x86_64.sh && \
+    bash Miniconda3-4.4.10-Linux-x86_64.sh -b -p /conda && \
+    rm -f Miniconda3-4.4.10-Linux-x86_64.sh
+
+    # ~~~~~ R ~~~~~ #
+    conda install -y -c r r-base r=3.3.2 r-base=3.3.2
 
 %environment
     export PATH="/opt:${PATH}"
     export PATH="/opt/annovar:${PATH}"
+    export PATH="/conda/bin:${PATH}"
