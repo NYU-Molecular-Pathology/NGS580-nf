@@ -23,12 +23,18 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     conda config --add channels bioconda
 
     # ~~~~~ R ~~~~~ #
-    conda install -y -c r r=3.4.1 r-base=3.4.1 \
-    bioconductor-bsgenome=1.42.0 \
+    conda install -c r -c bioconda r=3.4.1 r-base=3.4.1 \
+    bioconductor-bsgenome=1.48.0 \
     bioconductor-bsgenome.hsapiens.ucsc.hg19=1.4.0 \
-    bioconductor-genomeinfodb=1.10.3 \
+    bioconductor-genomicranges=1.32.7 \
+    bioconductor-genomeinfodb=1.16.0 \
     r-deconstructsigs=1.8.0 \
     r-ggplot2=2.2.1
+
+%test
+    Rscript -e 'library("deconstructSigs")'
+    Rscript -e 'library("BSgenome.Hsapiens.UCSC.hg19")'
+
 
 %environment
     export PATH="/conda/bin:${PATH}"
