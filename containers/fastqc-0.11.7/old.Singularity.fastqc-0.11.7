@@ -1,0 +1,32 @@
+BootStrap: debootstrap
+OSVersion: xenial
+MirrorURL: http://us.archive.ubuntu.com/ubuntu/
+
+%post
+    # ~~~~~ BASIC SETUP ~~~~~ #
+    # https://github.com/bioconda/bioconda-recipes/issues/5026
+    # fonts-dejavu
+    # ttf-dejavu
+    apt-get update && \
+    apt-get install -y wget \
+    bzip2
+
+    # ~~~~~ MINICONDA ~~~~~ #
+    wget https://repo.continuum.io/miniconda/Miniconda3-4.4.10-Linux-x86_64.sh && \
+    bash Miniconda3-4.4.10-Linux-x86_64.sh -b -p /conda && \
+    rm -f Miniconda3-4.4.10-Linux-x86_64.sh
+    conda config --add channels defaults
+    conda config --add channels conda-forge
+    conda config --add channels bioconda
+
+    # ~~~~~ FASTQC ~~~~~ #
+    conda install -y -c bioconda -c conda-forge fastqc=0.11.7 'openjdk>8.0.121'
+    # openjdk-8.0.144            |   zulu8.23.0.3_2
+
+%test
+    fastqc --version
+
+%environment
+    export LANG=C.UTF-8
+    export LC_ALL=C.UTF-8
+    export PATH="/conda/bin:${PATH}"
