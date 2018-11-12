@@ -4,6 +4,9 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
 
 %post
     # ~~~~~ BASIC SETUP ~~~~~ #
+    # https://github.com/bioconda/bioconda-recipes/issues/5026
+    # fonts-dejavu
+    # ttf-dejavu
     apt-get update && \
     apt-get install -y wget \
     bzip2
@@ -17,7 +20,8 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     conda config --add channels bioconda
 
     # ~~~~~ FASTQC ~~~~~ #
-    conda install -y -c bioconda fastqc=0.11.7
+    conda install -y -c bioconda -c conda-forge fastqc=0.11.7 'openjdk>8.0.121'
+    # openjdk-8.0.144            |   zulu8.23.0.3_2
 
 %test
     fastqc --version
