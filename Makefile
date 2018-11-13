@@ -173,8 +173,9 @@ run-phoenix: install
 
 # run on NYU Big Purple HPC
 Q:=cpu_medium
+# module load singularity/2.5.2 ;
 run-bigpurple: install
-	log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
+	@log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
 	echo ">>> Running Nextflow with stdout log file: $${log_file}" ; \
 	./nextflow run main.nf -profile bigPurple -resume -with-dag flowchart.dot --queue $(Q) $(EP) | tee -a "$${log_file}" ; \
 	echo ">>> Nextflow completed, stdout log file: $${log_file}"

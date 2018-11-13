@@ -1812,7 +1812,6 @@ process custom_sample_report {
     prefix = "${sampleID}.${params.runID}"
     html_output = "${prefix}.analysis_report.html"
     """
-    # echo "[custom_sample_report] sampleID: ${sampleID}, report_items: ${report_items}, input_dir: ${input_dir}"
     # convert report file symlinks to copies of original files, because knitr doesnt work well unless all report files are in pwd
     for item in *.Rmd *.css *.bib; do
         if [ -L "\${item}" ]; then
