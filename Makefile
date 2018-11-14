@@ -1,12 +1,12 @@
 # Makefile to run the pipeline
 SHELL:=/bin/bash
-NXF_VER:=0.32.0
+export NXF_VER:=0.32.0
 # extra params to pass for Nextflow in some recipes
 EP:=
 TIMESTAMP:=$(shell date +%s)
 REMOTE_ssh:=git@github.com:NYU-Molecular-Pathology/NGS580-nf.git
 REMOTE_http:=https://github.com/NYU-Molecular-Pathology/NGS580-nf.git
-.PHONY: containers annovar_db ref
+.PHONY: annovar_db ref
 
 # no default action
 none:
@@ -31,11 +31,11 @@ remove-framework:
 	@[ -d "$(NXF_FRAMEWORK_DIR)" ] && $(MAKE) remove-framework || :
 	@if grep -q 'phoenix' <<<'$(HOSTNAME)'; then module unload java && module load java/1.8; fi ; \
 	curl -fsSL get.nextflow.io | bash
-# export NXF_VER="$(NXF_VER)" && \
 
 install: ./nextflow
-# update: ./nextflow
-# 	./nextflow self-update
+
+nextflow-self-update: ./nextflow
+	./nextflow self-update
 
 # setup reference data
 REFDIR:=/gpfs/data/molecpathlab/ref
@@ -128,18 +128,15 @@ config: $(CONFIG_OUTPUT)
 	@[ -n "$(FASTQDIR)" ] && echo ">>> Updating fastqDirs config" && python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs "$(FASTQDIR)" || :
 
 # ~~~~~ UPDATE THIS REPO ~~~~~ #
+# commands for bringing this directory's pipeline up to date
 update: pull update-submodules update-nextflow
 
+# pull latest version of repo
 pull: remote
 	@echo ">>> Updating repo"
 	@git pull
 
-# # update the repo remote for ssh
-# ORIGIN:=git@github.com:NYU-Molecular-Pathology/NGS580-nf.git
-# remote:
-# 	@echo ">>> Setting git remote origin to $(ORIGIN)"
-# 	@git remote set-url origin $(ORIGIN)
-
+# remove local Nextflow install and re-build
 update-nextflow:
 	@if [ -f nextflow ]; then \
 	echo ">>> Removing old Nextflow" && \
@@ -153,7 +150,6 @@ update-submodules: remote
 	@echo ">>> Updating git submodules"
 	@git submodule update --recursive --remote --init
 
-
 # update the repo remote for ssh
 remote-ssh:
 	@git remote set-url origin "$(REMOTE_ssh)"
@@ -163,12 +159,13 @@ remote:
 
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
+RESUME:=-resume
 # run on phoenix in current session
 run-phoenix: install
 	@module unload java && module load java/1.8 && \
 	log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
 	echo ">>> Running Nextflow with stdout log file: $${log_file}" ; \
-	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart.dot $(EP) | tee -a "$${log_file}" ; \
+	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP) | tee -a "$${log_file}" ; \
 	echo ">>> Nextflow completed, stdout log file: $${log_file}"
 
 # run on NYU Big Purple HPC
@@ -177,17 +174,17 @@ Q:=cpu_medium
 run-bigpurple: install
 	@log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
 	echo ">>> Running Nextflow with stdout log file: $${log_file}" ; \
-	./nextflow run main.nf -profile bigPurple -resume -with-dag flowchart.dot --queue $(Q) $(EP) | tee -a "$${log_file}" ; \
+	./nextflow run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue $(Q) $(EP) | tee -a "$${log_file}" ; \
 	echo ">>> Nextflow completed, stdout log file: $${log_file}"
 
 # run locally default settings
 run-local: install
-	./nextflow run main.nf -profile local -resume -with-dag flowchart.dot $(EP)
+	./nextflow run main.nf -profile local $(RESUME) -with-dag flowchart.dot $(EP)
 
 # run on Power server
 run-power: install
 	source /shared/miniconda2/bin/activate /shared/biobuilds-2017.11 && \
-	./nextflow run main.nf -profile power -resume -with-dag flowchart.dot $(EP)
+	./nextflow run main.nf -profile power $(RESUME) -with-dag flowchart.dot $(EP)
 
 # compile flow chart
 flowchart:
@@ -208,7 +205,7 @@ run-phoenix-qsub: install
 	@output_file="pid.txt" ; \
 	module unload java && module load java/1.8 && \
 	JOBINFO="$${JOB_ID:-none}\t$${JOB_NAME:-none}\t$${HOSTNAME:-none}\t$${USER:-none}" ; \
-	./nextflow run main.nf -profile phoenix -resume -with-dag flowchart.dot $(EP) & \
+	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP) & \
 	pid="$$!" ; \
 	INFOSTR="$${pid}\t$${JOBINFO}\t$$(date +%s)" ; \
 	printf "$${INFOSTR}\n" ; \
