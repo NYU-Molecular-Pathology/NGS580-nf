@@ -17,6 +17,9 @@ if( !ANNOVAR_DB_DIR.exists() ){
 // pipeline settings; overriden by nextflow.config and CLI args
 params.output_dir = "output"
 params.report_dir = "report"
+params.targets_bed = "targets.bed"
+params.probes_bed = "probes.bed"
+params.samples_analysis_sheet = "samples.analysis.tsv"
 
 params.runID = null
 params.resultsID = null
