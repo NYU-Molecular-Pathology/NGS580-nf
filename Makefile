@@ -181,7 +181,7 @@ RESUME:=-resume
 
 # try to automatically determine which 'run' recipe to use based on hostname
 run:
-	if grep -q 'phoenix' <<<'$(HOSTNAME)'; then \
+	@if grep -q 'phoenix' <<<'$(HOSTNAME)'; then \
 	$(MAKE) run-phoenix; \
 	elif grep -q 'bigpurple' <<<'$(HOSTNAME)'; then \
 	$(MAKE) run-bigpurple ; \
