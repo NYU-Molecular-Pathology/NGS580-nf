@@ -1776,7 +1776,6 @@ done_copy_samplesheet.concat(
     done_deconstructSigs_signatures,
     done_merge_signatures_plots,
     done_merge_signatures_pie_plots,
-    done_tumor_normal_compare,
     done_msisensor,
     done_mutect2,
     done_annotate,
