@@ -53,7 +53,7 @@ import json
 import argparse
 
 # ~~~~~ FUNCTIONS ~~~~~ #
-def get_samplename(fastq, mode = "default"):
+def get_samplename(fastq, mode = "noLaneSplit"):
     """
     Derives a sample name from a .fastq filename, using Illumina standard filenaming syntax
 
@@ -67,7 +67,7 @@ def get_samplename(fastq, mode = "default"):
     str
         A string representing the derived sample name
     """
-    if mode == "default":
+    if mode == "LaneSplit":
         sample_name = re.sub(r'_S[0-9]{1,3}_L00[0-9]_R[1-2].*', '', os.path.basename(fastq))
     elif mode == "noLaneSplit":
         sample_name = re.sub(r'_S[0-9]{1,3}_R[1-2].*', '', os.path.basename(fastq))
@@ -129,7 +129,7 @@ def main(**kwargs):
     r1_colname = kwargs.pop('r1_colname', 'R1')
     r2_colname = kwargs.pop('r2_colname', 'R2')
     sample_colname = kwargs.pop('sample_colname', 'Sample')
-    name_mode = kwargs.pop('name_mode', 'default')
+    name_mode = kwargs.pop('name_mode', 'noLaneSplit')
     write_long_tsv = kwargs.pop('write_long_tsv', False)
     write_long_json = kwargs.pop('write_long_json', False)
     write_analysis_json = kwargs.pop('write_analysis_json', False)
@@ -221,7 +221,7 @@ def parse():
     parser = argparse.ArgumentParser(description='This script will generate samplesheets for the analysis based on .fastq.gz files in the supplied directories')
     parser.add_argument("search_dirs", help="Paths to input directories to search for .fastq files to use for samplesheet creation", nargs="+")
     parser.add_argument("-p", default = None, dest = 'output_prefix', metavar = 'prefix', help="Prefix for samplesheet files")
-    parser.add_argument("--name-mode", default = 'default', dest = 'name_mode', metavar = 'filename mode', help="Mode for parsing fastq filenames. Default: 'default', alternative: 'noLaneSplit'")
+    parser.add_argument("--name-mode", default = 'noLaneSplit', dest = 'name_mode', metavar = 'filename mode', help="Mode for parsing fastq filenames. Default: 'noLaneSplit', alternative: 'LaneSplit'")
     parser.add_argument("--append", action = 'store_true', dest = 'append', help="Append newly discovered samples to existing samplesheet")
 
     args = parser.parse_args()
