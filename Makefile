@@ -123,11 +123,27 @@ $(CONFIG_OUTPUT):
 	@cp "$(CONFIG_INPUT)" "$(CONFIG_OUTPUT)"
 
 SAMPLESHEET:=
-PAIRSHEET:=
 config: $(CONFIG_OUTPUT)
 	@[ -n "$(RUNID)" ] && echo ">>> Updating runID config" && python config.py --update "$(CONFIG_OUTPUT)" --runID "$(RUNID)" || :
 	@[ -n "$(SAMPLESHEET)" ] && echo ">>> Updating samplesheet config" && python config.py --update "$(CONFIG_OUTPUT)" --samplesheet "$(SAMPLESHEET)" || :
 	@[ -n "$(FASTQDIR)" ] && echo ">>> Updating fastqDirs config" && python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs "$(FASTQDIR)" || :
+
+# generate a samplesheet for the analysis
+samplesheet: check-fastqdir samples.analysis.tsv
+	echo ">>> Generating samplesheet for fastq directory $(FASTQDIR)" && \
+	python generate-samplesheets.py '$(FASTQDIR)' && \
+	$(MAKE) config SAMPLESHEET=samples.analysis.tsv
+
+# add an extra fastq directory to the samplesheet
+# update the analysis config for the new directory
+samplesheet-add-fastqdir: check-fastqdir
+	@echo ">>> Adding fastq directory $(FASTQDIR) to the samplesheet" && \
+	python generate-samplesheets.py --append '$(FASTQDIR)' && \
+	old_fastqdirs="$$(python -c 'import json; fastq_dirs = json.load(open("config.json")).get("fastqDirs", None); print(" " .join(fastq_dirs) if fastq_dirs else "" )')" && \
+	echo ">>> Old fastq directories were: $${old_fastqdirs}" && \
+	new_fastqdirs="$(FASTQDIR) $${old_fastqdirs}" && \
+	echo ">>> New fastq directories will be: $${new_fastqdirs}" && \
+	python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs $${new_fastqdirs}
 
 # ~~~~~ UPDATE THIS REPO ~~~~~ #
 # commands for bringing this directory's pipeline up to date

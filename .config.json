@@ -1,5 +1,5 @@
 {
-    "samplesheet": null,
+    "samplesheet": "samples.analysis.tsv",
     "runID": null,
     "fastqDirs": []
 }

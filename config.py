@@ -43,7 +43,7 @@ def main(**kwargs):
 
     data = {
     'runID': runID,
-    'fastqDirs': fastqDirs,
+    'fastqDirs': list(set(fastqDirs)),
     'samplesheet': samplesheet
     }
 

@@ -1,6 +1,6 @@
 // NGS580 Target exome analysis for 580 gene panel
 import java.nio.file.Files;
-// ~~~~~~~~~~ SETUP PARAMETERS ~~~~~~~~~~ //
+// ~~~~~~~~~~ VALIDATION ~~~~~~~~~~ //
 // make sure ref_dir exists
 def ref_dir = new File("${params.ref_dir}")
 if( !ref_dir.exists() ){
@@ -8,12 +8,14 @@ if( !ref_dir.exists() ){
     exit 1
 }
 
+// make sure annovar reference databases exist
 def ANNOVAR_DB_DIR = new File("${params.ANNOVAR_DB_DIR}")
 if( !ANNOVAR_DB_DIR.exists() ){
     log.error "ANNOVAR database dir does not exist: ${params.ANNOVAR_DB_DIR}"
     exit 1
 }
 
+// ~~~~~~~~~~ SETUP PARAMETERS ~~~~~~~~~~ //
 // pipeline settings; overriden by nextflow.config and CLI args
 params.output_dir = "output"
 params.report_dir = "report"
