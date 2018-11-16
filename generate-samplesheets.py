@@ -61,6 +61,8 @@ def get_samplename(fastq, mode = "noLaneSplit"):
     ----------
     fastq: str
         a character string representing the path to a file to be parsed
+    mode: str
+        one of 'LaneSplit' or 'noLaneSplit'; whether or not the fastq files were produced with lane splitted enabled in bcl2fastq. A fastq with lane splitting will have a filename such as 'SampleName_S1_L001_R1_001.fastq.gz' while a fastq produced without lane splitting will be named such as 'SampleName_S1_R1_001.fastq.gz'
 
     Returns
     -------
