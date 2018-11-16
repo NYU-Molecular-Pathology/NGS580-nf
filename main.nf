@@ -1013,14 +1013,14 @@ process gatk_hc {
     "${norm_vcf}"
 
     # report if
-    # alternate allele freq (allele depth / depth) greater than 0.5
+    # alternate allele freq (allele depth / depth) greater than 0.05 ; 5%
     # more than 5 variant call supporting reads
     # quality reads present (reported depth >0)
     gatk.sh -T SelectVariants \
     -R "${ref_fasta}" \
     -V "${norm_vcf}" \
     --sample_name "${sampleID}" \
-    -select "vc.getGenotype('${sampleID}').getAD().1 / vc.getGenotype('${sampleID}').getDP() > 0.50" \
+    -select "vc.getGenotype('${sampleID}').getAD().1 / vc.getGenotype('${sampleID}').getDP() > 0.05" \
     -select "vc.getGenotype('${sampleID}').getAD().1 > 5" \
     -select "vc.getGenotype('${sampleID}').getDP() > 0" \
     > "${filtered_vcf}"
