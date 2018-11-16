@@ -1770,7 +1770,6 @@ done_copy_samplesheet.concat(
     done_qc_target_reads_gatk_pad100,
     done_qc_target_reads_gatk_bed,
     done_bam_ra_rc_gatk,
-    done_pad_bed,
     done_lofreq,
     done_gatk_hc,
     done_delly2,
