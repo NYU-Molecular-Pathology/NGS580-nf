@@ -2,7 +2,9 @@ import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import groovy.json.JsonSlurper;
 
+//
 // NGS580 Target exome analysis for 580 gene panel
+//
 
 // ~~~~~~~~~~ VALIDATION ~~~~~~~~~~ //
 // make sure reference data directory exists
@@ -29,8 +31,15 @@ params.targetsBed = "targets.bed"
 params.probesBed = "probes.bed"
 params.samplesheet = null
 params.runID = null
-
 def username = params.username // from nextflow.config
+def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
+def outputDirPath = new File(params.outputDir).getCanonicalPath()
+def reportDirPath = new File(params.reportDir).getCanonicalPath()
+String localhostname = java.net.InetAddress.getLocalHost().getHostName();
+// Date now = new Date()
+// SimpleDateFormat timestamp = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss")
+// currentDirPath = new File(System.getProperty("user.dir")).getCanonicalPath()
+
 // load the JSON config, if present
 def jsonSlurper = new JsonSlurper()
 def PipelineConfig
@@ -40,7 +49,6 @@ if ( PipelineConfigFile_obj.exists() ) {
     String PipelineConfigJSON = PipelineConfigFile_obj.text
     PipelineConfig = jsonSlurper.parseText(PipelineConfigJSON)
 }
-println "$PipelineConfig"
 
 // check for Run ID
 // 0. use CLI passed arg
@@ -81,28 +89,7 @@ if(params.samplesheet == null){
     samplesheet = params.samplesheet
 }
 
-def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
-println "${workflowTimestamp}"
-// Date now = new Date()
-// SimpleDateFormat timestamp = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss")
-
-// path to the output directory
-def outputDirPath = new File(params.outputDir).getCanonicalPath()
-
-// path to the report directory
-def reportDirPath = new File(params.reportDir).getCanonicalPath()
-
-// path to the current directory
-// currentDirPath = new File(System.getProperty("user.dir")).getCanonicalPath()
-def currentDirPath = new File(System.getProperty("user.dir")).getCanonicalPath()
-
-// get the system hostname to identify which system the pipeline is running from
-String localhostname = java.net.InetAddress.getLocalHost().getHostName();
-
-
-//
-// DATA INPUT CHANNELS
-//
+// ~~~~~ DATA INPUT ~~~~~ //
 // targets .bed file
 Channel.fromPath( file(params.targetsBed) ).set{ targets_bed }
 
@@ -121,10 +108,10 @@ Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref
 Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
 Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_db_dir2 }
 
-
 // report and output dir
 Channel.fromPath("${outputDirPath}/analysis").into { analysis_output; analysis_output2 }
-// Channel.from([ [file("${reportDirPath}"), file("${outputDirPath}")] ]).set { report_dirs }
+
+// load analysis report files
 Channel.fromPath("${reportDirPath}/analysis/*")
         .toList()
         .map { items ->
@@ -133,6 +120,7 @@ Channel.fromPath("${reportDirPath}/analysis/*")
         .combine( analysis_output ) // [[report files list], analysis output dir]
         .set { analysis_report_files }
 
+// load samples report files
 Channel.fromPath("${reportDirPath}/samples/*")
         .toList()
         .map { items ->
@@ -185,25 +173,15 @@ Channel.fromPath( file(samplesheet) )
         .set { sampleIDs }
 
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
-// Channel.from([[
-//     runID: "${params.runID}",
-//     output_path: "${outputDirPath}",
-//     hostname: "${localhostname}",
-//     launch_time: "${workflow.start.format('dd-MMM-yyyy HH:mm:ss')}",
-//     project_dir: "${workflow.projectDir}",
-//     username: "${params.username}"
-//     ]]).set { pipeline_metadata }
 
 // logging channels
 Channel.from("Sample\tProgram\tNote\tFiles").set { failed_samples }
 Channel.from("Comparison\tTumor\tNormal\tChrom\tProgram\tNote\tFiles").set { failed_pairs }
 
-//
-// PIPELINE TASKS
-//
-
+// ~~~~~ PIPELINE TASKS ~~~~~ //
 // PREPROCESSING
 process copy_samplesheet {
+    // make a copy of the samplesheet in the output directory
     publishDir "${params.outputDir}/analysis", mode: 'copy', overwrite: true
 
     input:
@@ -221,13 +199,13 @@ process copy_samplesheet {
 
 
 process print_metadata {
+    // print the workflow meta data to the output directory
     publishDir "${params.outputDir}/analysis", mode: 'copy', overwrite: true
     echo true
     executor "local"
 
     input:
     val(x) from Channel.from('')
-    // set val(runID), val(output_path), val(hostname), val(launch_time), val(project_dir), val(username) from pipeline_metadata
 
     output:
     file("meta.tsv")
@@ -243,8 +221,6 @@ process print_metadata {
 process fastq_merge {
     // merge multiple R1 and R2 fastq files (e.g. split by lane) into a single fastq each
     tag "${sampleID}"
-    // publishDir "${params.outputDir}/analysis/fastq-merged", mode: 'copy', overwrite: true
-    // publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(fastq_r1: "*"), file(fastq_r2: "*") from samples_R1_R2
@@ -450,7 +426,7 @@ process samtools_flagstat_table {
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-    paste-col.py --header "Location" -v "${currentDirPath}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${output_file}"
     """
@@ -516,7 +492,7 @@ process sambamba_dedup_log_table {
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-    paste-col.py --header "Location" -v "${currentDirPath}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${output_file}"
     """
@@ -569,7 +545,7 @@ process samtools_dedup_flagstat_table {
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-    paste-col.py --header "Location" -v "${currentDirPath}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${output_file}"
     """
@@ -908,7 +884,7 @@ process update_coverage_tables {
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-    paste-col.py --header "Location" -v "${currentDirPath}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${output_file}"
     """
@@ -941,7 +917,7 @@ process update_interval_tables {
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-    paste-col.py --header "Location" -v "${currentDirPath}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${output_file}"
     """
@@ -1037,7 +1013,7 @@ process lofreq {
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-    paste-col.py --header "Location" -v "${currentDirPath}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "VariantCaller" -v "${caller}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
@@ -1122,7 +1098,7 @@ process gatk_hc {
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-    paste-col.py --header "Location" -v "${currentDirPath}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "VariantCaller" -v "${caller}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
@@ -1589,7 +1565,7 @@ process mutect2 {
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-    paste-col.py --header "Location" -v "${currentDirPath}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "VariantCaller" -v "${caller}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
