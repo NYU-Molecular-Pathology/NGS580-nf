@@ -1,6 +1,6 @@
 # Makefile to run the pipeline
 SHELL:=/bin/bash
-export NXF_VER:=0.32.0
+export NXF_VER:=18.10.1
 # extra params to pass for Nextflow in some recipes
 EP:=
 TIMESTAMP:=$(shell date +%s)
@@ -38,6 +38,7 @@ nextflow-self-update: ./nextflow
 	./nextflow self-update
 
 # setup reference data
+# NYUMC Big Purple data directory location
 REFDIR:=/gpfs/data/molecpathlab/ref
 ref: install
 	@if [ ! -d "$(REFDIR)" ] ; then echo ">>> system ref dir doesnt exist, setting up local ref dir..." ; \
@@ -64,6 +65,7 @@ demo: NGS580-demo-data
 	--pairs-normal-colname '#SAMPLE-N'
 
 # setup ANNOVAR reference databases
+# NYUMC Big Purple data directory location
 ANNOVAR_DB_DIR:=/gpfs/data/molecpathlab/ref/annovar/db
 annovar_db: install
 	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ;  ./nextflow run annovar_db.nf -profile annovar_db ; fi
@@ -96,6 +98,7 @@ FASTQDIR:=
 # sequencing run name for deployment
 RUNID:=
 # location of production deployment for analysis
+# NYUMC Big Purple directory location
 PRODDIR:=/gpfs/data/molecpathlab/production/NGS580
 deploy:
 	@$(MAKE) check-runid
@@ -124,7 +127,6 @@ PAIRSHEET:=
 config: $(CONFIG_OUTPUT)
 	@[ -n "$(RUNID)" ] && echo ">>> Updating runID config" && python config.py --update "$(CONFIG_OUTPUT)" --runID "$(RUNID)" || :
 	@[ -n "$(SAMPLESHEET)" ] && echo ">>> Updating samplesheet config" && python config.py --update "$(CONFIG_OUTPUT)" --samplesheet "$(SAMPLESHEET)" || :
-	@[ -n "$(PAIRSHEET)" ] && echo ">>> Updating pairs sheet config" && python config.py --update "$(CONFIG_OUTPUT)" --pairsheet "$(PAIRSHEET)" || :
 	@[ -n "$(FASTQDIR)" ] && echo ">>> Updating fastqDirs config" && python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs "$(FASTQDIR)" || :
 
 # ~~~~~ UPDATE THIS REPO ~~~~~ #
