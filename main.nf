@@ -1,50 +1,100 @@
-// NGS580 Target exome analysis for 580 gene panel
 import java.nio.file.Files;
+import java.text.SimpleDateFormat;
+import groovy.json.JsonSlurper;
+
+// NGS580 Target exome analysis for 580 gene panel
+
 // ~~~~~~~~~~ VALIDATION ~~~~~~~~~~ //
-// make sure ref_dir exists
+// make sure reference data directory exists
 def ref_dir = new File("${params.ref_dir}")
 if( !ref_dir.exists() ){
     log.error "Ref dir does not exist: ${params.ref_dir}"
     exit 1
 }
 
-// make sure annovar reference databases exist
+// make sure annovar reference databases directory exist
 def ANNOVAR_DB_DIR = new File("${params.ANNOVAR_DB_DIR}")
 if( !ANNOVAR_DB_DIR.exists() ){
     log.error "ANNOVAR database dir does not exist: ${params.ANNOVAR_DB_DIR}"
     exit 1
 }
 
-// ~~~~~~~~~~ SETUP PARAMETERS ~~~~~~~~~~ //
-// pipeline settings; overriden by nextflow.config and CLI args
-params.output_dir = "output"
-params.report_dir = "report"
-params.targets_bed = "targets.bed"
-params.probes_bed = "probes.bed"
-params.samples_analysis_sheet = "samples.analysis.tsv"
-
+// ~~~~~~~~~~ CONFIGURATION ~~~~~~~~~~ //
+// configure pipeline settings
+// overriden by nextflow.config and CLI args
+params.configFile = "config.json"
+params.outputDir = "output"
+params.reportDir = "report"
+params.targetsBed = "targets.bed"
+params.probesBed = "probes.bed"
+params.samplesheet = null
 params.runID = null
-params.resultsID = null
 
-// set a timestamp variable if resultsID not passed
-import java.text.SimpleDateFormat
-def resultsID
-if ( params.resultsID == null ) {
-    Date now = new Date()
-    SimpleDateFormat timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss")
-    resultsID = timestamp.format(now)
+def username = params.username // from nextflow.config
+// load the JSON config, if present
+def jsonSlurper = new JsonSlurper()
+def PipelineConfig
+def PipelineConfigFile_obj = new File("${params.configFile}")
+if ( PipelineConfigFile_obj.exists() ) {
+    log.info("Loading configs from ${params.configFile}")
+    String PipelineConfigJSON = PipelineConfigFile_obj.text
+    PipelineConfig = jsonSlurper.parseText(PipelineConfigJSON)
+}
+println "$PipelineConfig"
+
+// check for Run ID
+// 0. use CLI passed arg
+// 1. check for config.json values
+// 2. use the name of the current directory
+def projectDir = "${workflow.projectDir}"
+def projectDirname = new File("${projectDir}").getName()
+def runID
+if( params.runID == null ){
+    if ( PipelineConfig && PipelineConfig.containsKey("runID") && PipelineConfig.runID != null ) {
+        log.info("Loading runID from ${params.configFile}")
+        runID = "${PipelineConfig.runID}"
+    } else {
+        runID = "${projectDir}"
+    }
 } else {
-    resultsID = params.resultsID
+    runID = "${projectDir}"
 }
 
+// Check for samplesheet;
+// 0. Use CLI passed samplesheet
+// 1. check for config.json values
+// 2. Check for samples.analysis.tsv in current directory
+def default_samplesheet = "samples.analysis.tsv"
+def default_samplesheet_obj = new File("${default_samplesheet}")
+def samplesheet
+if(params.samplesheet == null){
+    if ( PipelineConfig && PipelineConfig.containsKey("samplesheet") && PipelineConfig.samplesheet != null ) {
+        log.info("Loading samplesheet from ${params.configFile}")
+        samplesheet = PipelineConfig.samplesheet
+    } else if( default_samplesheet_obj.exists() ){
+        samplesheet = default_samplesheet_obj.getCanonicalPath()
+    } else {
+        log.error("No samplesheet found, please provide one with '--samplesheet'")
+        exit 1
+    }
+} else {
+    samplesheet = params.samplesheet
+}
+
+def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
+println "${workflowTimestamp}"
+// Date now = new Date()
+// SimpleDateFormat timestamp = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss")
+
 // path to the output directory
-output_dir_path = new File(params.output_dir).getCanonicalPath()
+def outputDirPath = new File(params.outputDir).getCanonicalPath()
 
 // path to the report directory
-report_dir_path = new File(params.report_dir).getCanonicalPath()
+def reportDirPath = new File(params.reportDir).getCanonicalPath()
 
 // path to the current directory
-current_dir_path = new File(System.getProperty("user.dir")).getCanonicalPath()
+// currentDirPath = new File(System.getProperty("user.dir")).getCanonicalPath()
+def currentDirPath = new File(System.getProperty("user.dir")).getCanonicalPath()
 
 // get the system hostname to identify which system the pipeline is running from
 String localhostname = java.net.InetAddress.getLocalHost().getHostName();
@@ -54,10 +104,10 @@ String localhostname = java.net.InetAddress.getLocalHost().getHostName();
 // DATA INPUT CHANNELS
 //
 // targets .bed file
-Channel.fromPath( file(params.targets_bed) ).set{ targets_bed }
+Channel.fromPath( file(params.targetsBed) ).set{ targets_bed }
 
 // reference files
-Channel.fromPath( file(params.targets_bed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4 }
+Channel.fromPath( file(params.targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4 }
 Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5 }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5 }
 Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5 }
@@ -73,9 +123,9 @@ Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_d
 
 
 // report and output dir
-Channel.fromPath("${output_dir_path}/analysis").into { analysis_output; analysis_output2 }
-// Channel.from([ [file("${report_dir_path}"), file("${output_dir_path}")] ]).set { report_dirs }
-Channel.fromPath("${report_dir_path}/analysis/*")
+Channel.fromPath("${outputDirPath}/analysis").into { analysis_output; analysis_output2 }
+// Channel.from([ [file("${reportDirPath}"), file("${outputDirPath}")] ]).set { report_dirs }
+Channel.fromPath("${reportDirPath}/analysis/*")
         .toList()
         .map { items ->
             return( [items])
@@ -83,7 +133,7 @@ Channel.fromPath("${report_dir_path}/analysis/*")
         .combine( analysis_output ) // [[report files list], analysis output dir]
         .set { analysis_report_files }
 
-Channel.fromPath("${report_dir_path}/samples/*")
+Channel.fromPath("${reportDirPath}/samples/*")
         .toList()
         .map { items ->
             return( [items])
@@ -92,7 +142,7 @@ Channel.fromPath("${report_dir_path}/samples/*")
         .set { samples_report_files }
 
 // read samples from analysis samplesheet
-Channel.fromPath( file(params.samples_analysis_sheet) )
+Channel.fromPath( file(samplesheet) )
         .splitCsv(header: true, sep: '\t')
         .map{row ->
             def sampleID = row['Sample']
@@ -109,7 +159,7 @@ Channel.fromPath( file(params.samples_analysis_sheet) )
 
 
 // read sample tumor-normal pairs from analysis sheet
-Channel.fromPath( file(params.samples_analysis_sheet) )
+Channel.fromPath( file(samplesheet) )
         .splitCsv(header: true, sep: '\t')
         .map { row ->
             def tumorID = row['Tumor']
@@ -125,7 +175,7 @@ Channel.fromPath( file(params.samples_analysis_sheet) )
         .set { samples_pairs }
 
 // read sample IDs from analysis sheet
-Channel.fromPath( file(params.samples_analysis_sheet) )
+Channel.fromPath( file(samplesheet) )
         .splitCsv(header: true, sep: '\t')
         .map{row ->
             def sampleID = row['Sample']
@@ -134,16 +184,15 @@ Channel.fromPath( file(params.samples_analysis_sheet) )
         .unique()
         .set { sampleIDs }
 
-Channel.fromPath( file(params.samples_analysis_sheet) ).set { samples_analysis_sheet }
-Channel.from([[
-    runID: "${params.runID}",
-    resultsID: "${params.resultsID}",
-    output_path: "${output_dir_path}",
-    hostname: "${localhostname}",
-    launch_time: "${workflow.start.format('dd-MMM-yyyy HH:mm:ss')}",
-    project_dir: "${workflow.projectDir}",
-    username: "${params.username}"
-    ]]).set { pipeline_metadata }
+Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
+// Channel.from([[
+//     runID: "${params.runID}",
+//     output_path: "${outputDirPath}",
+//     hostname: "${localhostname}",
+//     launch_time: "${workflow.start.format('dd-MMM-yyyy HH:mm:ss')}",
+//     project_dir: "${workflow.projectDir}",
+//     username: "${params.username}"
+//     ]]).set { pipeline_metadata }
 
 // logging channels
 Channel.from("Sample\tProgram\tNote\tFiles").set { failed_samples }
@@ -155,7 +204,7 @@ Channel.from("Comparison\tTumor\tNormal\tChrom\tProgram\tNote\tFiles").set { fai
 
 // PREPROCESSING
 process copy_samplesheet {
-    publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
+    publishDir "${params.outputDir}/analysis", mode: 'copy', overwrite: true
 
     input:
     file(samples_analysis_sheet: "samplesheet.tsv") from samples_analysis_sheet
@@ -172,12 +221,13 @@ process copy_samplesheet {
 
 
 process print_metadata {
-    publishDir "${params.output_dir}/analysis", mode: 'copy', overwrite: true
+    publishDir "${params.outputDir}/analysis", mode: 'copy', overwrite: true
     echo true
     executor "local"
 
     input:
-    set val(runID), val(resultsID), val(output_path), val(hostname), val(launch_time), val(project_dir), val(username) from pipeline_metadata
+    val(x) from Channel.from('')
+    // set val(runID), val(output_path), val(hostname), val(launch_time), val(project_dir), val(username) from pipeline_metadata
 
     output:
     file("meta.tsv")
@@ -185,16 +235,16 @@ process print_metadata {
 
     script:
     """
-    printf "Run\tResults\tLocation\tSystem\tOutputPath\tLaunchTime\tUsername\n" > meta.tsv
-    printf "${runID}\t${resultsID}\t${project_dir}\t${hostname}\t${output_path}\t${launch_time}\t${username}\n" >> meta.tsv
+    printf "Run\tTime\tSession\tWorkflow\tLocation\tSystem\tOutputPath\tUsername\n" > meta.tsv
+    printf "${runID}\t${workflowTimestamp}\t${workflow.sessionId}\t${workflow.runName}\t${workflow.projectDir}\t${localhostname}\t${outputDirPath}\t${username}\n" >> meta.tsv
     """
 }
 
 process fastq_merge {
     // merge multiple R1 and R2 fastq files (e.g. split by lane) into a single fastq each
     tag "${sampleID}"
-    // publishDir "${params.output_dir}/analysis/fastq-merged", mode: 'copy', overwrite: true
-    // publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    // publishDir "${params.outputDir}/analysis/fastq-merged", mode: 'copy', overwrite: true
+    // publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(fastq_r1: "*"), file(fastq_r2: "*") from samples_R1_R2
@@ -228,8 +278,8 @@ process fastq_merge {
 process trimmomatic {
     // trim low quality bases from reads
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/reads", overwrite: true // mode: 'copy',
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/reads", overwrite: true // mode: 'copy',
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(read1), file(read2), file(trimmomatic_contaminant_fa) from samples_fastq_merged.combine(trimmomatic_contaminant_fa)
@@ -274,8 +324,8 @@ process trimmomatic {
 process fastqc {
     // quality control checking with FastQC
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/reads", overwrite: true // mode: 'copy',
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/reads", overwrite: true // mode: 'copy',
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID),  file(fastq_R1), file(fastq_R2) from samples_fastq_trimmed2
@@ -329,8 +379,8 @@ process bwa_mem {
 process sambamba_view_sort {
     // sort the alignments and convert to .bam
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/alignments", overwrite: true //, mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/alignments", overwrite: true //, mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_sam) from samples_bwa_sam
@@ -358,8 +408,8 @@ process sambamba_view_sort {
 process samtools_flagstat {
     // alignment stats
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/alignments", overwrite: true //, mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/alignments", overwrite: true //, mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam) from samples_bam
@@ -379,8 +429,8 @@ process samtools_flagstat {
 process samtools_flagstat_table {
     // convert flagstat output to a flat table
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/alignments", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/alignments", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(flagstat) from flagstats
@@ -397,19 +447,21 @@ process samtools_flagstat_table {
 
     paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}"  | \
     paste-col.py --header "Run" -v "${params.runID}" | \
-    paste-col.py --header "Results" -v "${resultsID}" | \
-    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${currentDirPath}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${output_file}"
     """
 }
-sambamba_flagstat_tables.collectFile(name: "flagstat.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
+sambamba_flagstat_tables.collectFile(name: "flagstat.tsv", storeDir: "${params.outputDir}/analysis", keepHeader: true)
 
 process sambamba_dedup {
     // deduplicate alignments
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/alignments", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/alignments", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam) from samples_bam2
@@ -443,8 +495,8 @@ process sambamba_dedup {
 process sambamba_dedup_log_table {
     // convert the dedup stats the a flat table
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/alignments", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/alignments", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(log_file) from sambamba_dedup_logs
@@ -461,19 +513,21 @@ process sambamba_dedup_log_table {
 
     paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}"  | \
     paste-col.py --header "Run" -v "${params.runID}" | \
-    paste-col.py --header "Results" -v "${resultsID}" | \
-    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${currentDirPath}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${output_file}"
     """
 }
-sambamba_dedup_log_tables.collectFile(name: "reads.dedup.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
+sambamba_dedup_log_tables.collectFile(name: "reads.dedup.tsv", storeDir: "${params.outputDir}/analysis", keepHeader: true)
 
 process samtools_dedup_flagstat {
     // dedup alignment stats
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/alignments", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/alignments", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam) from samples_dd_bam2
@@ -494,8 +548,8 @@ process samtools_dedup_flagstat {
 process samtools_dedup_flagstat_table {
     // convert dedup stats to a flat table
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/alignments", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/alignments", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(flagstat) from dedup_flagstats
@@ -512,13 +566,15 @@ process samtools_dedup_flagstat_table {
 
     paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}"  | \
     paste-col.py --header "Run" -v "${params.runID}" | \
-    paste-col.py --header "Results" -v "${resultsID}" | \
-    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${currentDirPath}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${output_file}"
     """
 }
-sambamba_dedup_flagstat_tables.collectFile(name: "flagstat.dedup.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
+sambamba_dedup_flagstat_tables.collectFile(name: "flagstat.dedup.tsv", storeDir: "${params.outputDir}/analysis", keepHeader: true)
 
 
 
@@ -546,8 +602,8 @@ samples_dd_bam.combine(ref_fasta)
 process bam_ra_rc_gatk {
     // re-align and recalibrate alignments for later variant calling
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/alignments", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/alignments", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from samples_dd_bam_ref_gatk
@@ -671,8 +727,8 @@ samples_dd_ra_rc_bam_ref.combine( dbsnp_ref_vcf3 )
 process qc_target_reads_gatk_genome {
     // calculate metrics on coverage across whole genome
     tag "${prefix}"
-    publishDir "${params.output_dir}/analysis/metrics", overwrite: true //, mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/metrics", overwrite: true //, mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict) from samples_dd_ra_rc_bam_ref_nointervals
@@ -710,8 +766,8 @@ process qc_target_reads_gatk_genome {
 process qc_target_reads_gatk_pad500 {
     // calculate metrics on coverage of target regions +/- 500bp
     tag "${prefix}"
-    publishDir "${params.output_dir}/analysis/metrics", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/metrics", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref2
@@ -749,8 +805,8 @@ process qc_target_reads_gatk_pad500 {
 process qc_target_reads_gatk_pad100 {
     // calculate metrics on coverage of target regions +/- 100bp
     tag "${prefix}"
-    publishDir "${params.output_dir}/analysis/metrics", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/metrics", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref3
@@ -788,8 +844,8 @@ process qc_target_reads_gatk_pad100 {
 process qc_target_reads_gatk_bed {
     // calculate metrics on coverage of target regions; exact region only
     tag "${prefix}"
-    publishDir "${params.output_dir}/analysis/metrics", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/metrics", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref5
@@ -831,8 +887,8 @@ process qc_target_reads_gatk_bed {
 process update_coverage_tables {
     // add more information to the region coverage output
     tag "${prefix}"
-    publishDir "${params.output_dir}/analysis/metrics", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/metrics", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), val(mode), file(sample_summary) from qc_target_reads_gatk_beds.concat(qc_target_reads_gatk_pad100s, qc_target_reads_gatk_pad500s, qc_target_reads_gatk_genomes)
@@ -849,20 +905,22 @@ process update_coverage_tables {
 
     paste-col.py -i tmp.tsv --header "Mode" -v "${mode}" | \
     paste-col.py --header "Run" -v "${params.runID}" | \
-    paste-col.py --header "Results" -v "${resultsID}" | \
-    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${currentDirPath}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${output_file}"
     """
 }
-updated_coverage_tables.collectFile(name: "coverage.samples.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
+updated_coverage_tables.collectFile(name: "coverage.samples.tsv", storeDir: "${params.outputDir}/analysis", keepHeader: true)
 
 
 process update_interval_tables {
     // add more information to the intervals coverage output
     tag "${prefix}"
-    publishDir "${params.output_dir}/analysis/metrics", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/metrics", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), val(mode), file(sample_interval_summary) from qc_target_reads_gatk_beds_intervals
@@ -880,18 +938,20 @@ process update_interval_tables {
     paste-col.py -i tmp.tsv --header "Mode" -v "${mode}" | \
     paste-col.py --header "Sample" -v "${sampleID}"  | \
     paste-col.py --header "Run" -v "${params.runID}" | \
-    paste-col.py --header "Results" -v "${resultsID}" | \
-    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${currentDirPath}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${output_file}"
     """
 }
-updated_coverage_interval_tables.collectFile(name: "coverage.intervals.tsv", storeDir: "${params.output_dir}/analysis", keepHeader: true)
+updated_coverage_interval_tables.collectFile(name: "coverage.intervals.tsv", storeDir: "${params.outputDir}/analysis", keepHeader: true)
 
 // not currently used
 // process pad_bed {
 //     // add 10bp to the regions
-//     publishDir "${params.output_dir}/analysis/targets", overwrite: true // , mode: 'copy'
+//     publishDir "${params.outputDir}/analysis/targets", overwrite: true // , mode: 'copy'
 //
 //     input:
 //     set file(targets_bed_file), file(ref_chrom_sizes) from targets_bed3.combine(ref_chrom_sizes)
@@ -909,8 +969,8 @@ updated_coverage_interval_tables.collectFile(name: "coverage.intervals.tsv", sto
 process lofreq {
     // high sensitivity variant calling for low frequency variants
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/variants", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/variants", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp
@@ -974,8 +1034,10 @@ process lofreq {
     reformat-vcf-table.py -c LoFreq -s "${sampleID}" -i "${tsv_file}" | \
     paste-col.py --header "Sample" -v "${sampleID}"  | \
     paste-col.py --header "Run" -v "${params.runID}" | \
-    paste-col.py --header "Results" -v "${resultsID}" | \
-    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${currentDirPath}" | \
     paste-col.py --header "VariantCaller" -v "${caller}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
@@ -985,8 +1047,8 @@ process lofreq {
 process gatk_hc {
     // variant calling
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/variants", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/variants", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp2
@@ -1057,8 +1119,10 @@ process gatk_hc {
     reformat-vcf-table.py -c HaplotypeCaller -s "${sampleID}" -i "${tsv_file}" | \
     paste-col.py --header "Sample" -v "${sampleID}"  | \
     paste-col.py --header "Run" -v "${params.runID}" | \
-    paste-col.py --header "Results" -v "${resultsID}" | \
-    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${currentDirPath}" | \
     paste-col.py --header "VariantCaller" -v "${caller}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
@@ -1074,8 +1138,8 @@ sample_vcf_hc3.mix(samples_lofreq_vcf2)
 process eval_sample_vcf {
     // calcaulte variant metrics
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/variants", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/variants", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(caller), val(sampleID), file(sample_vcf), file(dbsnp_ref_vcf), file(ref_fasta), file(ref_fai), file(ref_dict4) from samples_filtered_vcfs
@@ -1111,8 +1175,8 @@ delly2_modes = [
 process delly2 {
     // large structural nucleotide variant calling
     tag "${sampleID}-${type}"
-    publishDir "${params.output_dir}/analysis/snv", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/snv", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref4
@@ -1181,8 +1245,8 @@ sample_vcf_hc_bad.map {  caller, sampleID, filtered_vcf ->
 process deconstructSigs_signatures {
     // search for mutation signatures
     tag "${sampleID}"
-    publishDir "${params.output_dir}/analysis/signatures", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/signatures", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(caller), val(sampleID), file(sample_vcf) from sample_vcf_hc_good
@@ -1211,7 +1275,7 @@ process deconstructSigs_signatures {
 process merge_signatures_plots {
     // combine all signatures plots into a single PDF
     executor "local"
-    publishDir "${params.output_dir}/analysis", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/analysis", overwrite: true // , mode: 'copy'
 
     input:
     file(input_files:'*') from signatures_plots.toList()
@@ -1234,7 +1298,7 @@ process merge_signatures_plots {
 process merge_signatures_pie_plots {
     // combine all signatures plots into a single PDF
     executor "local"
-    publishDir "${params.output_dir}/analysis", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/analysis", overwrite: true // , mode: 'copy'
 
     input:
     file(input_files:'*') from signatures_pie_plots.toList()
@@ -1259,7 +1323,7 @@ process merge_signatures_pie_plots {
 //     tag { "${sampleID}" }
 //     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
 //     errorStrategy 'ignore'
-//     publishDir "${params.output_dir}/vaf-distribution-hc", mode: 'copy', overwrite: true
+//     publishDir "${params.outputDir}/vaf-distribution-hc", mode: 'copy', overwrite: true
 //
 //     input:
 //     set val(sampleID), file(sample_vcf_annot) from gatk_hc_annotations2
@@ -1277,7 +1341,7 @@ process merge_signatures_pie_plots {
 //     executor "local"
 //     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
 //     errorStrategy 'ignore'
-//     publishDir "${params.output_dir}/", mode: 'copy', overwrite: true
+//     publishDir "${params.outputDir}/", mode: 'copy', overwrite: true
 //
 //     input:
 //     file '*' from vaf_distribution_plots.toList()
@@ -1364,7 +1428,7 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
 
 // get the unique chromosomes in the targets bed file
 //  for per-chrom paired variant calling
-Channel.fromPath( params.targets_bed )
+Channel.fromPath( params.targetsBed )
             .splitCsv(sep: '\t')
             .map{row ->
                 row[0]
@@ -1407,8 +1471,8 @@ process msisensor {
     tag "${comparisonID}"
     // validExitStatus 0,139 // allow '139' failure from small dataset; 23039 Segmentation fault      (core dumped)
     errorStrategy 'ignore'
-    publishDir "${params.output_dir}/analysis/microsatellites", mode: 'copy', overwrite: true
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/microsatellites", mode: 'copy', overwrite: true
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(microsatellites) from samples_dd_ra_rc_bam_pairs_ref_msi
@@ -1432,8 +1496,8 @@ process msisensor {
 process mutect2 {
     // paired tumor-normal variant calling
     tag "${prefix}"
-    publishDir "${params.output_dir}/analysis/variants", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${tumorID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/variants", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${tumorID}", overwrite: true
 
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf), file(cosmic_ref_vcf), val(chrom) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
@@ -1522,8 +1586,10 @@ process mutect2 {
     paste-col.py --header "Tumor" -v "${tumorID}"  | \
     paste-col.py --header "Normal" -v "${normalID}"  | \
     paste-col.py --header "Run" -v "${params.runID}" | \
-    paste-col.py --header "Results" -v "${resultsID}" | \
-    paste-col.py --header "Location" -v "${current_dir_path}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${currentDirPath}" | \
     paste-col.py --header "VariantCaller" -v "${caller}" | \
     paste-col.py --header "System" -v "${localhostname}" > \
     "${reformat_tsv}"
@@ -1539,8 +1605,8 @@ samples_mutect3.combine(dbsnp_ref_vcf5)
 process eval_pair_vcf {
     // variant quality metrics
     tag "${prefix}"
-    publishDir "${params.output_dir}/analysis/variants", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/samples/${tumorID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/variants", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${tumorID}", overwrite: true
 
     input:
     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(pairs_vcf), file(dbsnp_ref_vcf), file(ref_fasta), file(ref_fai), file(ref_dict4) from pairs_filtered_vcfs
@@ -1611,8 +1677,8 @@ pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chrom, sample
 process annotate {
     // annotate variants
     tag "${prefix}"
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/analysis/annotations", overwrite: true
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/analysis/annotations", overwrite: true
 
     input:
     set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_vcfs_tsvs_good.combine(annovar_db_dir)
@@ -1693,8 +1759,8 @@ process annotate {
 process annotate_pairs {
     // annotate variants
     tag "${prefix}"
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/analysis/annotations", overwrite: true
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/analysis/annotations", overwrite: true
 
     input:
     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from pairs_vcfs_tsvs_good.combine(annovar_db_dir2)
@@ -1742,7 +1808,7 @@ process annotate_pairs {
 }
 process collect_annotation_tables {
     // combine all variants into a single table
-    publishDir "${params.output_dir}/analysis", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/analysis", overwrite: true // , mode: 'copy'
 
     input:
     file('table*') from annotations_tables.concat(annotations_tables_pairs).collect()
@@ -1799,7 +1865,7 @@ done_copy_samplesheet.concat(
 process custom_analysis_report {
     // create a batch report for all samples in the analysis
     tag "${html_output}"
-    publishDir "${params.output_dir}/analysis/reports", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/analysis/reports", overwrite: true // , mode: 'copy'
     executor "local"
 
     input:
@@ -1830,8 +1896,8 @@ process custom_sample_report {
     // create per-sample reports
     tag "${sampleID}"
     executor "local"
-    publishDir "${params.output_dir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
-    publishDir "${params.output_dir}/analysis/reports", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/analysis/reports", overwrite: true // , mode: 'copy'
 
     input:
     val(items) from all_done3.collect()
@@ -1860,12 +1926,12 @@ process custom_sample_report {
 disable_multiqc = true // for faster testing of the rest of the pipeline
 process multiqc {
     // automatic reporting based on detected output; might take a while to parse and create report
-    publishDir "${params.output_dir}/analysis/reports", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/analysis/reports", overwrite: true // , mode: 'copy'
     // executor "local"
 
     input:
     val(all_vals) from all_done2.collect()
-    file(output_dir) from Channel.fromPath("${params.output_dir}")
+    file(output_dir) from Channel.fromPath("${params.outputDir}")
 
     output:
     file "multiqc_report.html" // into email_files
@@ -1883,12 +1949,12 @@ process multiqc {
 
 // ~~~~~~~~~~~~~~~ PIPELINE COMPLETION EVENTS ~~~~~~~~~~~~~~~~~~~ //
 // gather email file attachments
-Channel.fromPath( file(params.samples_analysis_sheet) ).set{ samples_analysis_sheet }
+Channel.fromPath( file(samplesheet) ).set{ samples_analysis_sheet }
 def attachments = samples_analysis_sheet.toList().getVal()
 
 // collect failed log messages
-failed_samples.mix(samples_vcfs_tsvs_bad_logs, sample_vcf_hc_bad_logs).collectFile(name: "failed.txt", storeDir: "${params.output_dir}", newLine: true)
-failed_pairs.mix(pairs_vcfs_tsvs_bad_logs).collectFile(name: "failed.pairs.txt", storeDir: "${params.output_dir}", newLine: true)
+failed_samples.mix(samples_vcfs_tsvs_bad_logs, sample_vcf_hc_bad_logs).collectFile(name: "failed.txt", storeDir: "${params.outputDir}", newLine: true)
+failed_pairs.mix(pairs_vcfs_tsvs_bad_logs).collectFile(name: "failed.pairs.txt", storeDir: "${params.outputDir}", newLine: true)
 
 workflow.onComplete {
 
