@@ -178,6 +178,16 @@ remote:
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
 RESUME:=-resume
+
+# try to automatically determine which 'run' recipe to use based on hostname
+run:
+	if grep -q 'phoenix' <<<'$(HOSTNAME)'; then \
+	$(MAKE) run-phoenix; \
+	elif grep -q 'bigpurple' <<<'$(HOSTNAME)'; then \
+	$(MAKE) run-bigpurple ; \
+	else echo ">>> ERROR: could not automatically determine 'run' recipe to use, please consult the Makefile"; exit 1 ; \
+	fi ; \
+
 # run on phoenix in current session
 run-phoenix: install
 	@module unload java && module load java/1.8 && \
@@ -186,9 +196,8 @@ run-phoenix: install
 	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP) | tee -a "$${log_file}" ; \
 	echo ">>> Nextflow completed, stdout log file: $${log_file}"
 
-# run on NYU Big Purple HPC
+# run on NYU Big Purple HPC in current session
 Q:=cpu_medium
-# module load singularity/2.5.2 ;
 run-bigpurple: install
 	@log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
 	echo ">>> Running Nextflow with stdout log file: $${log_file}" ; \
@@ -203,12 +212,6 @@ run-local: install
 run-power: install
 	source /shared/miniconda2/bin/activate /shared/biobuilds-2017.11 && \
 	./nextflow run main.nf -profile power $(RESUME) -with-dag flowchart.dot $(EP)
-
-# compile flow chart
-flowchart:
-	[ -f flowchart.dot ] && dot flowchart.dot -Tpng -o flowchart.png || echo "file flowchart.dot not present"
-
-
 
 # submit the parent Nextflow process to phoenix HPC as a qsub job
 # `make submit-phoenix EP='--runID 180316_NB501073_0036_AH3VFKBGX5'`
@@ -280,7 +283,9 @@ clean-all: clean clean-output clean-work
 	rm -f flowchart*.dot
 	rm -f nextflow.*.stdout.log
 
-
+# compile flow chart
+flowchart:
+	[ -f flowchart.dot ] && dot flowchart.dot -Tpng -o flowchart.png || echo "file flowchart.dot not present"
 
 # ~~~~~ FINALIZE ~~~~~ #
 # steps for finalizing the Nextflow pipeline output 'work' directory
