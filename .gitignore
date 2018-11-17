@@ -53,3 +53,4 @@ input
 config.json
 **.simg
 */test/*
+trace.txt

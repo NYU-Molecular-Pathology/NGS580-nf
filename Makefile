@@ -95,6 +95,7 @@ check-fastqdir:
 # - create samplesheet; assume '--name-mode noLaneSplit' by default
 # location of production demultiplexing for deployment
 FASTQDIR:=
+FASTQDIRS:=
 # sequencing run name for deployment
 RUNID:=
 # location of production deployment for analysis
@@ -111,7 +112,7 @@ deploy:
 	echo ">>> Linking input directory: $(FASTQDIR)" && \
 	ln -s "$(FASTQDIR)" input && \
 	echo ">>> Creating input fastq sheet" && \
-	python generate-samplesheets.py --name-mode noLaneSplit '$(FASTQDIR)' && \
+	python generate-samplesheets.py --name-mode "$(NAMEMODE)" '$(FASTQDIR)' && \
 	echo ">>> Creating config file..." && \
 	$(MAKE) config CONFIG_OUTPUT="$${output_dir}/config.json" && \
 	printf ">>> NGS580 analysis directory prepared: $${output_dir}\n"
@@ -127,23 +128,23 @@ config: $(CONFIG_OUTPUT)
 	@[ -n "$(RUNID)" ] && echo ">>> Updating runID config" && python config.py --update "$(CONFIG_OUTPUT)" --runID "$(RUNID)" || :
 	@[ -n "$(SAMPLESHEET)" ] && echo ">>> Updating samplesheet config" && python config.py --update "$(CONFIG_OUTPUT)" --samplesheet "$(SAMPLESHEET)" || :
 	@[ -n "$(FASTQDIR)" ] && echo ">>> Updating fastqDirs config" && python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs "$(FASTQDIR)" || :
+	@[ -n "$(FASTQDIRS)" ] && echo ">>> Adding fastq dirs to config" && python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs $(FASTQDIRS) || :
 
-# generate a samplesheet for the analysis
-samplesheet: check-fastqdir samples.analysis.tsv
-	echo ">>> Generating samplesheet for fastq directory $(FASTQDIR)" && \
-	python generate-samplesheets.py '$(FASTQDIR)' && \
-	$(MAKE) config SAMPLESHEET=samples.analysis.tsv
+config-add-fastqdirs:
+	@if [ ! -z "$(FASTQDIRS)" ]; then \
+	for fastqdir in $(FASTQDIRS); do \
+	echo ">>> Adding $$fastqdir to $(CONFIG_OUTPUT)" ; \
+	$(MAKE) config FASTQDIR="$$fastqdir" ; \
+	done; else \
+	echo ">>> ERROR: no FASTQDIRS passed" ; \
+	fi
 
-# add an extra fastq directory to the samplesheet
-# update the analysis config for the new directory
-samplesheet-add-fastqdir: check-fastqdir
-	@echo ">>> Adding fastq directory $(FASTQDIR) to the samplesheet" && \
-	python generate-samplesheets.py --append '$(FASTQDIR)' && \
-	old_fastqdirs="$$(python -c 'import json; fastq_dirs = json.load(open("config.json")).get("fastqDirs", None); print(" " .join(fastq_dirs) if fastq_dirs else "" )')" && \
-	echo ">>> Old fastq directories were: $${old_fastqdirs}" && \
-	new_fastqdirs="$(FASTQDIR) $${old_fastqdirs}" && \
-	echo ">>> New fastq directories will be: $${new_fastqdirs}" && \
-	python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs $${new_fastqdirs}
+# generate a samplesheet for the analysis based on the configs
+NAMEMODE:=noLaneSplit
+samplesheet:
+	@echo ">>> Generating samplesheet from $(CONFIG_OUTPUT)" ; \
+	fastqdirs="$$(python -c 'import json; fastq_dirs = json.load(open("$(CONFIG_OUTPUT)")).get("fastqDirs", None); print(" " .join(fastq_dirs) if fastq_dirs else "" )')" ; \
+	python generate-samplesheets.py --name-mode "$(NAMEMODE)" $${fastqdirs}
 
 # ~~~~~ UPDATE THIS REPO ~~~~~ #
 # commands for bringing this directory's pipeline up to date

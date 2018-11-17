@@ -20,10 +20,26 @@ def update_config(updateFile, data):
     old_data = json.load(f)
     f.close()
 
-    for key, value in data.items():
+    for key, new_value in data.items():
         if key in old_data:
-            if value is not None:
-                old_data[key] = value
+            # only update non-None values
+            if new_value is not None:
+                # if the old data value was a list, append new items
+                if isinstance(old_data[key], (list,)):
+                    # start a new list from the old items
+                    new_list = [ item for item in old_data[key] ]
+                    # check if new item is single value or list of values
+                    if isinstance(new_value, (list,)):
+                        # add each new value
+                        for item in new_value:
+                            new_list.append(item)
+                    else:
+                        # add the new value
+                        new_list.append(new_value)
+                    old_data[key] = list(set(new_list))
+                # otherwise, overwrite old value
+                else:
+                    old_data[key] = new_value
 
     f = open(updateFile, "w")
     json.dump(old_data, f, indent = 4)
