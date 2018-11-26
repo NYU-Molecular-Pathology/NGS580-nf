@@ -3,7 +3,7 @@ Target exome analysis for 580 gene panel
 
 __NOTE:__ Details listed here may change during development
 
-# Installation 
+# Installation
 
 - clone this repository
 
@@ -12,7 +12,7 @@ git clone https://github.com/NYU-Molecular-Pathology/NGS580-nf.git
 cd NGS580-nf
 ```
 
-# Setup 
+# Setup
 
 ## Docker
 
@@ -29,7 +29,7 @@ Conda environment recipes (equivalent to the included Docker containers) have al
 
 ```
 cd conda
-make 
+make
 ```
 
 ## Reference Data
@@ -44,16 +44,28 @@ Note that this will require a version of ANNOVAR (included Docker container is u
 
 # Usage
 
-The pipeline is designed to start from demultiplexed .fastq.gz files, produced by an Illumina sequencer, which have been split by flowcells lane (default `bcl2fastq` output format).
+The pipeline is designed to start from demultiplexed .fastq.gz files, produced by an Illumina sequencer.
+
+## Create Config
+
+A config file should first be created using the built-in methods:
+
+```
+make config RUNID=my_run_ID FASTQDIR=/path/to/fastqs
+```
+
+or
+
+```
+make config RUNID=my_run_ID FASTQDIRS='/path/to/fastqs1 /path/to/fastqs2'
+```
 
 ## Create Samplesheet
 
-A samplesheet is needed to gather data about fastq.gz input files and sample IDs. It can be generated with these steps:
-
-- Create a `samples.analysis.tsv` samplesheet (example [here](https://github.com/NYU-Molecular-Pathology/NGS580-nf/blob/master/example/samples.analysis.tsv)) for your input `.fastq.gz` files:
+Create a samplesheet, based on the config file, using the built-in methods:
 
 ```
-./generate-samplesheets.py /path/to/fastq_dir
+make samplesheet
 ```
 
 - [Optional] Manually create a [`samples.tumor.normal.csv` samplesheet](https://github.com/NYU-Molecular-Pathology/NGS580-nf/blob/master/example/samples.tumor.normal.csv) with the tumor-normal groupings for your samples, and update the original samplesheet with it by running the following script:
@@ -64,41 +76,20 @@ A samplesheet is needed to gather data about fastq.gz input files and sample IDs
 
 ## Run the pipeline:
 
-To run the Nextflow pipeline in the current session:
-
-- on NYU phoenix HPC using 'module', submits jobs to SGE scheduler
-    
-```
-make run-phoenix
-```
-
-- on MCIT Power8 server using Miniconda, runs jobs on host system
+If you are on NYU's phoenix or Big Purple HPC clusters, you can use the auto-run functionality based on the config file:
 
 ```
-make run-power
-
+make run
 ```
 
-- locally using Docker, runs jobs on host system
-
-```
-make run-local
-```
-
-To submit the parent Nextflow process as a job on the HPC system:
-
-- on NYU phoenix HPC
-
-```
-make submit-phoenix
-```
+Refer to the `Makefile` for more run options.
 
 ### Extra Parameters
 
 You can supply extra parameters for Nextflow by using the `EP` variable included in the Makefile, like this:
 
 ```
-make run-phoenix EP='--runID 180320_NB501073_0037_AH55F3BGX5 --resultsID 2018-05-10_17-33-23'
+make run EP='--runID 180320_NB501073_0037_AH55F3BGX5 
 ```
 
 # Demo

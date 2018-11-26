@@ -57,13 +57,20 @@ demo-small: NGS580-demo-data
 
 # set up for demo with 'tiny' dataset (faster processing, ~1hr on NYU HPC)
 demo: NGS580-demo-data
-	./generate-samplesheets.py NGS580-demo-data/tiny/fastq/ && \
+	$(MAKE) config RUNID=demo FASTQDIR=NGS580-demo-data/tiny/fastq/ && \
+	$(MAKE) samplesheet && \
 	mv targets.bed "targets.bed.$(TIMESTAMP)" && \
-	/bin/cp NGS580-demo-data/tiny/targets.bed .
+	/bin/cp NGS580-demo-data/tiny/targets.bed . && \
 	./update-samplesheets.py --tumor-normal-sheet NGS580-demo-data/tiny/samples.pairs.csv \
 	--pairs-tumor-colname '#SAMPLE-T' \
 	--pairs-normal-colname '#SAMPLE-N'
-
+	# ./generate-samplesheets.py NGS580-demo-data/tiny/fastq/ && \
+	# mv targets.bed "targets.bed.$(TIMESTAMP)" && \
+	# /bin/cp NGS580-demo-data/tiny/targets.bed .
+	# ./update-samplesheets.py --tumor-normal-sheet NGS580-demo-data/tiny/samples.pairs.csv \
+	# --pairs-tumor-colname '#SAMPLE-T' \
+	# --pairs-normal-colname '#SAMPLE-N'
+	#
 # setup ANNOVAR reference databases
 # NYUMC Big Purple data directory location
 ANNOVAR_DB_DIR:=/gpfs/data/molecpathlab/ref/annovar/db
