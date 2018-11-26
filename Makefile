@@ -188,7 +188,7 @@ run:
 	echo ">>> Run completed, stdout log file: $${log_file}"
 
 run-recurse:
-	if grep -q 'phoenix' <<<'$(HOSTNAME)'; then echo  ">>> Running run-phoenix"; $(MAKE) run-phoenix ; \
+	@if grep -q 'phoenix' <<<'$(HOSTNAME)'; then echo  ">>> Running run-phoenix"; $(MAKE) run-phoenix ; \
 	elif grep -q 'bigpurple' <<<'$(HOSTNAME)'; then echo ">>> Running run-bigpurple"; $(MAKE) run-bigpurple ; \
 	else echo ">>> ERROR: could not automatically determine 'run' recipe to use, please consult the Makefile"; exit 1 ; fi ;
 
