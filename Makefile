@@ -182,28 +182,25 @@ RESUME:=-resume
 
 # try to automatically determine which 'run' recipe to use based on hostname
 run:
-	@if grep -q 'phoenix' <<<'$(HOSTNAME)'; then \
-	$(MAKE) run-phoenix; \
-	elif grep -q 'bigpurple' <<<'$(HOSTNAME)'; then \
-	$(MAKE) run-bigpurple ; \
-	else echo ">>> ERROR: could not automatically determine 'run' recipe to use, please consult the Makefile"; exit 1 ; \
-	fi ; \
+	@log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
+	echo ">>> Running with stdout log file: $${log_file}" ; \
+	$(MAKE) run-recurse 2>&1 | tee -a "$${log_file}" ; \
+	echo ">>> Run completed, stdout log file: $${log_file}"
+
+run-recurse:
+	if grep -q 'phoenix' <<<'$(HOSTNAME)'; then echo  ">>> Running run-phoenix"; $(MAKE) run-phoenix ; \
+	elif grep -q 'bigpurple' <<<'$(HOSTNAME)'; then echo ">>> Running run-bigpurple"; $(MAKE) run-bigpurple ; \
+	else echo ">>> ERROR: could not automatically determine 'run' recipe to use, please consult the Makefile"; exit 1 ; fi ;
 
 # run on phoenix in current session
 run-phoenix: install
 	@module unload java && module load java/1.8 && \
-	log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
-	echo ">>> Running Nextflow with stdout log file: $${log_file}" ; \
-	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP) | tee -a "$${log_file}" ; \
-	echo ">>> Nextflow completed, stdout log file: $${log_file}"
+	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP)
 
 # run on NYU Big Purple HPC in current session
 Q:=cpu_medium
 run-bigpurple: install
-	@log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
-	echo ">>> Running Nextflow with stdout log file: $${log_file}" ; \
-	./nextflow run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue $(Q) $(EP) | tee -a "$${log_file}" ; \
-	echo ">>> Nextflow completed, stdout log file: $${log_file}"
+	./nextflow run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue $(Q) $(EP)
 
 # run locally default settings
 run-local: install
