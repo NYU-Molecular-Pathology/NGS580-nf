@@ -148,12 +148,13 @@ config-add-fastqdirs:
 
 # generate a samplesheet for the analysis based on the configs
 NAMEMODE:=noLaneSplit
+SAMPLESHEET_OUTPUT:=samples.analysis.tsv
 samplesheet:
 	@echo ">>> Getting fastqdirs from config file: $(CONFIG_OUTPUT)" && \
 	fastqdirs="$$(python -c 'import json; fastq_dirs = json.load(open("$(CONFIG_OUTPUT)")).get("fastqDirs", None); print(" " .join(fastq_dirs) if fastq_dirs else "" )')" && \
 	echo ">>> loaded fastqdirs: $${fastqdirs}" && \
-	echo ">>> Generating samplesheet for fastqdirs" && \
-	python generate-samplesheets.py $(EP) --name-mode "$(NAMEMODE)" $${fastqdirs}
+	echo ">>> Generating samplesheet '$(SAMPLESHEET_OUTPUT)' for fastqdirs" && \
+	python generate-samplesheets.py $(EP) --samples-analysis-tsv "$(SAMPLESHEET_OUTPUT)" --name-mode "$(NAMEMODE)" $${fastqdirs}
 
 # ~~~~~ UPDATE THIS REPO ~~~~~ #
 # commands for bringing this directory's pipeline up to date

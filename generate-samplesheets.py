@@ -223,6 +223,7 @@ def parse():
     parser = argparse.ArgumentParser(description='This script will generate samplesheets for the analysis based on .fastq.gz files in the supplied directories')
     parser.add_argument("search_dirs", help="Paths to input directories to search for .fastq files to use for samplesheet creation", nargs="+")
     parser.add_argument("-p", default = None, dest = 'output_prefix', metavar = 'prefix', help="Prefix for samplesheet files")
+    parser.add_argument("--samples-analysis-tsv", default = 'samples.analysis.tsv', dest = 'samples_analysis_tsv', metavar = 'samples_analysis_tsv', help="Filename for .tsv format samplesheet output")
     parser.add_argument("--name-mode", default = 'noLaneSplit', dest = 'name_mode', metavar = 'filename mode', help="Mode for parsing fastq filenames. Default: 'noLaneSplit', alternative: 'LaneSplit'")
     parser.add_argument("--append", action = 'store_true', dest = 'append', help="Append newly discovered samples to existing samplesheet")
 
