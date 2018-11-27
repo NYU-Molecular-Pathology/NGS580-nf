@@ -156,6 +156,18 @@ samplesheet:
 	echo ">>> Generating samplesheet '$(SAMPLESHEET_OUTPUT)' for fastqdirs" && \
 	python generate-samplesheets.py $(EP) --samples-analysis-tsv "$(SAMPLESHEET_OUTPUT)" --name-mode "$(NAMEMODE)" $${fastqdirs}
 
+# update the samplesheet with the sample pairs information
+# requires samplesheet to exist
+# default to 'sns' style sample pairs .csv file
+PAIRS_SHEET:=samples.pairs.csv
+PAIRS_MODE:=sns
+pairs:
+	if [ ! -e "$(SAMPLESHEET_OUTPUT)" ]; then $(MAKE) samplesheet; fi && \
+	if [ ! -e "$(PAIRS_SHEET)" ]; then echo ">>> ERROR: PAIRS_SHEET does not exist: $(PAIRS_SHEET)"; exit 1; fi && \
+	if [ "$(PAIRS_MODE)" == "sns" ]; then \
+	python update-samplesheets.py --tumor-normal-sheet "$(PAIRS_SHEET)" --pairs-tumor-colname '#SAMPLE-T' --pairs-normal-colname '#SAMPLE-N' ; \
+	else echo ">>> ERROR: PAIRS_MODE not recognized: $(PAIRS_MODE)"; exit 1; fi
+
 # ~~~~~ UPDATE THIS REPO ~~~~~ #
 # commands for bringing this directory's pipeline up to date
 update: pull update-submodules update-nextflow
