@@ -162,7 +162,7 @@ samplesheet:
 PAIRS_SHEET:=samples.pairs.csv
 PAIRS_MODE:=sns
 pairs:
-	if [ ! -e "$(SAMPLESHEET_OUTPUT)" ]; then $(MAKE) samplesheet; fi && \
+	@if [ ! -e "$(SAMPLESHEET_OUTPUT)" ]; then $(MAKE) samplesheet; fi && \
 	if [ ! -e "$(PAIRS_SHEET)" ]; then echo ">>> ERROR: PAIRS_SHEET does not exist: $(PAIRS_SHEET)"; exit 1; fi && \
 	if [ "$(PAIRS_MODE)" == "sns" ]; then \
 	python update-samplesheets.py --tumor-normal-sheet "$(PAIRS_SHEET)" --pairs-tumor-colname '#SAMPLE-T' --pairs-normal-colname '#SAMPLE-N' ; \
