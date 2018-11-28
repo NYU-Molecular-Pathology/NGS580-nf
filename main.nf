@@ -441,7 +441,7 @@ process samtools_flagstat_table {
     flagstat2table.R "${flagstat}" tmp.tsv
 
     paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}"  | \
-    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Run" -v "${runID}" | \
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
@@ -507,7 +507,7 @@ process sambamba_dedup_log_table {
     dedup-log2table.R "${log_file}" tmp.tsv
 
     paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}"  | \
-    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Run" -v "${runID}" | \
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
@@ -560,7 +560,7 @@ process samtools_dedup_flagstat_table {
     flagstat2table.R "${flagstat}" tmp.tsv
 
     paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}"  | \
-    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Run" -v "${runID}" | \
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
@@ -899,7 +899,7 @@ process update_coverage_tables {
     sample-summary2table.R "${sample_summary}" tmp.tsv
 
     paste-col.py -i tmp.tsv --header "Mode" -v "${mode}" | \
-    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Run" -v "${runID}" | \
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
@@ -932,7 +932,7 @@ process update_interval_tables {
 
     paste-col.py -i tmp.tsv --header "Mode" -v "${mode}" | \
     paste-col.py --header "Sample" -v "${sampleID}"  | \
-    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Run" -v "${runID}" | \
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
@@ -1028,7 +1028,7 @@ process lofreq {
     # add extra columns to the VCF TSV file for downstream
     reformat-vcf-table.py -c LoFreq -s "${sampleID}" -i "${tsv_file}" | \
     paste-col.py --header "Sample" -v "${sampleID}"  | \
-    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Run" -v "${runID}" | \
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
@@ -1113,7 +1113,7 @@ process gatk_hc {
     # add extra columns to the VCF TSV file for downstream
     reformat-vcf-table.py -c HaplotypeCaller -s "${sampleID}" -i "${tsv_file}" | \
     paste-col.py --header "Sample" -v "${sampleID}"  | \
-    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Run" -v "${runID}" | \
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
@@ -1580,7 +1580,7 @@ process mutect2 {
     paste-col.py --header "Sample" -v "${tumorID}"  | \
     paste-col.py --header "Tumor" -v "${tumorID}"  | \
     paste-col.py --header "Normal" -v "${normalID}"  | \
-    paste-col.py --header "Run" -v "${params.runID}" | \
+    paste-col.py --header "Run" -v "${runID}" | \
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
     paste-col.py --header "Session" -v "${workflow.sessionId}" | \
     paste-col.py --header "Workflow" -v "${workflow.runName}" | \
@@ -1679,11 +1679,10 @@ process annotate {
     set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_vcfs_tsvs_good.combine(annovar_db_dir)
 
     output:
-    file("${annotations_tsv}") into annotations_tables
+    set val(caller), val(prefix), file("${annotations_tmp}") into annotations_tmp_tables
     file("${avinput_file}")
     file("${avinput_tsv}")
     file("${annovar_output_txt}")
-    file("${annotations_tsv}")
     val(sampleID) into done_annotate
 
     script:
@@ -1693,7 +1692,6 @@ process annotate {
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
     annovar_output_vcf = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.vcf"
     annotations_tmp = "${prefix}.annotations.tmp"
-    annotations_tsv = "${prefix}.annotations.tsv"
     if( caller == 'HaplotypeCaller' )
         """
         # convert to ANNOVAR format
@@ -1719,9 +1717,6 @@ process annotate {
 
         # merge the tables together
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
-
-        # add the hash per variant
-        hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k Chr Start End Ref Alt CHROM POS REF ALT Sample Run Results VariantCaller
         """
     else if( caller == 'LoFreq' )
         """
@@ -1745,7 +1740,6 @@ process annotate {
         cut -f1-10 ${avinput_file} >>  "${avinput_tsv}"
 
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
-        hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k Chr Start End Ref Alt CHROM POS REF ALT Sample Run Results VariantCaller
         """
     else
         error "Invalid caller: ${caller}"
@@ -1754,19 +1748,18 @@ process annotate {
 process annotate_pairs {
     // annotate variants
     tag "${prefix}"
-    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${tumorID}", overwrite: true // , mode: 'copy'
     publishDir "${params.outputDir}/analysis/annotations", overwrite: true
 
     input:
     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from pairs_vcfs_tsvs_good.combine(annovar_db_dir2)
 
     output:
-    file("${annotations_tsv}") into annotations_tables_pairs
+    set val(caller), val(prefix), file("${annotations_tmp}") into annotations_tmp_pairs_tables
     file("${avinput_file}")
     file("${avinput_tsv}")
     file("${annovar_output_txt}")
     file("${annovar_output_vcf}")
-    file("${annotations_tsv}")
     val(comparisonID) into done_annotate_pairs
 
     script:
@@ -1776,7 +1769,6 @@ process annotate_pairs {
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
     annovar_output_vcf = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.vcf"
     annotations_tmp = "${prefix}.annotations.tmp"
-    annotations_tsv = "${prefix}.annotations.tsv"
     if( caller == 'MuTect2' )
         """
         table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
@@ -1794,19 +1786,38 @@ process annotate_pairs {
         cut -f1-14 ${avinput_file} >>  "${avinput_tsv}"
 
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
-        hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k Chr Start End Ref Alt CHROM POS REF ALT Sample Run Results VariantCaller
         """
     else
         error "Invalid caller: ${caller}"
-
-
 }
+
+process hash_annotation_table {
+    // add a hash to the table of annotations to identifiy unique entries
+    tag "${prefix}"
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/analysis/annotations", overwrite: true
+
+    input:
+    set val(caller), val(prefix), file(annotations_tmp) from annotations_tmp_pairs_tables.concat(annotations_tmp_tables)
+
+    output:
+    file("${annotations_tsv}") into annotations_tables
+    val('') into done_hash_annotation_table
+
+    script:
+    hash_cols='Chr Start End Ref Alt CHROM POS REF ALT Sample Run Session VariantCaller'
+    annotations_tsv = "${prefix}.annotations.tsv"
+    """
+    hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k ${hash_cols}
+    """
+}
+
 process collect_annotation_tables {
     // combine all variants into a single table
     publishDir "${params.outputDir}/analysis", overwrite: true // , mode: 'copy'
 
     input:
-    file('table*') from annotations_tables.concat(annotations_tables_pairs).collect()
+    file('t*') from annotations_tables.collect()
 
     output:
     file('all_annotations.tsv')
@@ -1814,7 +1825,7 @@ process collect_annotation_tables {
 
     script:
     """
-    concat-tables.py * > all_annotations.tsv
+    concat-tables.py t* > all_annotations.tsv
     """
 }
 
@@ -1847,6 +1858,7 @@ done_copy_samplesheet.concat(
     done_annotate,
     done_annotate_pairs,
     done_collect_annotation_tables,
+    done_hash_annotation_table,
     done_sambamba_dedup_log_table,
     done_sambamba_flagstat_table,
     done_sambamba_dedup_flagstat_table,
@@ -1871,7 +1883,7 @@ process custom_analysis_report {
     file("${html_output}")
 
     script:
-    prefix = "${params.runID}"
+    prefix = "${runID}"
     html_output = "${prefix}.analysis_report.html"
     """
     # convert report file symlinks to copies of original files, because knitr doesnt work well unless all report files are in pwd
@@ -1902,7 +1914,7 @@ process custom_sample_report {
     file("${html_output}")
 
     script:
-    prefix = "${sampleID}.${params.runID}"
+    prefix = "${sampleID}.${runID}"
     html_output = "${prefix}.analysis_report.html"
     """
     # convert report file symlinks to copies of original files, because knitr doesnt work well unless all report files are in pwd
