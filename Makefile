@@ -205,9 +205,13 @@ RESUME:=-resume
 # HPC queue/partition to submit to by default
 Q:=cpu_short
 # try to automatically detect a SLURM queue with idle nodes to submit to
-AutoQ_SLURM:=$(shell sinfo -N -O nodelist,partition,statelong | grep 'idle' | grep -v 'data_mover' | grep -v 'dev' | tr -s '[:space:]' | cut -d ' ' -f2 | sort -u | head -1)
-ifneq ($(AutoQ_SLURM),)
-Q:=$(AutoQ_SLURM)
+AutoQ_SLURM_idle:=$(shell sinfo -N -O nodelist,partition,statelong | grep 'idle' | grep -v 'data_mover' | grep -v 'dev' | tr -s '[:space:]' | cut -d ' ' -f2 | sort -u | head -1)
+# detect which 'mixed' queue has the most open nodes
+AutoQ_SLURM_mixed:=$(shell sinfo -N -O nodelist,partition,statelong | grep 'mixed' | grep -v 'data_mover' | grep -v 'dev' | tr -s '[:space:]' | cut -d ' ' -f2 | sort | uniq -c | sort -k 1nr | head -1 | tr -s '[:space:]' | cut -d ' ' -f3)
+ifneq ($(AutoQ_SLURM_idle),)
+Q:=$(AutoQ_SLURM_idle)
+else ifneq ($(AutoQ_SLURM_mixed),)
+Q:=$(AutoQ_SLURM_mixed)
 endif
 
 # try to automatically determine which 'run' recipe to use based on hostname
