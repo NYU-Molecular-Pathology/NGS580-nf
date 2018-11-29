@@ -220,7 +220,7 @@ run-phoenix: install
 	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP)
 
 # run on NYU Big Purple HPC in current session
-Q:=cpu_medium
+Q:=cpu_short
 run-bigpurple: install
 	./nextflow run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue $(Q) $(EP)
 
