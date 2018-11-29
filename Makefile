@@ -200,7 +200,15 @@ remote:
 
 
 # ~~~~~ RUN PIPELINE ~~~~~ #
+# enable 'resume' functionality; set this to '' to disable
 RESUME:=-resume
+# HPC queue/partition to submit to by default
+Q:=cpu_short
+# try to automatically detect a SLURM queue with idle nodes to submit to
+AutoQ_SLURM:=$(shell sinfo -N -O nodelist,partition,statelong | grep 'idle' | grep -v 'data_mover' | grep -v 'dev' | tr -s '[:space:]' | cut -d ' ' -f2 | sort -u | head -1)
+ifneq ($(AutoQ_SLURM),)
+Q:=$(AutoQ_SLURM)
+endif
 
 # try to automatically determine which 'run' recipe to use based on hostname
 run:
@@ -220,7 +228,6 @@ run-phoenix: install
 	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP)
 
 # run on NYU Big Purple HPC in current session
-Q:=cpu_short
 run-bigpurple: install
 	./nextflow run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue $(Q) $(EP)
 
