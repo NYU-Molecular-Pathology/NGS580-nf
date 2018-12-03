@@ -113,16 +113,16 @@ log.info "* Launch command:\n${workflow.commandLine}\n"
 Channel.fromPath( file(params.targetsBed) ).set{ targets_bed }
 
 // reference files
-Channel.fromPath( file(params.targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4 }
-Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5 }
-Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5 }
-Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5 }
+Channel.fromPath( file(params.targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7 }
+Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9 }
+Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9 }
+Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9 }
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
 Channel.fromPath( file(params.ref_fa_bwa_dir) ).set{ ref_fa_bwa_dir }
-Channel.fromPath( file(params.gatk_1000G_phase1_indels_hg19_vcf) ).set{ gatk_1000G_phase1_indels_vcf }
-Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf) ).set{ mills_and_1000G_gold_standard_indels_vcf }
-Channel.fromPath( file(params.dbsnp_ref_vcf) ).into{ dbsnp_ref_vcf; dbsnp_ref_vcf2; dbsnp_ref_vcf3; dbsnp_ref_vcf4; dbsnp_ref_vcf5 }
+Channel.fromPath( file(params.gatk_1000G_phase1_indels_hg19_vcf) ).into{ gatk_1000G_phase1_indels_vcf; gatk_1000G_phase1_indels_vcf2; gatk_1000G_phase1_indels_vcf3; gatk_1000G_phase1_indels_vcf4 }
+Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf) ).into{ mills_and_1000G_gold_standard_indels_vcf; mills_and_1000G_gold_standard_indels_vcf2; mills_and_1000G_gold_standard_indels_vcf3; mills_and_1000G_gold_standard_indels_vcf4 }
+Channel.fromPath( file(params.dbsnp_ref_vcf) ).into{ dbsnp_ref_vcf; dbsnp_ref_vcf2; dbsnp_ref_vcf3; dbsnp_ref_vcf4; dbsnp_ref_vcf5; dbsnp_ref_vcf6; dbsnp_ref_vcf7; dbsnp_ref_vcf8 }
 Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref_vcf2 }
 Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
 Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_db_dir2 }
@@ -462,7 +462,7 @@ process sambamba_dedup {
     set val(sampleID), file(sample_bam) from samples_bam2
 
     output:
-    set val(sampleID), file("${bam_file}") into samples_dd_bam, samples_dd_bam2, samples_dd_bam3, samples_dd_bam4, samples_dd_bam5, samples_dd_bam6, samples_dd_bam7
+    set val(sampleID), file("${bam_file}") into samples_dd_bam, samples_dd_bam2
     file("${bai_file}")
     set val(sampleID), file("${log_file}") into sambamba_dedup_logs
     val(sampleID) into done_sambamba_dedup
@@ -577,12 +577,12 @@ sambamba_dedup_flagstat_tables.collectFile(name: "flagstat.dedup.tsv", storeDir:
 samples_dd_bam.combine(ref_fasta)
             .combine(ref_fai)
             .combine(ref_dict)
-            .tap { samples_dd_bam_ref }
+            // .tap { samples_dd_bam_ref }
             .combine(targets_bed)
-            .tap { samples_dd_bam_ref2;
-                    samples_dd_bam_ref3;
-                    samples_dd_bam_ref4
-                }
+            // .tap { samples_dd_bam_ref2;
+            //         samples_dd_bam_ref3;
+            //         samples_dd_bam_ref4
+            //     }
             .combine(gatk_1000G_phase1_indels_vcf)
             .combine(mills_and_1000G_gold_standard_indels_vcf)
             .combine(dbsnp_ref_vcf)
@@ -594,35 +594,138 @@ samples_dd_bam.combine(ref_fasta)
 
 
 // MAIN REALIGNMENT AND RECALIBRATION STEP
-process bam_ra_rc_gatk {
+// process bam_ra_rc_gatk {
+//     // re-align and recalibrate alignments for later variant calling
+//     tag "${sampleID}"
+//     publishDir "${params.outputDir}/analysis/alignments", overwrite: true // , mode: 'copy'
+//     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
+//
+//     input:
+//     set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from samples_dd_bam_ref_gatk
+//
+//     output:
+//     set val(sampleID), file("${ra_rc_bam_file}"), file("${ra_rc_bai_file}") into samples_dd_ra_rc_bam, samples_dd_ra_rc_bam2, samples_dd_ra_rc_bam3
+//     file "${intervals_file}"
+//     file "${table1}"
+//     file "${table2}"
+//     file "${csv_file}"
+//     file "${pdf_file}"
+//     val(sampleID) into done_bam_ra_rc_gatk
+//
+//     script:
+//     prefix = "${sampleID}"
+//     ra_bam_file = "${prefix}.dd.ra.bam"
+//     ra_bai_file = "${prefix}.dd.ra.bam.bai"
+//     ra_rc_bam_file = "${prefix}.dd.ra.rc.bam"
+//     ra_rc_bai_file = "${prefix}.dd.ra.rc.bam.bai"
+//     intervals_file = "${prefix}.intervals"
+//     table1 = "${prefix}.table1.txt"
+//     table2 = "${prefix}.table2.txt"
+//     csv_file = "${prefix}.csv"
+//     pdf_file = "${prefix}.pdf"
+//     """
+//     gatk.sh -T RealignerTargetCreator \
+//     -dt NONE \
+//     --logging_level ERROR \
+//     -nt \${NSLOTS:-\${NTHREADS:-1}} \
+//     --reference_sequence "${ref_fasta}" \
+//     -known "${gatk_1000G_phase1_indels_vcf}" \
+//     -known "${mills_and_1000G_gold_standard_indels_vcf}" \
+//     --intervals "${targets_bed_file}" \
+//     --interval_padding 10 \
+//     --input_file "${sample_bam}" \
+//     --out "${intervals_file}"
+//
+//     gatk.sh -T IndelRealigner \
+//     -dt NONE \
+//     --logging_level ERROR \
+//     --reference_sequence "${ref_fasta}" \
+//     --maxReadsForRealignment 50000 \
+//     -known "${gatk_1000G_phase1_indels_vcf}" \
+//     -known "${mills_and_1000G_gold_standard_indels_vcf}" \
+//     -targetIntervals "${intervals_file}" \
+//     --input_file "${sample_bam}" \
+//     --out "${ra_bam_file}"
+//
+//     gatk.sh -T BaseRecalibrator \
+//     --logging_level ERROR \
+//     -nct \${NSLOTS:-\${NTHREADS:-1}} \
+//     -rf BadCigar \
+//     --reference_sequence "${ref_fasta}" \
+//     -knownSites "${gatk_1000G_phase1_indels_vcf}" \
+//     -knownSites "${mills_and_1000G_gold_standard_indels_vcf}" \
+//     -knownSites "${dbsnp_ref_vcf}" \
+//     --intervals "${targets_bed_file}" \
+//     --interval_padding 10 \
+//     --input_file "${ra_bam_file}" \
+//     --out "${table1}"
+//
+//     gatk.sh -T BaseRecalibrator \
+//     --logging_level ERROR \
+//     -nct \${NSLOTS:-\${NTHREADS:-1}} \
+//     -rf BadCigar \
+//     --reference_sequence "${ref_fasta}" \
+//     -knownSites "${gatk_1000G_phase1_indels_vcf}" \
+//     -knownSites "${mills_and_1000G_gold_standard_indels_vcf}" \
+//     -knownSites "${dbsnp_ref_vcf}" \
+//     --intervals "${targets_bed_file}" \
+//     --interval_padding 10 \
+//     --input_file "${ra_bam_file}" \
+//     -BQSR "${table1}" \
+//     --out "${table2}"
+//
+//     gatk.sh -T AnalyzeCovariates \
+//     --logging_level ERROR \
+//     --reference_sequence "${ref_fasta}" \
+//     -before "${table1}" \
+//     -after "${table2}" \
+//     -csv "${csv_file}" \
+//     -plots "${pdf_file}"
+//
+//     gatk.sh -T PrintReads \
+//     --logging_level ERROR \
+//     -nct \${NSLOTS:-\${NTHREADS:-1}} \
+//     -rf BadCigar \
+//     --reference_sequence "${ref_fasta}" \
+//     -BQSR "${table1}" \
+//     --input_file "${ra_bam_file}" \
+//     --out "${ra_rc_bam_file}"
+//
+//     samtools index "${ra_rc_bam_file}"
+//     """
+// }
+
+// samples_dd_bam.combine(ref_fasta)
+//             .combine(ref_fai)
+//             .combine(ref_dict)
+//             // .tap { samples_dd_bam_ref }
+//             .combine(targets_bed)
+//             // .tap { samples_dd_bam_ref2;
+//             //         samples_dd_bam_ref3;
+//             //         samples_dd_bam_ref4
+//             //     }
+//             .combine(gatk_1000G_phase1_indels_vcf)
+//             .combine(mills_and_1000G_gold_standard_indels_vcf)
+//             .combine(dbsnp_ref_vcf)
+//             .set { samples_dd_bam_ref_gatk }
+
+
+process gatk_RealignerTargetCreator {
     // re-align and recalibrate alignments for later variant calling
     tag "${sampleID}"
-    publishDir "${params.outputDir}/analysis/alignments", overwrite: true // , mode: 'copy'
-    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
+    publishDir "${params.outputDir}/analysis/alignments", pattern: "${intervals_file}", overwrite: true
+    publishDir "${params.outputDir}/samples/${sampleID}", pattern: "${intervals_file}", overwrite: true
 
     input:
     set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from samples_dd_bam_ref_gatk
 
     output:
-    set val(sampleID), file("${ra_rc_bam_file}"), file("${ra_rc_bai_file}") into samples_dd_ra_rc_bam, samples_dd_ra_rc_bam2, samples_dd_ra_rc_bam3
-    file "${intervals_file}"
-    file "${table1}"
-    file "${table2}"
-    file "${csv_file}"
-    file "${pdf_file}"
-    val(sampleID) into done_bam_ra_rc_gatk
+    set val(sampleID), file("${intervals_file}"), file(sample_bam) into realigned_intervals_tables
+    val(sampleID) into done_gatk_RealignerTargetCreator
 
     script:
     prefix = "${sampleID}"
-    ra_bam_file = "${prefix}.dd.ra.bam"
-    ra_bai_file = "${prefix}.dd.ra.bam.bai"
-    ra_rc_bam_file = "${prefix}.dd.ra.rc.bam"
-    ra_rc_bai_file = "${prefix}.dd.ra.rc.bam.bai"
     intervals_file = "${prefix}.intervals"
-    table1 = "${prefix}.table1.txt"
-    table2 = "${prefix}.table2.txt"
-    csv_file = "${prefix}.csv"
-    pdf_file = "${prefix}.pdf"
     """
     gatk.sh -T RealignerTargetCreator \
     -dt NONE \
@@ -635,7 +738,35 @@ process bam_ra_rc_gatk {
     --interval_padding 10 \
     --input_file "${sample_bam}" \
     --out "${intervals_file}"
+    """
+}
+realigned_intervals_tables.combine(ref_fasta6)
+            .combine(ref_fai6)
+            .combine(ref_dict6)
+            .combine(targets_bed5)
+            .combine(gatk_1000G_phase1_indels_vcf2)
+            .combine(mills_and_1000G_gold_standard_indels_vcf2)
+            .combine(dbsnp_ref_vcf6)
+            .set { realigned_intervals_tables_comb }
 
+process gatk_IndelRealigner {
+    // re-align and recalibrate alignments for later variant calling
+    tag "${sampleID}"
+    publishDir "${params.outputDir}/analysis/alignments", pattern: "*.dd.ra.bam*", overwrite: true
+    publishDir "${params.outputDir}/samples/${sampleID}", pattern: "*.dd.ra.bam*", overwrite: true
+
+    input:
+    set val(sampleID), file(intervals_file), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from realigned_intervals_tables_comb
+
+    output:
+    set val(sampleID), file("${ra_bam_file}"), file("${ra_bai_file}") into realigned_intervals_bams
+    val(sampleID) into done_gatk_IndelRealigner
+
+    script:
+    prefix = "${sampleID}"
+    ra_bam_file = "${prefix}.dd.ra.bam"
+    ra_bai_file = "${prefix}.dd.ra.bam.bai"
+    """
     gatk.sh -T IndelRealigner \
     -dt NONE \
     --logging_level ERROR \
@@ -647,6 +778,35 @@ process bam_ra_rc_gatk {
     --input_file "${sample_bam}" \
     --out "${ra_bam_file}"
 
+    samtools index "${ra_bam_file}"
+    """
+}
+realigned_intervals_bams.combine(ref_fasta7)
+            .combine(ref_fai7)
+            .combine(ref_dict7)
+            .combine(targets_bed6)
+            .combine(gatk_1000G_phase1_indels_vcf3)
+            .combine(mills_and_1000G_gold_standard_indels_vcf3)
+            .combine(dbsnp_ref_vcf7)
+            .set { realigned_intervals_bams_comb }
+
+process gatk_BaseRecalibrator {
+    // re-align and recalibrate alignments for later variant calling
+    tag "${sampleID}"
+    publishDir "${params.outputDir}/analysis/alignments", pattern: "*.table1.txt", overwrite: true
+    publishDir "${params.outputDir}/samples/${sampleID}", pattern: "*.table1.txt", overwrite: true
+
+    input:
+    set val(sampleID), file(ra_bam_file), file(ra_bai_file), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from realigned_intervals_bams_comb
+
+    output:
+    set val(sampleID), file("${table1}"), file(ra_bam_file), file(ra_bai_file) into recalibrated_bases_table1
+    val(sampleID) into done_gatk_BaseRecalibrator
+
+    script:
+    prefix = "${sampleID}"
+    table1 = "${prefix}.table1.txt"
+    """
     gatk.sh -T BaseRecalibrator \
     --logging_level ERROR \
     -nct \${NSLOTS:-\${NTHREADS:-1}} \
@@ -659,7 +819,35 @@ process bam_ra_rc_gatk {
     --interval_padding 10 \
     --input_file "${ra_bam_file}" \
     --out "${table1}"
+    """
+}
+recalibrated_bases_table1.combine(ref_fasta8)
+            .combine(ref_fai8)
+            .combine(ref_dict8)
+            .tap { recalibrated_bases_table1_ref }
+            .combine(targets_bed7)
+            .combine(gatk_1000G_phase1_indels_vcf4)
+            .combine(mills_and_1000G_gold_standard_indels_vcf4)
+            .combine(dbsnp_ref_vcf8)
+            .set { recalibrated_bases_table1_comb }
 
+process gatk_BaseRecalibratorBQSR {
+    // re-align and recalibrate alignments for later variant calling
+    tag "${sampleID}"
+    publishDir "${params.outputDir}/analysis/alignments", pattern: "${table2}", overwrite: true
+    publishDir "${params.outputDir}/samples/${sampleID}", pattern: "${table2}", overwrite: true
+
+    input:
+    set val(sampleID), file(table1), file(ra_bam_file), file(ra_bai_file), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from recalibrated_bases_table1_comb
+
+    output:
+    set val(sampleID), file(table1), file("${table2}"), file(ra_bam_file), file(ra_bai_file) into recalibrated_bases_table2
+    val(sampleID) into done_gatk_BaseRecalibratorBQSR
+
+    script:
+    prefix = "${sampleID}"
+    table2 = "${prefix}.table2.txt"
+    """
     gatk.sh -T BaseRecalibrator \
     --logging_level ERROR \
     -nct \${NSLOTS:-\${NTHREADS:-1}} \
@@ -673,7 +861,32 @@ process bam_ra_rc_gatk {
     --input_file "${ra_bam_file}" \
     -BQSR "${table1}" \
     --out "${table2}"
+    """
+}
+recalibrated_bases_table2.combine(ref_fasta9)
+            .combine(ref_fai9)
+            .combine(ref_dict9)
+            .set { recalibrated_bases_table2_comb }
 
+process gatk_AnalyzeCovariates {
+    // re-align and recalibrate alignments for later variant calling
+    tag "${sampleID}"
+    publishDir "${params.outputDir}/analysis/alignments", overwrite: true
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), file(table1), file(table2), file(ra_bam_file), file(ra_bai_file), file(ref_fasta), file(ref_fai), file(ref_dict) from recalibrated_bases_table2_comb
+
+    output:
+    file("${csv_file}")
+    file("${pdf_file}")
+    val(sampleID) into done_gatk_AnalyzeCovariates
+
+    script:
+    prefix = "${sampleID}"
+    csv_file = "${prefix}.csv"
+    pdf_file = "${prefix}.pdf"
+    """
     gatk.sh -T AnalyzeCovariates \
     --logging_level ERROR \
     --reference_sequence "${ref_fasta}" \
@@ -681,7 +894,27 @@ process bam_ra_rc_gatk {
     -after "${table2}" \
     -csv "${csv_file}" \
     -plots "${pdf_file}"
+    """
+}
 
+process gatk_PrintReads {
+    // re-align and recalibrate alignments for later variant calling
+    tag "${sampleID}"
+    publishDir "${params.outputDir}/analysis/alignments", overwrite: true
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), file(table1), file(ra_bam_file), file(ra_bai_file), file(ref_fasta), file(ref_fai), file(ref_dict) from recalibrated_bases_table1_ref
+
+    output:
+    set val(sampleID), file("${ra_rc_bam_file}"), file("${ra_rc_bai_file}") into samples_dd_ra_rc_bam, samples_dd_ra_rc_bam2, samples_dd_ra_rc_bam3
+    val(sampleID) into done_gatk_PrintReads
+
+    script:
+    prefix = "${sampleID}"
+    ra_rc_bam_file = "${prefix}.dd.ra.rc.bam"
+    ra_rc_bai_file = "${prefix}.dd.ra.rc.bam.bai"
+    """
     gatk.sh -T PrintReads \
     --logging_level ERROR \
     -nct \${NSLOTS:-\${NTHREADS:-1}} \
@@ -694,8 +927,6 @@ process bam_ra_rc_gatk {
     samtools index "${ra_rc_bam_file}"
     """
 }
-
-
 
 // setup downstream Channels for per-sample analyses
 samples_dd_ra_rc_bam.combine(ref_fasta2)
@@ -1846,7 +2077,12 @@ done_copy_samplesheet.concat(
     done_qc_target_reads_gatk_pad500,
     done_qc_target_reads_gatk_pad100,
     done_qc_target_reads_gatk_bed,
-    done_bam_ra_rc_gatk,
+    done_gatk_RealignerTargetCreator,
+    done_gatk_IndelRealigner,
+    done_gatk_BaseRecalibrator,
+    done_gatk_BaseRecalibratorBQSR,
+    done_gatk_AnalyzeCovariates,
+    done_gatk_PrintReads,
     done_lofreq,
     done_gatk_hc,
     done_delly2,
