@@ -120,12 +120,12 @@ def main(**kwargs):
 
 
     if input_file:
-        fin = open(input_file, encoding="utf-8")
+        fin = open(input_file, "rb") # , encoding="utf-8"
     else:
         fin = sys.stdin
 
     if output_file:
-        fout = open(output_file, "w", encoding="utf-8")
+        fout = open(output_file, "wb") # , encoding="utf-8"
     else:
         fout = sys.stdout
 
