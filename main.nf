@@ -571,145 +571,17 @@ process samtools_dedup_flagstat_table {
 }
 sambamba_dedup_flagstat_tables.collectFile(name: "flagstat.dedup.tsv", storeDir: "${params.outputDir}/analysis", keepHeader: true)
 
-
-
 // setup downstream Channels
 samples_dd_bam.combine(ref_fasta)
             .combine(ref_fai)
             .combine(ref_dict)
-            // .tap { samples_dd_bam_ref }
             .combine(targets_bed)
-            // .tap { samples_dd_bam_ref2;
-            //         samples_dd_bam_ref3;
-            //         samples_dd_bam_ref4
-            //     }
             .combine(gatk_1000G_phase1_indels_vcf)
             .combine(mills_and_1000G_gold_standard_indels_vcf)
             .combine(dbsnp_ref_vcf)
             .set { samples_dd_bam_ref_gatk }
 
-
-
-
-
-
 // MAIN REALIGNMENT AND RECALIBRATION STEP
-// process bam_ra_rc_gatk {
-//     // re-align and recalibrate alignments for later variant calling
-//     tag "${sampleID}"
-//     publishDir "${params.outputDir}/analysis/alignments", overwrite: true // , mode: 'copy'
-//     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
-//
-//     input:
-//     set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from samples_dd_bam_ref_gatk
-//
-//     output:
-//     set val(sampleID), file("${ra_rc_bam_file}"), file("${ra_rc_bai_file}") into samples_dd_ra_rc_bam, samples_dd_ra_rc_bam2, samples_dd_ra_rc_bam3
-//     file "${intervals_file}"
-//     file "${table1}"
-//     file "${table2}"
-//     file "${csv_file}"
-//     file "${pdf_file}"
-//     val(sampleID) into done_bam_ra_rc_gatk
-//
-//     script:
-//     prefix = "${sampleID}"
-//     ra_bam_file = "${prefix}.dd.ra.bam"
-//     ra_bai_file = "${prefix}.dd.ra.bam.bai"
-//     ra_rc_bam_file = "${prefix}.dd.ra.rc.bam"
-//     ra_rc_bai_file = "${prefix}.dd.ra.rc.bam.bai"
-//     intervals_file = "${prefix}.intervals"
-//     table1 = "${prefix}.table1.txt"
-//     table2 = "${prefix}.table2.txt"
-//     csv_file = "${prefix}.csv"
-//     pdf_file = "${prefix}.pdf"
-//     """
-//     gatk.sh -T RealignerTargetCreator \
-//     -dt NONE \
-//     --logging_level ERROR \
-//     -nt \${NSLOTS:-\${NTHREADS:-1}} \
-//     --reference_sequence "${ref_fasta}" \
-//     -known "${gatk_1000G_phase1_indels_vcf}" \
-//     -known "${mills_and_1000G_gold_standard_indels_vcf}" \
-//     --intervals "${targets_bed_file}" \
-//     --interval_padding 10 \
-//     --input_file "${sample_bam}" \
-//     --out "${intervals_file}"
-//
-//     gatk.sh -T IndelRealigner \
-//     -dt NONE \
-//     --logging_level ERROR \
-//     --reference_sequence "${ref_fasta}" \
-//     --maxReadsForRealignment 50000 \
-//     -known "${gatk_1000G_phase1_indels_vcf}" \
-//     -known "${mills_and_1000G_gold_standard_indels_vcf}" \
-//     -targetIntervals "${intervals_file}" \
-//     --input_file "${sample_bam}" \
-//     --out "${ra_bam_file}"
-//
-//     gatk.sh -T BaseRecalibrator \
-//     --logging_level ERROR \
-//     -nct \${NSLOTS:-\${NTHREADS:-1}} \
-//     -rf BadCigar \
-//     --reference_sequence "${ref_fasta}" \
-//     -knownSites "${gatk_1000G_phase1_indels_vcf}" \
-//     -knownSites "${mills_and_1000G_gold_standard_indels_vcf}" \
-//     -knownSites "${dbsnp_ref_vcf}" \
-//     --intervals "${targets_bed_file}" \
-//     --interval_padding 10 \
-//     --input_file "${ra_bam_file}" \
-//     --out "${table1}"
-//
-//     gatk.sh -T BaseRecalibrator \
-//     --logging_level ERROR \
-//     -nct \${NSLOTS:-\${NTHREADS:-1}} \
-//     -rf BadCigar \
-//     --reference_sequence "${ref_fasta}" \
-//     -knownSites "${gatk_1000G_phase1_indels_vcf}" \
-//     -knownSites "${mills_and_1000G_gold_standard_indels_vcf}" \
-//     -knownSites "${dbsnp_ref_vcf}" \
-//     --intervals "${targets_bed_file}" \
-//     --interval_padding 10 \
-//     --input_file "${ra_bam_file}" \
-//     -BQSR "${table1}" \
-//     --out "${table2}"
-//
-//     gatk.sh -T AnalyzeCovariates \
-//     --logging_level ERROR \
-//     --reference_sequence "${ref_fasta}" \
-//     -before "${table1}" \
-//     -after "${table2}" \
-//     -csv "${csv_file}" \
-//     -plots "${pdf_file}"
-//
-//     gatk.sh -T PrintReads \
-//     --logging_level ERROR \
-//     -nct \${NSLOTS:-\${NTHREADS:-1}} \
-//     -rf BadCigar \
-//     --reference_sequence "${ref_fasta}" \
-//     -BQSR "${table1}" \
-//     --input_file "${ra_bam_file}" \
-//     --out "${ra_rc_bam_file}"
-//
-//     samtools index "${ra_rc_bam_file}"
-//     """
-// }
-
-// samples_dd_bam.combine(ref_fasta)
-//             .combine(ref_fai)
-//             .combine(ref_dict)
-//             // .tap { samples_dd_bam_ref }
-//             .combine(targets_bed)
-//             // .tap { samples_dd_bam_ref2;
-//             //         samples_dd_bam_ref3;
-//             //         samples_dd_bam_ref4
-//             //     }
-//             .combine(gatk_1000G_phase1_indels_vcf)
-//             .combine(mills_and_1000G_gold_standard_indels_vcf)
-//             .combine(dbsnp_ref_vcf)
-//             .set { samples_dd_bam_ref_gatk }
-
-
 process gatk_RealignerTargetCreator {
     // re-align and recalibrate alignments for later variant calling
     tag "${sampleID}"
