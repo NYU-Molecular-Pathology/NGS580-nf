@@ -273,7 +273,14 @@ remote-kill:
 	@[ -z "$(PID)" ] && printf "invalid PID specified: $(PID)\n" && exit 1 || :
 	ssh "$(REMOTE)" 'kill $(PID)'
 
-
+# save a record of the Nextflow run completion
+RECDIR:=saved-reports-$(shell date +"%Y-%m-%d-%H-%M-%S")
+STDOUTLOG:=$(shell ls -d -1t logs/* | head -1 | python -c 'import sys, os; print(os.path.realpath(sys.stdin.readlines()[0].strip()))' )
+record:
+	@mkdir -p "$(RECDIR)" && \
+	cp -a *.html trace.txt .nextflow.log "$(RECDIR)/"&& \
+	cp -a "$(STDOUTLOG)" "$(RECDIR)/" && \
+	echo ">>> Copied execution reports and logs to: $(RECDIR)"
 
 # ~~~~~ CLEANUP ~~~~~ #
 # commands to clean out items in the current directory after running the pipeline
