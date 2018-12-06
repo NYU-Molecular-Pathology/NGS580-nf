@@ -219,7 +219,7 @@ run:
 	@log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
 	echo ">>> Running with stdout log file: $${log_file}" ; \
 	$(MAKE) run-recurse 2>&1 | tee -a "$${log_file}" ; \
-	echo ">>> Run completed, stdout log file: $${log_file}"
+	echo ">>> Run completed at $$(date +"%Y-%m-%d %H:%M:%S"), stdout log file: $${log_file}"
 
 run-recurse:
 	@if grep -q 'phoenix' <<<'$(HOSTNAME)'; then echo  ">>> Running run-phoenix"; $(MAKE) run-phoenix ; \
@@ -232,8 +232,13 @@ run-phoenix: install
 	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP)
 
 # run on NYU Big Purple HPC in current session
-run-bigpurple: install
-	./nextflow run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue $(Q) $(EP)
+# set up a scratch directory
+run-bigpurple: SCRATCHDIR:=$(shell mktemp -d --tmpdir="/gpfs/scratch/$$USER")
+run-bigpurple: SCRATCHDIR_ARG:=--scratchDir '$(SCRATCHDIR)'
+run-bigpurple: workDir=$(SCRATCHDIR)
+run-bigpurple: install $(SCRATCHDIR)
+	export NXF_WORK="$(workDir)" ; \
+	./nextflow run main.nf -profile bigPurple $(RESUME) $(SCRATCHDIR_ARG) -with-dag flowchart.dot --queue $(Q) $(EP)
 
 # run locally default settings
 run-local: install
@@ -302,11 +307,11 @@ clean-output:
 clean-work:
 	[ -d work ] && mv work oldwork && rm -rf oldwork &
 
-clean-old-stdout-logs:
-	find . -maxdepth 1 -mindepth 1 -type f -name "nextflow.*.stdout.log" | sort -r | tail -n +2 | xargs rm -f
-
-clean-old-failed-logs:
-	find . -maxdepth 1 -mindepth 1 -type f -name "failed.*.tsv" | sort -r | tail -n +2 | xargs rm -f
+# clean-old-stdout-logs:
+# 	find . -maxdepth 1 -mindepth 1 -type f -name "nextflow.*.stdout.log" | sort -r | tail -n +2 | xargs rm -f
+#
+# clean-old-failed-logs:
+# 	find . -maxdepth 1 -mindepth 1 -type f -name "failed.*.tsv" | sort -r | tail -n +2 | xargs rm -f
 
 # clean all files produced by previous pipeline runs
 clean: clean-logs clean-traces clean-reports clean-flowcharts clean-old-stdout-logs clean-old-failed-logs
@@ -315,7 +320,6 @@ clean: clean-logs clean-traces clean-reports clean-flowcharts clean-old-stdout-l
 clean-all: clean clean-output clean-work
 	[ -d .nextflow ] && mv .nextflow .nextflowold && rm -rf .nextflowold &
 	rm -f .nextflow.log
-	rm -f *.png
 	rm -f trace*.txt*
 	rm -f *.html*
 	rm -f flowchart*.dot

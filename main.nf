@@ -99,6 +99,7 @@ log.info "* Project dir:        ${workflow.projectDir}"
 log.info "* Launch dir:         ${workflow.launchDir}"
 log.info "* Work dir:           ${workflow.workDir.toUriString()}"
 log.info "* Output dir:         ${outputDirPath}"
+log.info "* Scratch dir:        ${params.scratchDir}"
 log.info "* Profile:            ${workflow.profile ?: '-'}"
 log.info "* Script name:        ${workflow.scriptName ?: '-'}"
 log.info "* Script ID:          ${workflow.scriptId ?: '-'}"
@@ -212,6 +213,7 @@ process copy_samplesheet {
 
     script:
     """
+    sleep 20
     cp "${samples_analysis_sheet}" samples.analysis.tsv
     """
 }
@@ -599,6 +601,8 @@ process gatk_RealignerTargetCreator {
     prefix = "${sampleID}"
     intervals_file = "${prefix}.intervals"
     """
+    samtools index "${sample_bam}"
+    
     gatk.sh -T RealignerTargetCreator \
     -dt NONE \
     --logging_level ERROR \
@@ -639,6 +643,8 @@ process gatk_IndelRealigner {
     ra_bam_file = "${prefix}.dd.ra.bam"
     ra_bai_file = "${prefix}.dd.ra.bam.bai"
     """
+    samtools index "${sample_bam}"
+
     gatk.sh -T IndelRealigner \
     -dt NONE \
     --logging_level ERROR \
