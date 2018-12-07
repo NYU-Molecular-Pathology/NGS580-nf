@@ -113,10 +113,10 @@ log.info "* Launch command:\n${workflow.commandLine}\n"
 Channel.fromPath( file(params.targetsBed) ).set{ targets_bed }
 
 // reference files
-Channel.fromPath( file(params.targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7 }
-Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9 }
-Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9 }
-Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9 }
+Channel.fromPath( file(params.targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8 }
+Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10 }
+Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10 }
+Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9; ref_dict10 }
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
 Channel.fromPath( file(params.ref_fa_bwa_dir) ).set{ ref_fa_bwa_dir }
@@ -779,7 +779,7 @@ process gatk_PrintReads {
     set val(sampleID), file(table1), file(ra_bam_file), file(ra_bai_file), file(ref_fasta), file(ref_fai), file(ref_dict) from recalibrated_bases_table1_ref
 
     output:
-    set val(sampleID), file("${ra_rc_bam_file}"), file("${ra_rc_bai_file}") into samples_dd_ra_rc_bam, samples_dd_ra_rc_bam2, samples_dd_ra_rc_bam3
+    set val(sampleID), file("${ra_rc_bam_file}"), file("${ra_rc_bai_file}") into samples_dd_ra_rc_bam, samples_dd_ra_rc_bam2, samples_dd_ra_rc_bam3, samples_dd_ra_rc_bam4
     val(sampleID) into done_gatk_PrintReads
 
     script:
@@ -1458,8 +1458,6 @@ process merge_signatures_pie_plots {
 // }
 
 
-
-
 // SETUP CHANNELS FOR PAIRED TUMOR-NORMAL STEPS
 // samples_dd_ra_rc_bam2 // set val(sampleID), file("${sampleID}.dd.ra.rc.bam"), file("${sampleID}.dd.ra.rc.bam.bai")
 // samples_pairs // [ tumorID, normalID ]
@@ -1771,7 +1769,7 @@ pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chrom, sample
     return(output)
 }.set { pairs_vcfs_tsvs_bad_logs }
 
-
+def hash_cols='Chr Start End Ref Alt CHROM POS REF ALT Sample Run Session VariantCaller'
 process annotate {
     // annotate variants
     tag "${prefix}"
@@ -1783,9 +1781,10 @@ process annotate {
 
     output:
     set val(caller), val(prefix), file("${annotations_tmp}") into annotations_tmp_tables
+    file("${annotations_tsv}") into annotations_tables
+    set val(caller), val(sampleID), file("${annotations_tsv}") into annotations_annovar_tables
     file("${avinput_file}")
     file("${avinput_tsv}")
-    file("${annovar_output_txt}")
     val(sampleID) into done_annotate
 
     script:
@@ -1795,6 +1794,7 @@ process annotate {
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
     annovar_output_vcf = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.vcf"
     annotations_tmp = "${prefix}.annotations.tmp"
+    annotations_tsv = "${prefix}.annotations.tsv"
     if( caller == 'HaplotypeCaller' )
         """
         # convert to ANNOVAR format
@@ -1820,6 +1820,8 @@ process annotate {
 
         # merge the tables together
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
+
+        hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k ${hash_cols}
         """
     else if( caller == 'LoFreq' )
         """
@@ -1843,6 +1845,8 @@ process annotate {
         cut -f1-10 ${avinput_file} >>  "${avinput_tsv}"
 
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
+
+        hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k ${hash_cols}
         """
     else
         error "Invalid caller: ${caller}"
@@ -1859,6 +1863,7 @@ process annotate_pairs {
 
     output:
     set val(caller), val(prefix), file("${annotations_tmp}") into annotations_tmp_pairs_tables
+    file("${annotations_tsv}") into annotations_tables_pairs
     file("${avinput_file}")
     file("${avinput_tsv}")
     file("${annovar_output_txt}")
@@ -1872,6 +1877,7 @@ process annotate_pairs {
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
     annovar_output_vcf = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.vcf"
     annotations_tmp = "${prefix}.annotations.tmp"
+    annotations_tsv = "${prefix}.annotations.tsv"
     if( caller == 'MuTect2' )
         """
         table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
@@ -1889,38 +1895,40 @@ process annotate_pairs {
         cut -f1-14 ${avinput_file} >>  "${avinput_tsv}"
 
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
+
+        hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k ${hash_cols}
         """
     else
         error "Invalid caller: ${caller}"
 }
 
-process hash_annotation_table {
-    // add a hash to the table of annotations to identifiy unique entries
-    tag "${prefix}"
-    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
-    publishDir "${params.outputDir}/analysis/annotations", overwrite: true
-
-    input:
-    set val(caller), val(prefix), file(annotations_tmp) from annotations_tmp_pairs_tables.concat(annotations_tmp_tables)
-
-    output:
-    file("${annotations_tsv}") into annotations_tables
-    val('') into done_hash_annotation_table
-
-    script:
-    hash_cols='Chr Start End Ref Alt CHROM POS REF ALT Sample Run Session VariantCaller'
-    annotations_tsv = "${prefix}.annotations.tsv"
-    """
-    hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k ${hash_cols}
-    """
-}
+// process hash_annotation_table {
+//     // add a hash to the table of annotations to identifiy unique entries
+//     tag "${prefix}"
+//     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
+//     publishDir "${params.outputDir}/analysis/annotations", overwrite: true
+//
+//     input:
+//     set val(caller), val(prefix), file(annotations_tmp) from annotations_tmp_pairs_tables.concat(annotations_tmp_tables)
+//
+//     output:
+//     file("${annotations_tsv}") into annotations_tables
+//     val('') into done_hash_annotation_table
+//
+//     script:
+//     hash_cols='Chr Start End Ref Alt CHROM POS REF ALT Sample Run Session VariantCaller'
+//     annotations_tsv = "${prefix}.annotations.tsv"
+//     """
+//     hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k ${hash_cols}
+//     """
+// }
 
 process collect_annotation_tables {
     // combine all variants into a single table
     publishDir "${params.outputDir}/analysis", overwrite: true // , mode: 'copy'
 
     input:
-    file('t*') from annotations_tables.collect()
+    file('t*') from annotations_tables.concat(annotations_tables_pairs).collect()
 
     output:
     file('all_annotations.tsv')
@@ -1931,6 +1939,143 @@ process collect_annotation_tables {
     concat-tables.py t* > all_annotations.tsv
     """
 }
+
+
+// ~~~~ Tumor Burden Analysis ~~~~ //
+samples_dd_ra_rc_bam4.combine(ref_fasta10)
+.combine(ref_fai10)
+.combine(ref_dict10)
+.combine(targets_bed8)
+.set { samples_bam_ref }
+
+process gatk_CallableLoci {
+    tag "${prefix}"
+    publishDir "${params.outputDir}/analysis/loci", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), file(bamfile), file(baifile), file(genomeFa), file(genomeFai), file(genomeDict), file(targetsBed) from samples_bam_ref
+
+    output:
+    set val("${sampleID}"), file("${output_summary}") into called_loci
+    file("${output_summary}")
+    file("${output_bed}")
+    file("${output_bed_pass}")
+
+    script:
+    prefix = "${sampleID}"
+    output_summary = "${prefix}.CallableLoci.summary.txt"
+    output_bed = "${prefix}.CallableLoci.bed"
+    output_bed_pass = "${prefix}.CallableLoci.pass.bed"
+    """
+    # minDepth 500 = NGS580 call threshold
+    # minMappingQuality, minBaseQuality 20 = NGS580 DepthOfCoverage threshold
+    gatk.sh \
+    -T CallableLoci \
+    -R "${genomeFa}" \
+    -I "${bamfile}" \
+    -summary "${output_summary}" \
+    --minMappingQuality 20 \
+    --minBaseQuality 20 \
+    --minDepth 500 \
+    --intervals "${targetsBed}" \
+    -o "${output_bed}"
+
+    grep -E 'CALLABLE|PASS' "${output_bed}" > "${output_bed_pass}" || touch "${output_bed_pass}" # exit code 1 if no matches
+    """
+}
+
+process callable_loci_table {
+    tag "${prefix}"
+    publishDir "${params.outputDir}/analysis/loci", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), file(summary) from called_loci
+
+    output:
+    file("${output_summary}") into loci_tables
+    set val(sampleID), file("${output_summary}"), file("${output_txt}") into loci_tables2
+
+    script:
+    prefix = "${sampleID}"
+    output_summary = "${prefix}.CallableLoci.summary.tsv"
+    output_txt = "${prefix}.CallableLoci.txt"
+    tmpFile = "tmp"
+    """
+    callable-loci-table.py "${summary}" "${tmpFile}"
+    paste-col.py -i "${tmpFile}" --header "Sample" -v "${sampleID}" > "${output_summary}"
+    grep 'CALLABLE' "${tmpFile}" | cut -f2 > "${output_txt}"
+    """
+}
+
+// only keep files with at least 1 variant for TMB analysis
+annotations_annovar_tables.filter { sampleID, caller, anno_tsv ->
+    def count = anno_tsv.readLines().size()
+    count > 1
+}.set { annotations_annovar_tables_filtered }
+
+process tmb_filter_variants {
+    tag "${prefix}"
+    publishDir "${params.outputDir}/analysis/tmb", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), val(caller), file(anno_tsv) from annotations_annovar_tables_filtered
+
+    output:
+    file("${output_Rdata}")
+    file("${output_variants}") into tmb_filtered_variants
+    set val(sampleID), val(caller), file("${output_variants}") into tmb_filtered_variants2
+
+    script:
+    prefix = "${sampleID}.${caller}"
+    output_Rdata = "${prefix}.tmb_filter_variants.Rdata"
+    output_variants = "${prefix}.annotations.tmb_filtered.tsv"
+    tmpFile = "tmp"
+    """
+    tmb-variant-filter.R "${output_Rdata}" "${tmpFile}" "${anno_tsv}"
+    cat "${tmpFile}" | \
+    paste-col.py --header "Sample" -v "${sampleID}" | \
+    paste-col.py --header "Caller" -v "${caller}" > "${output_variants}"
+    """
+}
+
+loci_tables2.map{ sampleID, summary_table, callable_txt ->
+    def callable_loci = callable_txt.readLines()[0]
+    return([sampleID, summary_table, "${callable_loci}"])
+}.combine(tmb_filtered_variants2)
+.filter{ sampleID_loci, loci_summary_table, callable_loci, sampleID_anno, caller, filtered_annotations ->
+    sampleID_anno == sampleID_loci
+}
+.map{ sampleID_loci, loci_summary_table, callable_loci, sampleID_anno, caller, filtered_annotations ->
+    def num_variants = filtered_annotations.readLines().size() - 1
+    return([sampleID_loci, caller, callable_loci, num_variants])
+}
+.set { loci_annotations }
+
+process calculate_tmb {
+    tag "${prefix}"
+    publishDir "${params.outputDir}/analysis/tmb", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
+
+    input:
+    set val(sampleID), val(caller), val(loci), val(variants) from loci_annotations
+
+    output:
+    file("${output_tmb}") into tmbs
+
+    script:
+    prefix = "${sampleID}.${caller}"
+    output_tmb = "${prefix}.tmb.tsv"
+    """
+    # tmb="\$(( ${variants} / ( ${loci} / 1000000 ) ))"
+    tmb=\$( python -c 'print(float(${variants}) / float(${loci}) * 1000000 )' )
+    printf 'SampleID\tCaller\tnBases\tnVariants\tTMB\n' > "${output_tmb}"
+    printf "${sampleID}\t${caller}\t${loci}\t${variants}\t\${tmb}\n" >> "${output_tmb}"
+    """
+}
+tmbs.collectFile(name: 'all_tmbs.tsv', keepHeader: true, storeDir: "${params.outputDir}").into { all_tmb; all_tmb2 }
 
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
@@ -1966,7 +2111,6 @@ done_copy_samplesheet.concat(
     done_annotate,
     done_annotate_pairs,
     done_collect_annotation_tables,
-    done_hash_annotation_table,
     done_sambamba_dedup_log_table,
     done_sambamba_flagstat_table,
     done_sambamba_dedup_flagstat_table,
