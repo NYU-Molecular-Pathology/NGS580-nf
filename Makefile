@@ -219,7 +219,7 @@ run:
 	@log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
 	echo ">>> Running with stdout log file: $${log_file}" ; \
 	$(MAKE) run-recurse 2>&1 | tee -a "$${log_file}" ; \
-	echo ">>> Run completed, stdout log file: $${log_file}"
+	echo ">>> Run completed at $$(date +"%Y-%m-%d %H:%M:%S"), stdout log file: $${log_file}"
 
 run-recurse:
 	@if grep -q 'phoenix' <<<'$(HOSTNAME)'; then echo  ">>> Running run-phoenix"; $(MAKE) run-phoenix ; \
