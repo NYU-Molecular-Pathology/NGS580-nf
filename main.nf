@@ -344,8 +344,7 @@ process fastqc {
 
 }
 
-
-process bwa_mem {
+process alignment {
     // first pass alignment with BWA
     tag "${sampleID}"
 
@@ -353,47 +352,26 @@ process bwa_mem {
     set val(sampleID), file(fastq_R1_trim), file(fastq_R2_trim), file(ref_fa_bwa_dir) from samples_fastq_trimmed.combine(ref_fa_bwa_dir)
 
     output:
-    set val(sampleID), file("${sam_file}") into samples_bwa_sam
-    val(sampleID) into done_bwa_mem
-
-    script:
-    prefix = "${sampleID}"
-    sam_file = "${prefix}.sam"
-    """
-    bwa mem \
-    -M \
-    -v 1 \
-    -t \${NSLOTS:-\${NTHREADS:-1}} \
-    -R '@RG\\tID:${sampleID}\\tSM:${sampleID}\\tLB:${sampleID}\\tPL:ILLUMINA' \
-    "${ref_fa_bwa_dir}/genome.fa" "${fastq_R1_trim}" "${fastq_R2_trim}" \
-    -o "${sam_file}"
-    """
-}
-
-
-process sambamba_view_sort {
-    // sort the alignments and convert to .bam
-    tag "${sampleID}"
-    publishDir "${params.outputDir}/analysis/alignments", overwrite: true //, mode: 'copy'
-    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
-
-    input:
-    set val(sampleID), file(sample_sam) from samples_bwa_sam
-
-    output:
     set val(sampleID), file("${bam_file}") into samples_bam, samples_bam2
-    val(sampleID) into done_sambamba_view_sort
+    val(sampleID) into done_alignment
 
     script:
     prefix = "${sampleID}"
     bam_file = "${prefix}.bam"
     """
+    bwa mem \
+    -M -v 1 \
+    -t \${NSLOTS:-\${NTHREADS:-1}} \
+    -R '@RG\\tID:${sampleID}\\tSM:${sampleID}\\tLB:${sampleID}\\tPL:ILLUMINA' \
+    "${ref_fa_bwa_dir}/genome.fa" \
+    "${fastq_R1_trim}" "${fastq_R2_trim}" | \
     sambamba view \
     --sam-input \
     --nthreads=\${NSLOTS:-\${NTHREADS:-1}} \
     --filter='mapping_quality>=10' \
     --format=bam \
-    --compression-level=0 "${sample_sam}" | \
+    --compression-level=0 \
+    /dev/stdin | \
     sambamba sort \
     --nthreads=\${NSLOTS:-\${NTHREADS:-1}} \
     --out="${bam_file}" /dev/stdin
@@ -639,6 +617,8 @@ process gatk_IndelRealigner {
     ra_bam_file = "${prefix}.dd.ra.bam"
     ra_bai_file = "${prefix}.dd.ra.bam.bai"
     """
+    samtools index "${sample_bam}"
+
     gatk.sh -T IndelRealigner \
     -dt NONE \
     --logging_level ERROR \
@@ -2085,8 +2065,7 @@ done_copy_samplesheet.concat(
     done_fastq_merge,
     done_trimmomatic,
     done_fastqc_trim,
-    done_bwa_mem,
-    done_sambamba_view_sort,
+    done_alignment,
     done_sambamba_flagstat,
     done_sambamba_dedup,
     done_sambamba_dedup_flagstat,
