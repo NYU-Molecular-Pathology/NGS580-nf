@@ -54,3 +54,5 @@ config.json
 **.simg
 */test/*
 trace.txt
+.nextflow.node
+.nextflow.pid
