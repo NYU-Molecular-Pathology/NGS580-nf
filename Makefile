@@ -247,28 +247,42 @@ run-power: install
 	./nextflow run main.nf -profile power $(RESUME) -with-dag flowchart.dot $(EP)
 
 
-# submit the parent Nextflow process to phoenix HPC as a qsub job
+# submit the parent Nextflow process to phoenix HPC as a cluster job
 SUBLOG:=.submitted
 SUBQ:=cpu_long
 SUBTHREADS:=4
 SUBEP:=
 NXF_NODEFILE:=.nextflow.node
 NXF_PIDFILE:=.nextflow.pid
+NXF_SUBMIT:=.nextflow.submitted
+NXF_SUBMITLOG:=.nextflow.submitted.log
 REMOTE:=
 PID:=
-
+# check for an HPC submission lock file, then try to determine the submission recipe to use
 submit:
+	@if [ -e "$(NXF_SUBMIT)" ]; then echo ">>> ERROR: An instance of the pipeline has already been submitted"; exit 1 ; \
+	else \
 	if grep -q 'phoenix' <<<'$(HOSTNAME)'; then echo  ">>> Submission for phoenix not yet configured";  \
 	elif grep -q 'bigpurple' <<<'$(HOSTNAME)'; then echo ">>> Running submit-bigpurple"; $(MAKE) submit-bigpurple ; \
-	else echo ">>> ERROR: could not automatically determine 'submit' recipe to use, please consult the Makefile"; exit 1 ; fi ;
+	else echo ">>> ERROR: could not automatically determine 'submit' recipe to use, please consult the Makefile"; exit 1 ; fi ; \
+	fi
 
+# submit on Big Purple using SLURM
 submit-bigpurple:
-	sbatch -D "$$PWD" -o "$(LOGDIRABS)/slurm-%j.out" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run $(SUBEP)"'
+	@sbatch -D "$$PWD" -o "$(LOGDIRABS)/slurm-%j.out" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run $(SUBEP)"'
 # srun -D "$$PWD" --output "$(LOGDIRABS)/slurm-%j.out" --input none -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" bash -c 'make submit-bigpurple-run $(SUBEP)'
 
+# run inside a SLURM sbatch
+# store old pid and node entries in a backup file in case things get messy
+# set a submission lock file and hope it exists before 'make submit' is run again
+# need to manually set the HOSTNAME here (TODO: come up with a better method for this)
+# NOTE: Nextflow locks itself from concurrent instances but multiple 'make submit' could invocations break 'make kill'
 submit-bigpurple-run:
+	if [ -e "$(NXF_NODEFILE)" -a -e "$(NXF_PIDFILE)" ]; then paste "$(NXF_NODEFILE)" "$(NXF_PIDFILE)" >> $(NXF_SUBMITLOG); fi ; \
+	touch "$(NXF_SUBMIT)" && \
 	echo "$${SLURMD_NODENAME}" > "$(NXF_NODEFILE)" && \
-	$(MAKE) run HOSTNAME="bigpurple" EP='-bg'
+	$(MAKE) run HOSTNAME="bigpurple" EP='-bg' && \
+	rm -f "$(NXF_SUBMIT)"
 
 # issue an interupt signal to a process running on a remote server
 # e.g. Nextflow running in a qsub job on a compute node

@@ -56,3 +56,4 @@ config.json
 trace.txt
 .nextflow.node
 .nextflow.pid
+.nextflow.submitted.log
