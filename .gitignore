@@ -57,3 +57,4 @@ trace.txt
 .nextflow.node
 .nextflow.pid
 .nextflow.submitted.log
+.nextflow.submitted
