@@ -120,12 +120,26 @@ def main(**kwargs):
 
 
     if input_file:
-        fin = open(input_file, "rb") # , encoding="utf-8"
+        # Python 2
+        if sys.version_info[0] <= 2:
+            fin = open(input_file, "rb")
+        # Python 3
+        elif sys.version_info[0] > 2:
+            fin = open(input_file, "r", encoding="utf-8")
+        else:
+            raise
     else:
         fin = sys.stdin
 
     if output_file:
-        fout = open(output_file, "wb") # , encoding="utf-8"
+        # Python 2
+        if sys.version_info[0] <= 2:
+            fout = open(output_file, "wb")
+        # Python 3
+        elif sys.version_info[0] > 2:
+            fout = open(output_file, "w", encoding="utf-8")
+        else:
+            raise
     else:
         fout = sys.stdout
 

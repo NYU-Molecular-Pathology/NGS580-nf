@@ -214,9 +214,12 @@ else ifneq ($(AutoQ_SLURM_mixed),)
 Q:=$(AutoQ_SLURM_mixed)
 endif
 
+LOGDIR:=logs
+LOGDIRABS:=$(shell python -c 'import os; print(os.path.realpath("$(LOGDIR)"))')
+LOGID:=$(TIMESTAMP)
 # try to automatically determine which 'run' recipe to use based on hostname
 run:
-	@log_file="logs/nextflow.$(TIMESTAMP).stdout.log" ; \
+	@log_file="$(LOGDIR)/nextflow.$(LOGID).stdout.log" ; \
 	echo ">>> Running with stdout log file: $${log_file}" ; \
 	$(MAKE) run-recurse 2>&1 | tee -a "$${log_file}" ; \
 	echo ">>> Run completed at $$(date +"%Y-%m-%d %H:%M:%S"), stdout log file: $${log_file}"
@@ -244,38 +247,75 @@ run-power: install
 	source /shared/miniconda2/bin/activate /shared/biobuilds-2017.11 && \
 	./nextflow run main.nf -profile power $(RESUME) -with-dag flowchart.dot $(EP)
 
-# submit the parent Nextflow process to phoenix HPC as a qsub job
-# `make submit-phoenix EP='--runID 180316_NB501073_0036_AH3VFKBGX5'`
-submit-phoenix:
-	@qsub_logdir="logs" ; \
-	mkdir -p "$${qsub_logdir}" ; \
-	job_name="NGS580-nf" ; \
-	echo 'make run-phoenix-qsub EP="$(EP)"' | qsub -wd "$$PWD" -o :$${qsub_logdir}/ -e :$${qsub_logdir}/ -j y -N "$$job_name" -q all.q
 
-# parent Nextflow process to be run as a qsub job on phoenix
-run-phoenix-qsub: install
-	@output_file="pid.txt" ; \
-	module unload java && module load java/1.8 && \
-	JOBINFO="$${JOB_ID:-none}\t$${JOB_NAME:-none}\t$${HOSTNAME:-none}\t$${USER:-none}" ; \
-	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP) & \
-	pid="$$!" ; \
-	INFOSTR="$${pid}\t$${JOBINFO}\t$$(date +%s)" ; \
-	printf "$${INFOSTR}\n" ; \
-	printf "$${INFOSTR}\n" >> $${output_file} ; \
-	wait $${pid}
+# submit the parent Nextflow process to phoenix HPC as a cluster job
+SUBLOG:=.submitted
+SUBQ:=cpu_long
+SUBTHREADS:=4
+SUBEP:=
+NXF_NODEFILE:=.nextflow.node
+NXF_PIDFILE:=.nextflow.pid
+NXF_SUBMIT:=.nextflow.submitted
+NXF_SUBMITLOG:=.nextflow.submitted.log
+REMOTE:=
+PID:=
+# check for an HPC submission lock file, then try to determine the submission recipe to use
+submit:
+	@if [ -e "$(NXF_SUBMIT)" ]; then echo ">>> ERROR: An instance of the pipeline has already been submitted"; exit 1 ; \
+	else \
+	if grep -q 'phoenix' <<<'$(HOSTNAME)'; then echo  ">>> Submission for phoenix not yet configured";  \
+	elif grep -q 'bigpurple' <<<'$(HOSTNAME)'; then echo ">>> Running submit-bigpurple"; $(MAKE) submit-bigpurple ; \
+	else echo ">>> ERROR: could not automatically determine 'submit' recipe to use, please consult the Makefile"; exit 1 ; fi ; \
+	fi
+
+# submit on Big Purple using SLURM
+submit-bigpurple:
+	@sbatch -D "$$PWD" -o "$(LOGDIRABS)/slurm-%j.$(TIMESTAMP).out" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)"'
+# srun -D "$$PWD" --output "$(LOGDIRABS)/slurm-%j.out" --input none -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" bash -c 'make submit-bigpurple-run $(SUBEP)'
+
+# run inside a SLURM sbatch
+# store old pid and node entries in a backup file in case things get messy
+# set a submission lock file and hope it exists before 'make submit' is run again
+# need to manually set the HOSTNAME here (TODO: come up with a better method for this)
+# NOTE: Nextflow locks itself from concurrent instances but multiple 'make submit' could invocations break 'make kill'
+submit-bigpurple-run:
+	if [ -e "$(NXF_NODEFILE)" -a -e "$(NXF_PIDFILE)" ]; then paste "$(NXF_NODEFILE)" "$(NXF_PIDFILE)" >> $(NXF_SUBMITLOG); fi ; \
+	touch "$(NXF_SUBMIT)" && \
+	echo "$${SLURMD_NODENAME}" > "$(NXF_NODEFILE)" && \
+	$(MAKE) run HOSTNAME="bigpurple" LOGID="$(TIMESTAMP)" EP='-bg' && \
+	rm -f "$(NXF_SUBMIT)"
 
 # issue an interupt signal to a process running on a remote server
 # e.g. Nextflow running in a qsub job on a compute node
-REMOTE:=
-PID:=
-remote-kill:
-	@[ -z "$(REMOTE)" ] && printf "invalid REMOTE server specified: $(REMOTE)\n" && exit 1 || :
-	@[ -z "$(PID)" ] && printf "invalid PID specified: $(PID)\n" && exit 1 || :
+kill: PID:=$(shell head -1 "$(NXF_PIDFILE)")
+kill: REMOTE:=$(shell head -1 "$(NXF_NODEFILE)")
+kill: $(NXF_NODEFILE) $(NXF_PIDFILE)
 	ssh "$(REMOTE)" 'kill $(PID)'
+
+# `make submit-phoenix EP='--runID 180316_NB501073_0036_AH3VFKBGX5'`
+# submit-phoenix:
+# 	@qsub_logdir="logs" ; \
+# 	mkdir -p "$${qsub_logdir}" ; \
+# 	job_name="NGS580-nf" ; \
+# 	echo 'make run-phoenix-qsub EP="$(EP)"' | qsub -wd "$$PWD" -o :$${qsub_logdir}/ -e :$${qsub_logdir}/ -j y -N "$$job_name" -q all.q
+#
+# # parent Nextflow process to be run as a qsub job on phoenix
+# run-phoenix-qsub: install
+# 	@output_file="pid.txt" ; \
+# 	module unload java && module load java/1.8 && \
+# 	JOBINFO="$${JOB_ID:-none}\t$${JOB_NAME:-none}\t$${HOSTNAME:-none}\t$${USER:-none}" ; \
+# 	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP) & \
+# 	pid="$$!" ; \
+# 	INFOSTR="$${pid}\t$${JOBINFO}\t$$(date +%s)" ; \
+# 	printf "$${INFOSTR}\n" ; \
+# 	printf "$${INFOSTR}\n" >> $${output_file} ; \
+# 	wait $${pid}
+
+
 
 # save a record of the Nextflow run completion
 RECDIR:=saved-reports-$(shell date +"%Y-%m-%d-%H-%M-%S")
-STDOUTLOG:=$(shell ls -d -1t logs/* | head -1 | python -c 'import sys, os; print(os.path.realpath(sys.stdin.readlines()[0].strip()))' )
+STDOUTLOG:=$(shell ls -d -1t logs/*.stdout.log | head -1 | python -c 'import sys, os; print(os.path.realpath(sys.stdin.readlines()[0].strip()))' )
 record:
 	@mkdir -p "$(RECDIR)" && \
 	cp -a *.html trace.txt .nextflow.log "$(RECDIR)/"&& \
