@@ -255,6 +255,7 @@ SUBQ:=cpu_long
 SUBTHREADS:=4
 SUBEP:=
 NXF_NODEFILE:=.nextflow.node
+NXF_JOBFILE:=.nextflow.jobid
 NXF_PIDFILE:=.nextflow.pid
 NXF_SUBMIT:=.nextflow.submitted
 NXF_SUBMITLOG:=.nextflow.submitted.log
@@ -272,7 +273,7 @@ submit:
 # submit on Big Purple using SLURM
 submit-bigpurple:
 	@touch "$(NXF_SUBMIT)" && \
-	sbatch -D "$$PWD" -o "$(LOGDIRABS)/slurm-%j.$(TIMESTAMP).out" -J "$(SUBJOBNAME)" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)"'
+	sbatch -D "$$PWD" -o "$(LOGDIRABS)/slurm-%j.$(TIMESTAMP).out" -J "$(SUBJOBNAME)" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)"' | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
 # srun -D "$$PWD" --output "$(LOGDIRABS)/slurm-%j.out" --input none -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" bash -c 'make submit-bigpurple-run $(SUBEP)'
 
 # run inside a SLURM sbatch

@@ -58,3 +58,4 @@ trace.txt
 .nextflow.pid
 .nextflow.submitted.log
 .nextflow.submitted
+.nextflow.jobid
