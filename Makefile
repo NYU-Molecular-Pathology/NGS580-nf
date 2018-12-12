@@ -249,6 +249,7 @@ run-power: install
 
 
 # submit the parent Nextflow process to phoenix HPC as a cluster job
+SUBJOBNAME:=NGS580-$(shell python -c 'import os; print(os.path.basename(os.path.realpath(".")))')
 SUBLOG:=.submitted
 SUBQ:=cpu_long
 SUBTHREADS:=4
@@ -270,7 +271,7 @@ submit:
 
 # submit on Big Purple using SLURM
 submit-bigpurple:
-	@sbatch -D "$$PWD" -o "$(LOGDIRABS)/slurm-%j.$(TIMESTAMP).out" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)"'
+	@sbatch -D "$$PWD" -o "$(LOGDIRABS)/slurm-%j.$(TIMESTAMP).out" -J "$(SUBJOBNAME)" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)"'
 # srun -D "$$PWD" --output "$(LOGDIRABS)/slurm-%j.out" --input none -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" bash -c 'make submit-bigpurple-run $(SUBEP)'
 
 # run inside a SLURM sbatch
@@ -287,8 +288,8 @@ submit-bigpurple-run:
 
 # issue an interupt signal to a process running on a remote server
 # e.g. Nextflow running in a qsub job on a compute node
-kill: PID:=$(shell head -1 "$(NXF_PIDFILE)")
-kill: REMOTE:=$(shell head -1 "$(NXF_NODEFILE)")
+kill: PID=$(shell head -1 "$(NXF_PIDFILE)")
+kill: REMOTE=$(shell head -1 "$(NXF_NODEFILE)")
 kill: $(NXF_NODEFILE) $(NXF_PIDFILE)
 	ssh "$(REMOTE)" 'kill $(PID)'
 
