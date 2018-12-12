@@ -216,9 +216,10 @@ endif
 
 LOGDIR:=logs
 LOGDIRABS:=$(shell python -c 'import os; print(os.path.realpath("$(LOGDIR)"))')
+LOGID:=$(TIMESTAMP)
 # try to automatically determine which 'run' recipe to use based on hostname
 run:
-	@log_file="$(LOGDIR)/nextflow.$(TIMESTAMP).stdout.log" ; \
+	@log_file="$(LOGDIR)/nextflow.$(LOGID).stdout.log" ; \
 	echo ">>> Running with stdout log file: $${log_file}" ; \
 	$(MAKE) run-recurse 2>&1 | tee -a "$${log_file}" ; \
 	echo ">>> Run completed at $$(date +"%Y-%m-%d %H:%M:%S"), stdout log file: $${log_file}"
@@ -269,7 +270,7 @@ submit:
 
 # submit on Big Purple using SLURM
 submit-bigpurple:
-	@sbatch -D "$$PWD" -o "$(LOGDIRABS)/slurm-%j.out" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run $(SUBEP)"'
+	@sbatch -D "$$PWD" -o "$(LOGDIRABS)/slurm-%j.$(TIMESTAMP).out" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)"'
 # srun -D "$$PWD" --output "$(LOGDIRABS)/slurm-%j.out" --input none -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" bash -c 'make submit-bigpurple-run $(SUBEP)'
 
 # run inside a SLURM sbatch
@@ -281,7 +282,7 @@ submit-bigpurple-run:
 	if [ -e "$(NXF_NODEFILE)" -a -e "$(NXF_PIDFILE)" ]; then paste "$(NXF_NODEFILE)" "$(NXF_PIDFILE)" >> $(NXF_SUBMITLOG); fi ; \
 	touch "$(NXF_SUBMIT)" && \
 	echo "$${SLURMD_NODENAME}" > "$(NXF_NODEFILE)" && \
-	$(MAKE) run HOSTNAME="bigpurple" EP='-bg' && \
+	$(MAKE) run HOSTNAME="bigpurple" LOGID="$(TIMESTAMP)" EP='-bg' && \
 	rm -f "$(NXF_SUBMIT)"
 
 # issue an interupt signal to a process running on a remote server
@@ -314,7 +315,7 @@ kill: $(NXF_NODEFILE) $(NXF_PIDFILE)
 
 # save a record of the Nextflow run completion
 RECDIR:=saved-reports-$(shell date +"%Y-%m-%d-%H-%M-%S")
-STDOUTLOG:=$(shell ls -d -1t logs/* | head -1 | python -c 'import sys, os; print(os.path.realpath(sys.stdin.readlines()[0].strip()))' )
+STDOUTLOG:=$(shell ls -d -1t logs/*.stdout.log | head -1 | python -c 'import sys, os; print(os.path.realpath(sys.stdin.readlines()[0].strip()))' )
 record:
 	@mkdir -p "$(RECDIR)" && \
 	cp -a *.html trace.txt .nextflow.log "$(RECDIR)/"&& \
