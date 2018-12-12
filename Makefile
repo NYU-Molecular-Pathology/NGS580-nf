@@ -328,7 +328,7 @@ kill: $(NXF_NODEFILE) $(NXF_PIDFILE)
 
 # save a record of the most recent Nextflow run completion
 PRE:=
-RECDIR:=saved-reports-$(PRE)$(DIRNAME)_$(TIMESTAMP_str)
+RECDIR:=recorded-runs/$(PRE)$(DIRNAME)_$(TIMESTAMP_str)
 STDOUTLOGPATH:=
 STDOUTLOG:=
 ALL_LOGS:=
