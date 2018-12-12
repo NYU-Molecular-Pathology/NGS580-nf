@@ -4,6 +4,9 @@ export NXF_VER:=18.10.1
 # extra params to pass for Nextflow in some recipes
 EP:=
 TIMESTAMP:=$(shell date +%s)
+TIMESTAMP_str:=$(shell date +"%Y-%m-%d-%H-%M-%S")
+ABSDIR:=$(shell python -c 'import os; print(os.path.realpath("."))')
+DIRNAME:=$(shell python -c 'import os; print(os.path.basename(os.path.realpath(".")))')
 REMOTE_ssh:=git@github.com:NYU-Molecular-Pathology/NGS580-nf.git
 REMOTE_http:=https://github.com/NYU-Molecular-Pathology/NGS580-nf.git
 .PHONY: annovar_db ref
@@ -202,28 +205,19 @@ remote:
 # ~~~~~ RUN PIPELINE ~~~~~ #
 # enable 'resume' functionality; set this to '' to disable
 RESUME:=-resume
-# HPC queue/partition to submit to by default
-Q:=cpu_short
-# try to automatically detect a SLURM queue with idle nodes to submit to
-AutoQ_SLURM_idle:=$(shell sinfo -N -O nodelist,partition,statelong | grep 'idle' | grep -v 'data_mover' | grep -v 'dev' | grep -v 'fn_' | tr -s '[:space:]' | cut -d ' ' -f2 | sort -u | head -1)
-# detect which 'mixed' queue has the most open nodes
-AutoQ_SLURM_mixed:=$(shell sinfo -N -O nodelist,partition,statelong | grep 'mixed' | grep -v 'data_mover' | grep -v 'dev' | grep -v 'fn_' | tr -s '[:space:]' | cut -d ' ' -f2 | sort | uniq -c | sort -k 1nr | head -1 | tr -s '[:space:]' | cut -d ' ' -f3)
-ifneq ($(AutoQ_SLURM_idle),)
-Q:=$(AutoQ_SLURM_idle)
-else ifneq ($(AutoQ_SLURM_mixed),)
-Q:=$(AutoQ_SLURM_mixed)
-endif
-
 LOGDIR:=logs
 LOGDIRABS:=$(shell python -c 'import os; print(os.path.realpath("$(LOGDIR)"))')
 LOGID:=$(TIMESTAMP)
-# try to automatically determine which 'run' recipe to use based on hostname
+LOGFILEBASE:=log.$(LOGID).out
+LOGFILE:=$(LOGDIR)/$(LOGFILEBASE)
+# start run with logging
 run:
 	@log_file="$(LOGDIR)/nextflow.$(LOGID).stdout.log" ; \
-	echo ">>> Running with stdout log file: $${log_file}" ; \
-	$(MAKE) run-recurse 2>&1 | tee -a "$${log_file}" ; \
-	echo ">>> Run completed at $$(date +"%Y-%m-%d %H:%M:%S"), stdout log file: $${log_file}"
+	echo ">>> Running with stdout log file: $(LOGFILE)" ; \
+	$(MAKE) run-recurse 2>&1 | tee -a "$(LOGFILE)" ; \
+	echo ">>> Run completed at $$(date +"%Y-%m-%d %H:%M:%S"), stdout log file: $(LOGFILE)"
 
+# try to automatically determine which 'run' recipe to use based on hostname
 run-recurse:
 	@if grep -q 'phoenix' <<<'$(HOSTNAME)'; then echo  ">>> Running run-phoenix"; $(MAKE) run-phoenix ; \
 	elif grep -q 'bigpurple' <<<'$(HOSTNAME)'; then echo ">>> Running run-bigpurple"; $(MAKE) run-bigpurple ; \
@@ -235,7 +229,23 @@ run-phoenix: install
 	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP)
 
 # run on NYU Big Purple HPC in current session
-run-bigpurple: install
+# HPC queue/partition to submit to by default
+Q:=cpu_short
+# try to automatically detect a SLURM queue with idle nodes to submit to
+SLURM_recurse:=
+ifneq ($(SLURM_recurse),)
+AutoQ_SLURM_idle:=$(shell sinfo -N -O nodelist,partition,statelong | grep 'idle' | grep -v 'data_mover' | grep -v 'dev' | grep -v 'fn_' | grep -v 'cpu_long' | tr -s '[:space:]' | cut -d ' ' -f2 | sort -u | head -1)
+# detect which 'mixed' queue has the most open nodes
+AutoQ_SLURM_mixed:=$(shell sinfo -N -O nodelist,partition,statelong | grep 'mixed' | grep -v 'data_mover' | grep -v 'dev' | grep -v 'fn_' | grep -v 'cpu_long' | tr -s '[:space:]' | cut -d ' ' -f2 | sort | uniq -c | sort -k 1nr | head -1 | tr -s '[:space:]' | cut -d ' ' -f3)
+ifneq ($(AutoQ_SLURM_idle),)
+Q:=$(AutoQ_SLURM_idle)
+else ifneq ($(AutoQ_SLURM_mixed),)
+Q:=$(AutoQ_SLURM_mixed)
+endif
+endif
+run-bigpurple:
+	$(MAKE) run-bigpurple-recurse SLURM_recurse=1
+run-bigpurple-recurse: install
 	./nextflow run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue $(Q) $(EP)
 
 # run locally default settings
@@ -249,8 +259,8 @@ run-power: install
 
 
 # submit the parent Nextflow process to phoenix HPC as a cluster job
-SUBJOBNAME:=NGS580-$(shell python -c 'import os; print(os.path.basename(os.path.realpath(".")))')
-SUBLOG:=.submitted
+SUBJOBNAME:=NGS580-$(DIRNAME)
+SUBLOG:=$(LOGDIRABS)/slurm-%j.$(LOGFILEBASE)
 SUBQ:=cpu_long
 SUBTHREADS:=4
 SUBEP:=
@@ -271,16 +281,17 @@ submit:
 	fi
 
 # submit on Big Purple using SLURM
+# set a submission lock file
+# NOTE: Nextflow locks itself from concurrent instances but need to lock against multiple 'make submit'
 submit-bigpurple:
 	@touch "$(NXF_SUBMIT)" && \
-	sbatch -D "$$PWD" -o "$(LOGDIRABS)/slurm-%j.$(TIMESTAMP).out" -J "$(SUBJOBNAME)" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)"' | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
+	sbatch -D "$(ABSDIR)" -o "$(SUBLOG)" -J "$(SUBJOBNAME)" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)"' | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
 # srun -D "$$PWD" --output "$(LOGDIRABS)/slurm-%j.out" --input none -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" bash -c 'make submit-bigpurple-run $(SUBEP)'
 
 # run inside a SLURM sbatch
 # store old pid and node entries in a backup file in case things get messy
-# set a submission lock file and hope it exists before 'make submit' is run again
-# need to manually set the HOSTNAME here (TODO: come up with a better method for this)
-# NOTE: Nextflow locks itself from concurrent instances but multiple 'make submit' could invocations break 'make kill'
+# need to manually set the HOSTNAME here because it changes inside SLURM job
+# TODO: come up with a better method for this ^^
 submit-bigpurple-run:
 	if [ -e "$(NXF_NODEFILE)" -a -e "$(NXF_PIDFILE)" ]; then paste "$(NXF_NODEFILE)" "$(NXF_PIDFILE)" >> $(NXF_SUBMITLOG); fi ; \
 	echo "$${SLURMD_NODENAME}" > "$(NXF_NODEFILE)" && \
@@ -315,13 +326,19 @@ kill: $(NXF_NODEFILE) $(NXF_PIDFILE)
 
 
 
-# save a record of the Nextflow run completion
-RECDIR:=saved-reports-$(shell date +"%Y-%m-%d-%H-%M-%S")
-STDOUTLOG:=$(shell ls -d -1t logs/*.stdout.log | head -1 | python -c 'import sys, os; print(os.path.realpath(sys.stdin.readlines()[0].strip()))' )
+# save a record of the most recent Nextflow run completion
+PRE:=
+RECDIR:=saved-reports-$(PRE)$(DIRNAME)_$(TIMESTAMP_str)
+STDOUTLOGPATH:=
+STDOUTLOG:=
+ALL_LOGS:=
+record: STDOUTLOGPATH=$(shell ls -d -1t $(LOGDIR)/log.*.out | head -1 | python -c 'import sys, os; print(os.path.realpath(sys.stdin.readlines()[0].strip()))' )
+record: STDOUTLOG=$(shell basename "$(STDOUTLOGPATH)")
+record: ALL_LOGS=$(shell find "$(LOGDIR)" -type f -name '*$(STDOUTLOG)*')
 record:
 	@mkdir -p "$(RECDIR)" && \
 	cp -a *.html trace.txt .nextflow.log "$(RECDIR)/"&& \
-	cp -a "$(STDOUTLOG)" "$(RECDIR)/" && \
+	for item in $(ALL_LOGS); do cp -a "$${item}" "$(RECDIR)/"; done ; \
 	echo ">>> Copied execution reports and logs to: $(RECDIR)"
 
 # ~~~~~ CLEANUP ~~~~~ #
