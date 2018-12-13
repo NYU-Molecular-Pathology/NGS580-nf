@@ -1560,8 +1560,8 @@ process msisensor {
     file "${comparisonID}.msisensor_somatic"
     val(comparisonID) into done_msisensor
 
-    when:
-    params.msisensor_disable != true
+    // when:
+    // params.msisensor_disable != true
 
     script:
     """
