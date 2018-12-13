@@ -1544,7 +1544,7 @@ process msisensor {
     // disable this since it always breaks on small sample datasets
     // this program is buggy;
     // TODO: find a method to pre-filter based on the number of alignments ??
-    tag "${comparisonID}"
+    tag "${prefix}"
     // validExitStatus 0,139 // allow '139' failure from small dataset; 23039 Segmentation fault      (core dumped)
     errorStrategy 'ignore'
     publishDir "${params.outputDir}/analysis/microsatellites", mode: 'copy', overwrite: true
@@ -1554,18 +1554,23 @@ process msisensor {
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(microsatellites) from samples_dd_ra_rc_bam_pairs_ref_msi
 
     output:
-    file "${comparisonID}.msisensor"
-    file "${comparisonID}.msisensor_dis"
-    file "${comparisonID}.msisensor_germline"
-    file "${comparisonID}.msisensor_somatic"
+    file "${msisensor_output}"
+    file "${msisensor_dis}"
+    file "${msisensor_germline}"
+    file "${msisensor_somatic}"
     val(comparisonID) into done_msisensor
 
     // when:
     // params.msisensor_disable != true
 
     script:
+    prefix = "${comparisonID}"
+    msisensor_output = "${prefix}.msisensor"
+    msisensor_dis = "${prefix}.msisensor_dis"
+    msisensor_germline = "${prefix}.msisensor_germline"
+    msisensor_somatic = "${prefix}.msisensor_somatic"
     """
-    msisensor msi -d "${microsatellites}" -n "${normalBam}" -t "${tumorBam}" -e "${targets_bed}" -o "${comparisonID}.msisensor" -l 1 -q 1 -b \${NSLOTS:-\${NTHREADS:-1}}
+    msisensor msi -d "${microsatellites}" -n "${normalBam}" -t "${tumorBam}" -e "${targets_bed}" -o "${msisensor_output}" -l 1 -q 1 -b \${NSLOTS:-\${NTHREADS:-1}}
     """
 }
 
