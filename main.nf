@@ -89,6 +89,8 @@ if(params.samplesheet == null){
     samplesheet = params.samplesheet
 }
 
+disable_multiqc = false // for faster testing of the rest of the pipeline
+disable_msisensor = false // breaks on very small demo datasets
 
 // ~~~~~ START WORKFLOW ~~~~~ //
 log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
@@ -319,7 +321,7 @@ process trimmomatic {
 process fastqc {
     // quality control checking with FastQC
     tag "${sampleID}"
-    publishDir "${params.outputDir}/analysis/reads", overwrite: true // mode: 'copy',
+    publishDir "${params.outputDir}/analysis/qc", overwrite: true // mode: 'copy',
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
 
     input:
@@ -347,6 +349,9 @@ process fastqc {
 process alignment {
     // first pass alignment with BWA
     tag "${sampleID}"
+    publishDir "${params.outputDir}/analysis/alignments", overwrite: true // mode: 'copy',
+    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true
+
 
     input:
     set val(sampleID), file(fastq_R1_trim), file(fastq_R2_trim), file(ref_fa_bwa_dir) from samples_fastq_trimmed.combine(ref_fa_bwa_dir)
@@ -1366,7 +1371,7 @@ process merge_signatures_plots {
     input_files.size() > 0
 
     script:
-    output_file="genomic_signatures.pdf"
+    output_file="signatures.pdf"
     """
     gs -dBATCH -dNOPAUSE -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile="${output_file}" ${input_files}
     """
@@ -1389,7 +1394,7 @@ process merge_signatures_pie_plots {
     input_files.size() > 0
 
     script:
-    output_file="genomic_signatures_pie.pdf"
+    output_file="signatures.pie.pdf"
     """
     gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile="${output_file}" ${input_files}
     """
@@ -1560,8 +1565,8 @@ process msisensor {
     file "${msisensor_somatic}"
     val(comparisonID) into done_msisensor
 
-    // when:
-    // params.msisensor_disable != true
+    when:
+    disable_msisensor != true
 
     script:
     prefix = "${comparisonID}"
@@ -2109,7 +2114,7 @@ done_copy_samplesheet.concat(
 process custom_analysis_report {
     // create a batch report for all samples in the analysis
     tag "${html_output}"
-    publishDir "${params.outputDir}/analysis/reports", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/analysis", overwrite: true // , mode: 'copy'
     executor "local"
 
     input:
@@ -2167,10 +2172,9 @@ process custom_sample_report {
     """
 }
 
-disable_multiqc = true // for faster testing of the rest of the pipeline
 process multiqc {
     // automatic reporting based on detected output; might take a while to parse and create report
-    publishDir "${params.outputDir}/analysis/reports", overwrite: true // , mode: 'copy'
+    publishDir "${params.outputDir}/analysis/qc", overwrite: true // , mode: 'copy'
     // executor "local"
 
     input:
@@ -2182,7 +2186,7 @@ process multiqc {
     file "multiqc_data"
 
     when:
-    disable_multiqc == false
+    disable_multiqc != true
 
     script:
     """
