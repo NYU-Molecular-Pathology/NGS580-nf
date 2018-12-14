@@ -1767,7 +1767,7 @@ process annotate {
     output:
     set val(caller), val(prefix), file("${annotations_tmp}") into annotations_tmp_tables
     file("${annotations_tsv}") into annotations_tables
-    set val(caller), val(sampleID), file("${annotations_tsv}") into annotations_annovar_tables
+    set val(sampleID), val(caller), file("${annotations_tsv}") into annotations_annovar_tables
     file("${avinput_file}")
     file("${avinput_tsv}")
     val(sampleID) into done_annotate
@@ -1916,12 +1916,13 @@ process collect_annotation_tables {
     file('t*') from annotations_tables.concat(annotations_tables_pairs).collect()
 
     output:
-    file('all_annotations.tsv')
-    val('all_annotations.tsv') into done_collect_annotation_tables
+    file("${output_file}")
+    val('') into done_collect_annotation_tables
 
     script:
+    output_file = "annotations.tsv"
     """
-    concat-tables.py t* > all_annotations.tsv
+    concat-tables.py t* > "${output_file}"
     """
 }
 
@@ -2060,7 +2061,7 @@ process calculate_tmb {
     printf "${sampleID}\t${caller}\t${loci}\t${variants}\t\${tmb}\n" >> "${output_tmb}"
     """
 }
-tmbs.collectFile(name: 'all_tmbs.tsv', keepHeader: true, storeDir: "${params.outputDir}").into { all_tmb; all_tmb2 }
+tmbs.collectFile(name: 'tmb.tsv', keepHeader: true, storeDir: "${params.outputDir}/analysis") //.into { all_tmb; all_tmb2 }
 
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
