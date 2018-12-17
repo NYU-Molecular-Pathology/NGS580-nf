@@ -2069,7 +2069,7 @@ process calculate_tmb {
     prefix = "${sampleID}.${caller}"
     output_tmb = "${prefix}.tmb.tsv"
     """
-    tmb=\$( python calc-tmb.py ${variants} ${loci} )
+    tmb=\$( calc-tmb.py ${variants} ${loci} )
     printf 'SampleID\tCaller\tnBases\tnVariants\tTMB\n' > "${output_tmb}"
     printf "${sampleID}\t${caller}\t${loci}\t${variants}\t\${tmb}\n" >> "${output_tmb}"
     """
