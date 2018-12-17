@@ -2033,15 +2033,24 @@ process tmb_filter_variants {
 }
 
 loci_tables2.map{ sampleID, summary_table, callable_txt ->
+    // read the number of callable loci from the file, just pass the value
     def callable_loci = callable_txt.readLines()[0]
     return([sampleID, summary_table, "${callable_loci}"])
-}.combine(tmb_filtered_variants2)
+}
+// combine against the filtered tmb variants
+.combine(tmb_filtered_variants2)
 .filter{ sampleID_loci, loci_summary_table, callable_loci, sampleID_anno, caller, filtered_annotations ->
+    // only keep the matches between channels
     sampleID_anno == sampleID_loci
 }
 .map{ sampleID_loci, loci_summary_table, callable_loci, sampleID_anno, caller, filtered_annotations ->
+    // read the number of variants from the file
     def num_variants = filtered_annotations.readLines().size() - 1
     return([sampleID_loci, caller, callable_loci, num_variants])
+}
+.filter{ sampleID_loci, caller, callable_loci, num_variants ->
+    // only keep samples that had callable loci
+    callable_loci > 0
 }
 .set { loci_annotations }
 
@@ -2060,8 +2069,7 @@ process calculate_tmb {
     prefix = "${sampleID}.${caller}"
     output_tmb = "${prefix}.tmb.tsv"
     """
-    # tmb="\$(( ${variants} / ( ${loci} / 1000000 ) ))"
-    tmb=\$( python -c 'print(float(${variants}) / float(${loci}) * 1000000 )' )
+    tmb=\$( python calc-tmb.py ${variants} ${loci} )
     printf 'SampleID\tCaller\tnBases\tnVariants\tTMB\n' > "${output_tmb}"
     printf "${sampleID}\t${caller}\t${loci}\t${variants}\t\${tmb}\n" >> "${output_tmb}"
     """
