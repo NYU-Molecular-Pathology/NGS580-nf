@@ -2182,14 +2182,16 @@ process custom_sample_report {
     """
 }
 
+Channel.fromPath("${params.outputDir}").set { output_dir_ch }
 process multiqc {
     // automatic reporting based on detected output; might take a while to parse and create report
     publishDir "${params.outputDir}/analysis/qc", overwrite: true // , mode: 'copy'
-    // executor "local"
+    executor "local"
+    scratch false
 
     input:
     val(all_vals) from all_done2.collect()
-    file(output_dir) from Channel.fromPath("${params.outputDir}")
+    file(output_dir) from output_dir_ch
 
     output:
     file "multiqc_report.html" // into email_files
