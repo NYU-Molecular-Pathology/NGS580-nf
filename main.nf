@@ -2124,6 +2124,7 @@ process custom_analysis_report {
     tag "${html_output}"
     publishDir "${params.outputDir}/analysis", overwrite: true // , mode: 'copy'
     executor "local"
+    scratch false
 
     input:
     val(items) from all_done1.collect()
@@ -2153,6 +2154,7 @@ process custom_sample_report {
     // create per-sample reports
     tag "${sampleID}"
     executor "local"
+    scratch false
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true // , mode: 'copy'
     publishDir "${params.outputDir}/analysis/reports", overwrite: true // , mode: 'copy'
 

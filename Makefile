@@ -340,7 +340,7 @@ record: STDOUTLOG=$(shell basename "$(STDOUTLOGPATH)")
 record: ALL_LOGS=$(shell find "$(LOGDIR)" -type f -name '*$(STDOUTLOG)*')
 record:
 	@mkdir -p "$(RECDIR)" && \
-	cp -a *.html trace.txt .nextflow.log "$(RECDIR)/"&& \
+	cp -a *.html trace.txt .nextflow.log main.nf nextflow.config "$(RECDIR)/" && \
 	for item in $(ALL_LOGS); do cp -a "$${item}" "$(RECDIR)/"; done ; \
 	echo ">>> Copied execution reports and logs to: $(RECDIR)"
 
