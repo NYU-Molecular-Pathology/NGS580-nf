@@ -386,7 +386,7 @@ process alignment {
 process samtools_flagstat {
     // alignment stats
     tag "${sampleID}"
-    publishDir "${params.outputDir}/analysis/alignments", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/analysis/alignment-stats", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
 
     input:
@@ -407,7 +407,7 @@ process samtools_flagstat {
 process samtools_flagstat_table {
     // convert flagstat output to a flat table
     tag "${sampleID}"
-    publishDir "${params.outputDir}/analysis/alignments", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/analysis/alignment-stats", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
 
     input:
@@ -473,7 +473,7 @@ process sambamba_dedup {
 process sambamba_dedup_log_table {
     // convert the dedup stats the a flat table
     tag "${sampleID}"
-    publishDir "${params.outputDir}/analysis/alignments", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/analysis/alignment-stats", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
 
     input:
@@ -504,7 +504,7 @@ sambamba_dedup_log_tables.collectFile(name: "reads.dedup.tsv", storeDir: "${para
 process samtools_dedup_flagstat {
     // dedup alignment stats
     tag "${sampleID}"
-    publishDir "${params.outputDir}/analysis/alignments", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/analysis/alignment-stats", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
 
     input:
@@ -526,7 +526,7 @@ process samtools_dedup_flagstat {
 process samtools_dedup_flagstat_table {
     // convert dedup stats to a flat table
     tag "${sampleID}"
-    publishDir "${params.outputDir}/analysis/alignments", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/analysis/alignment-stats", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
 
     input:
@@ -568,7 +568,7 @@ samples_dd_bam.combine(ref_fasta)
 process gatk_RealignerTargetCreator {
     // re-align and recalibrate alignments for later variant calling
     tag "${sampleID}"
-    publishDir "${params.outputDir}/analysis/alignments", pattern: "${intervals_file}", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/analysis/alignment-stats", pattern: "${intervals_file}", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/samples/${sampleID}", pattern: "${intervals_file}", overwrite: true, mode: 'copy'
 
     input:
@@ -580,7 +580,7 @@ process gatk_RealignerTargetCreator {
 
     script:
     prefix = "${sampleID}"
-    intervals_file = "${prefix}.intervals"
+    intervals_file = "${prefix}.RealignerTargetCreator.intervals"
     """
     gatk.sh -T RealignerTargetCreator \
     -dt NONE \
@@ -650,7 +650,7 @@ realigned_intervals_bams.combine(ref_fasta7)
 process gatk_BaseRecalibrator {
     // re-align and recalibrate alignments for later variant calling
     tag "${sampleID}"
-    publishDir "${params.outputDir}/analysis/alignments", pattern: "*.table1.txt", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/analysis/alignment-stats", pattern: "*.table1.txt", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/samples/${sampleID}", pattern: "*.table1.txt", overwrite: true, mode: 'copy'
 
     input:
@@ -662,7 +662,7 @@ process gatk_BaseRecalibrator {
 
     script:
     prefix = "${sampleID}"
-    table1 = "${prefix}.table1.txt"
+    table1 = "${prefix}.BaseRecalibrator.table1.txt"
     """
     gatk.sh -T BaseRecalibrator \
     --logging_level ERROR \
@@ -691,7 +691,7 @@ recalibrated_bases_table1.combine(ref_fasta8)
 process gatk_BaseRecalibratorBQSR {
     // re-align and recalibrate alignments for later variant calling
     tag "${sampleID}"
-    publishDir "${params.outputDir}/analysis/alignments", pattern: "${table2}", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/analysis/alignment-stats", pattern: "${table2}", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/samples/${sampleID}", pattern: "${table2}", overwrite: true, mode: 'copy'
 
     input:
@@ -703,7 +703,7 @@ process gatk_BaseRecalibratorBQSR {
 
     script:
     prefix = "${sampleID}"
-    table2 = "${prefix}.table2.txt"
+    table2 = "${prefix}.BaseRecalibrator.table2.txt"
     """
     gatk.sh -T BaseRecalibrator \
     --logging_level ERROR \
@@ -728,7 +728,7 @@ recalibrated_bases_table2.combine(ref_fasta9)
 process gatk_AnalyzeCovariates {
     // re-align and recalibrate alignments for later variant calling
     tag "${sampleID}"
-    publishDir "${params.outputDir}/analysis/alignments", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/analysis/alignment-stats", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
 
     input:
@@ -741,8 +741,8 @@ process gatk_AnalyzeCovariates {
 
     script:
     prefix = "${sampleID}"
-    csv_file = "${prefix}.csv"
-    pdf_file = "${prefix}.pdf"
+    csv_file = "${prefix}.AnalyzeCovariates.csv"
+    pdf_file = "${prefix}.AnalyzeCovariates.pdf"
     """
     gatk.sh -T AnalyzeCovariates \
     --logging_level ERROR \
@@ -1553,7 +1553,7 @@ process msisensor {
     // validExitStatus 0,139 // allow '139' failure from small dataset; 23039 Segmentation fault      (core dumped)
     errorStrategy 'ignore'
     publishDir "${params.outputDir}/analysis/microsatellites", overwrite: true, mode: 'copy'
-    publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/samples/${tumorID}", overwrite: true, mode: 'copy'
 
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(microsatellites) from samples_dd_ra_rc_bam_pairs_ref_msi
@@ -2135,7 +2135,7 @@ process custom_analysis_report {
 
     script:
     prefix = "${runID}"
-    html_output = "${prefix}.analysis_report.html"
+    html_output = "${prefix}.report.html"
     """
     # convert report file symlinks to copies of original files, because knitr doesnt work well unless all report files are in pwd
     for item in *.Rmd *.css *.bib; do
@@ -2156,7 +2156,7 @@ process custom_sample_report {
     executor "local"
     scratch false
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
-    publishDir "${params.outputDir}/analysis/reports", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/analysis/sample-reports", overwrite: true, mode: 'copy'
 
     input:
     val(items) from all_done3.collect()
@@ -2166,8 +2166,8 @@ process custom_sample_report {
     file("${html_output}")
 
     script:
-    prefix = "${sampleID}.${runID}"
-    html_output = "${prefix}.analysis_report.html"
+    prefix = "${sampleID}"
+    html_output = "${prefix}.report.html"
     """
     # convert report file symlinks to copies of original files, because knitr doesnt work well unless all report files are in pwd
     for item in *.Rmd *.css *.bib; do
@@ -2185,7 +2185,7 @@ process custom_sample_report {
 Channel.fromPath("${params.outputDir}").set { output_dir_ch }
 process multiqc {
     // automatic reporting based on detected output; might take a while to parse and create report
-    publishDir "${params.outputDir}/analysis/qc", overwrite: true, mode: 'copy'
+    publishDir "${params.outputDir}/analysis", overwrite: true, mode: 'copy'
     executor "local"
     scratch false
 
@@ -2194,15 +2194,22 @@ process multiqc {
     file(output_dir) from output_dir_ch
 
     output:
-    file "multiqc_report.html" // into email_files
-    file "multiqc_data"
+    file("${output_html}") // into email_files
+    file("${output_data}")
 
     when:
     disable_multiqc != true
 
     script:
+    prefix = "${runID}"
+    multiqc_html = "multiqc_report.html"
+    multiqc_data = "multiqc_data"
+    output_html = "${prefix}.multiqc.html"
+    output_data = "multiqc-data"
     """
     multiqc "${output_dir}"
+    mv "${multiqc_html}" "${output_html}"
+    mv "${multiqc_data}" "${output_data}"
     """
 }
 
