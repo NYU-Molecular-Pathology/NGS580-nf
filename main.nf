@@ -92,8 +92,11 @@ if(params.samplesheet == null){
 disable_multiqc = false // for faster testing of the rest of the pipeline
 disable_msisensor = false // breaks on very small demo datasets
 
-// names of some important files to use throughout the pipeline
-all_annotations_file = "annotations.tsv"
+// names of some important output files to use throughout the pipeline
+def all_annotations_file = "annotations.tsv"
+def samplesheet_output_file = 'samplesheet.tsv'
+def sample_coverage_file = "coverage.samples.tsv"
+def interval_coverage_file = "coverage.intervals.tsv"
 
 // ~~~~~ START WORKFLOW ~~~~~ //
 log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
@@ -206,18 +209,19 @@ Channel.from("Comparison\tTumor\tNormal\tChrom\tProgram\tNote\tFiles").set { fai
 // PREPROCESSING
 process copy_samplesheet {
     // make a copy of the samplesheet in the output directory
+    // this ensures the output sheet has the correct name
     publishDir "${params.outputDir}/analysis", overwrite: true, mode: 'copy'
 
     input:
-    file(samples_analysis_sheet: "samplesheet.tsv") from samples_analysis_sheet
+    file(input_sheet: "input_samplesheet.tsv") from samples_analysis_sheet
 
     output:
-    file("samples.analysis.tsv")
-    val("samples.analysis.tsv") into done_copy_samplesheet
+    file("${samplesheet_output_file}")
+    val("") into done_copy_samplesheet
 
     script:
     """
-    cp "${samples_analysis_sheet}" samples.analysis.tsv
+    cp "${input_sheet}" "${samplesheet_output_file}"
     """
 }
 
@@ -999,7 +1003,7 @@ process update_coverage_tables {
     "${output_file}"
     """
 }
-updated_coverage_tables.collectFile(name: "coverage.samples.tsv", storeDir: "${params.outputDir}/analysis", keepHeader: true)
+updated_coverage_tables.collectFile(name: "${sample_coverage_file}", storeDir: "${params.outputDir}/analysis", keepHeader: true)
 
 
 process update_interval_tables {
@@ -1032,7 +1036,7 @@ process update_interval_tables {
     "${output_file}"
     """
 }
-updated_coverage_interval_tables.collectFile(name: "coverage.intervals.tsv", storeDir: "${params.outputDir}/analysis", keepHeader: true)
+updated_coverage_interval_tables.collectFile(name: "${interval_coverage_file}", storeDir: "${params.outputDir}/analysis", keepHeader: true)
 
 // not currently used
 // process pad_bed {
@@ -2153,7 +2157,10 @@ process custom_analysis_report {
     rmarkdown::render(input = "main.Rmd",
     params = list(
         input_dir = "${input_dir}",
-        annotations_file = "${all_annotations_file}"
+        annotations_file = "${all_annotations_file}",
+        samplesheet_file = "${samplesheet_output_file}",
+        sample_coverage_file = "${sample_coverage_file}",
+        interval_coverage_file = "${interval_coverage_file}"
         ),
     output_format = "html_document",
     output_file = "${html_output}")

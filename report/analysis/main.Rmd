@@ -19,6 +19,9 @@ params:
   child: !r c("samples.Rmd", "reads.Rmd", "coverage.samples.Rmd", "coverage.intervals.Rmd", "variants.Rmd")
   input_dir: input
   annotations_file: annotations.tsv
+  samplesheet_file: samplesheet.tsv
+  sample_coverage_file: coverage.samples.tsv
+  interval_coverage_file: coverage.intervals.tsv
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report
