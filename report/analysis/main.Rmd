@@ -18,6 +18,7 @@ bibliography: citations.bib
 params:
   child: !r c("samples.Rmd", "reads.Rmd", "coverage.samples.Rmd", "coverage.intervals.Rmd", "variants.Rmd")
   input_dir: input
+  annotations_file: annotations.tsv
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report

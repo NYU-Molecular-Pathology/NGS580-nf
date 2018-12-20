@@ -92,6 +92,9 @@ if(params.samplesheet == null){
 disable_multiqc = false // for faster testing of the rest of the pipeline
 disable_msisensor = false // breaks on very small demo datasets
 
+// names of some important files to use throughout the pipeline
+all_annotations_file = "annotations.tsv"
+
 // ~~~~~ START WORKFLOW ~~~~~ //
 log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
 log.info "* Launch time:        ${workflowTimestamp}"
@@ -1925,7 +1928,7 @@ process collect_annotation_tables {
     val('') into done_collect_annotation_tables
 
     script:
-    output_file = "annotations.tsv"
+    output_file = "${all_annotations_file}"
     """
     concat-tables.py t* > "${output_file}"
     """
@@ -2128,7 +2131,7 @@ process custom_analysis_report {
 
     input:
     val(items) from all_done1.collect()
-    set file(report_items: '*'), file(input_dir: "input") from analysis_report_files
+    set file(report_items: '*'), file(input_dir) from analysis_report_files
 
     output:
     file("${html_output}")
@@ -2146,8 +2149,17 @@ process custom_analysis_report {
         fi
     done
 
-    Rscript -e 'rmarkdown::render(input = "main.Rmd", params = list(input_dir = "input"), output_format = "html_document", output_file = "${html_output}")'
+    R --vanilla <<E0F
+    rmarkdown::render(input = "main.Rmd",
+    params = list(
+        input_dir = "${input_dir}",
+        annotations_file = "${all_annotations_file}"
+        ),
+    output_format = "html_document",
+    output_file = "${html_output}")
+    E0F
     """
+    // Rscript -e 'rmarkdown::render(input = "main.Rmd", params = list(input_dir = "input"), output_format = "html_document", output_file = "${html_output}")'
 }
 
 process custom_sample_report {
