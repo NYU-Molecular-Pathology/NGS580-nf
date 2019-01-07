@@ -1652,17 +1652,41 @@ process mutect2 {
     # T frequency is more than 3%
     # N frequency is less than 5%
     # at least 5 variant call supporting reads
-    # T frequency is sufficiently higher than N frequency # "we recommend applying post-processing filters, e.g. by hard-filtering calls with low minor allele frequencies"
+    # T frequency is sufficiently higher (5x) than N frequency
+    # "we recommend applying post-processing filters, e.g. by hard-filtering calls with low minor allele frequencies"
     # only 'PASS' entries
     gatk.sh -T SelectVariants \
     -R "${ref_fasta}" \
     -V "${norm_vcf}" \
     -select "(vc.getGenotype('TUMOR').getAD().1 / (vc.getGenotype('TUMOR').getAD().0 + vc.getGenotype('TUMOR').getAD().1) )  > 0.03" \
-    -select "(vc.getGenotype('NORMAL').getAD().1 / (vc.getGenotype('NORMAL').getAD().0 + vc.getGenotype('NORMAL').getAD().1) )  > 0.05" \
+    -select "(vc.getGenotype('NORMAL').getAD().1 / (vc.getGenotype('NORMAL').getAD().0 + vc.getGenotype('NORMAL').getAD().1) )  < 0.05" \
     -select "vc.getGenotype('TUMOR').getAD().1 > 5" \
     -select "(vc.getGenotype('TUMOR').getAD().1 / (vc.getGenotype('TUMOR').getAD().0 + vc.getGenotype('TUMOR').getAD().1) ) > (vc.getGenotype('NORMAL').getAD().1 / (vc.getGenotype('NORMAL').getAD().0 + vc.getGenotype('NORMAL').getAD().1) ) * 5" \
     -select 'vc.isNotFiltered()' \
     > "${filtered_vcf}"
+
+    # vc.getGenotype('TUMOR').getAD().0 ; Tumor Allelic depth ref
+    # vc.getGenotype('TUMOR').getAD().1 ; Tumor Allelic depth alt
+    # vc.getGenotype('NORMAL').getAD().0 ; Normal Allelic depth ref
+    # vc.getGenotype('NORMAL').getAD().1 ; Normal Allelic depth alt
+
+    # ( Tumor Allelic depth alt / (Tumor Allelic depth ref + Tumor Allelic depth alt ) )  > 0.03
+    # ( Normal Allelic depth alt / ( Normal Allelic depth ref + Normal Allelic depth alt ) )  < 0.05
+    # Tumor Allelic depth alt > 5
+    # ( Tumor Allelic depth alt / ( Tumor Allelic depth ref + Tumor Allelic depth alt ) ) > ( Normal Allelic depth alt / ( Normal Allelic depth ref + Normal Allelic depth alt ) ) * 5
+
+    ##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+    # CHROM	chr7
+    # POS	2946342
+    # ID	.
+    # REF	A
+    # ALT	G
+    # QUAL	.
+    # FILTER	clustered_events;homologous_mapping_event
+    # INFO	ECNT=16;HCNT=3;MAX_ED=65;MIN_ED=5;NLOD=33.41;TLOD=23.04
+    # FORMAT	GT:AD:AF:ALT_F1R2:ALT_F2R1:FOXOG:PGT:PID:QSS:REF_F1R2:REF_F2R1
+    # TUMOR	0/1:1333,17:0.013:7:10:0.588:0|1:2946342_A_G:40125,535:641:689
+    # NORMAL	0/0:137,0:0.00:0:0:.:0|1:2946342_A_G:3959,0:53:80
 
     # convert VCF to TSV
     gatk.sh -T VariantsToTable \
