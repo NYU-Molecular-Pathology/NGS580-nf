@@ -122,9 +122,9 @@ Channel.fromPath( file(params.targetsBed) ).set{ targets_bed }
 
 // reference files
 Channel.fromPath( file(params.targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8 }
-Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10 }
-Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10 }
-Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9; ref_dict10 }
+Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12 }
+Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12 }
+Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9; ref_dict10; ref_dict11; ref_dict12 }
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
 Channel.fromPath( file(params.ref_fa_bwa_dir) ).set{ ref_fa_bwa_dir }
@@ -1596,15 +1596,16 @@ process mutect2 {
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf), file(cosmic_ref_vcf), val(chrom) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_mutect2
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file("${filtered_vcf}") into samples_mutect3
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file("${norm_vcf}") into vcfs_mutect2
+    // set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_mutect2 // to annotation
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file("${norm_vcf}") into samples_mutect3 // to VariantEval eval_pair_vcf
     file("${vcf_file}")
     file("${norm_vcf}")
-    file("${filtered_vcf}")
+    // file("${filtered_vcf}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
-    file("${tsv_file}")
-    file("${reformat_tsv}")
+    // file("${tsv_file}")
+    // file("${reformat_tsv}")
     val(comparisonID) into mutect2_sampleIDs
     val(comparisonID) into done_mutect2
 
@@ -1655,15 +1656,16 @@ process mutect2 {
     # T frequency is sufficiently higher (5x) than N frequency
     # "we recommend applying post-processing filters, e.g. by hard-filtering calls with low minor allele frequencies"
     # only 'PASS' entries
-    gatk.sh -T SelectVariants \
-    -R "${ref_fasta}" \
-    -V "${norm_vcf}" \
-    -select "(vc.getGenotype('TUMOR').getAD().1 / (vc.getGenotype('TUMOR').getAD().0 + vc.getGenotype('TUMOR').getAD().1) )  > 0.03" \
-    -select "(vc.getGenotype('NORMAL').getAD().1 / (vc.getGenotype('NORMAL').getAD().0 + vc.getGenotype('NORMAL').getAD().1) )  < 0.05" \
-    -select "vc.getGenotype('TUMOR').getAD().1 > 5" \
-    -select "(vc.getGenotype('TUMOR').getAD().1 / (vc.getGenotype('TUMOR').getAD().0 + vc.getGenotype('TUMOR').getAD().1) ) > (vc.getGenotype('NORMAL').getAD().1 / (vc.getGenotype('NORMAL').getAD().0 + vc.getGenotype('NORMAL').getAD().1) ) * 5" \
-    -select 'vc.isNotFiltered()' \
-    > "${filtered_vcf}"
+    # gatk.sh -T SelectVariants \
+    # -R "${ref_fasta}" \
+    # -V "${norm_vcf}" \
+    # -select 'vc.isNotFiltered()' \
+    # > "${filtered_vcf}"
+
+    # -select "(vc.getGenotype('TUMOR').getAD().1 / (vc.getGenotype('TUMOR').getAD().0 + vc.getGenotype('TUMOR').getAD().1) )  > 0.03" \
+    # -select "(vc.getGenotype('NORMAL').getAD().1 / (vc.getGenotype('NORMAL').getAD().0 + vc.getGenotype('NORMAL').getAD().1) )  < 0.05" \
+    # -select "vc.getGenotype('TUMOR').getAD().1 > 5" \
+    # -select "(vc.getGenotype('TUMOR').getAD().1 / (vc.getGenotype('TUMOR').getAD().0 + vc.getGenotype('TUMOR').getAD().1) ) > (vc.getGenotype('NORMAL').getAD().1 / (vc.getGenotype('NORMAL').getAD().0 + vc.getGenotype('NORMAL').getAD().1) ) * 5" \
 
     # vc.getGenotype('TUMOR').getAD().0 ; Tumor Allelic depth ref
     # vc.getGenotype('TUMOR').getAD().1 ; Tumor Allelic depth alt
@@ -1689,30 +1691,139 @@ process mutect2 {
     # NORMAL	0/0:137,0:0.00:0:0:.:0|1:2946342_A_G:3959,0:53:80
 
     # convert VCF to TSV
-    gatk.sh -T VariantsToTable \
-    -R "${ref_fasta}" \
-    -V "${filtered_vcf}" \
-    -F CHROM -F POS -F ID -F REF -F ALT -F FILTER -F QUAL -F AC -F AN -F NLOD -F TLOD \
-    -GF AD -GF DP -GF AF \
-    -o "${tsv_file}"
+    # gatk.sh -T VariantsToTable \
+    # -R "${ref_fasta}" \
+    # -V "${filtered_vcf}" \
+    # -F CHROM -F POS -F ID -F REF -F ALT -F FILTER -F QUAL -F AC -F AN -F NLOD -F TLOD \
+    # -GF AD -GF DP -GF AF \
+    # -o "${tsv_file}"
 
     # reformat and adjust the TSV table for consistency downstream
     # add extra columns to the VCF TSV file for downstream
-    reformat-vcf-table.py -c MuTect2 -s "${tumorID}" -i "${tsv_file}" | \
-    paste-col.py --header "Sample" -v "${tumorID}"  | \
-    paste-col.py --header "Tumor" -v "${tumorID}"  | \
-    paste-col.py --header "Normal" -v "${normalID}"  | \
-    paste-col.py --header "Run" -v "${runID}" | \
-    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
-    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
-    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
-    paste-col.py --header "VariantCaller" -v "${caller}" | \
-    paste-col.py --header "System" -v "${localhostname}" > \
-    "${reformat_tsv}"
+    # reformat-vcf-table.py -c MuTect2 -s "${tumorID}" -i "${tsv_file}" | \
+    # paste-col.py --header "Sample" -v "${tumorID}"  | \
+    # paste-col.py --header "Tumor" -v "${tumorID}"  | \
+    # paste-col.py --header "Normal" -v "${normalID}"  | \
+    # paste-col.py --header "Run" -v "${runID}" | \
+    # paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    # paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    # paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    # paste-col.py --header "Location" -v "${workflow.projectDir}" | \
+    # paste-col.py --header "VariantCaller" -v "${caller}" | \
+    # paste-col.py --header "System" -v "${localhostname}" > \
+    # "${reformat_tsv}"
     """
 }
 
+process filter_vcf_pairs {
+    // filter the .vcf for tumor-normal pairs
+    tag "${prefix}"
+    publishDir "${params.outputDir}/analysis/variants", overwrite: true, mode: 'copy'
+
+    input:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from vcfs_mutect2.combine(ref_fasta11).combine(ref_fai11).combine(ref_dict11)
+
+    output:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file("${filtered_vcf}") into filtered_vcf_pairs // to tsv
+
+    script:
+    prefix = "${comparisonID}.${chrom}.${caller}"
+    filtered_vcf = "${prefix}.filtered.vcf"
+    if( caller == 'MuTect2' )
+        """
+        # filter VCF
+        # report if:
+        # only keep 'PASS' entries
+        gatk.sh -T SelectVariants \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
+        -select 'vc.isNotFiltered()' \
+        > "${filtered_vcf}"
+
+        # other criteria:
+
+        # T frequency is more than 3%
+        # ( Tumor Allelic depth alt / (Tumor Allelic depth ref + Tumor Allelic depth alt ) )  > 0.03
+        # -select "(vc.getGenotype('TUMOR').getAD().1 / (vc.getGenotype('TUMOR').getAD().0 + vc.getGenotype('TUMOR').getAD().1) )  > 0.03" \
+
+        # N frequency is less than 5%
+        # ( Normal Allelic depth alt / ( Normal Allelic depth ref + Normal Allelic depth alt ) )  < 0.05
+        # -select "(vc.getGenotype('NORMAL').getAD().1 / (vc.getGenotype('NORMAL').getAD().0 + vc.getGenotype('NORMAL').getAD().1) )  < 0.05" \
+
+        # at least 5 variant call supporting reads
+        # Tumor Allelic depth alt > 5
+        # -select "vc.getGenotype('TUMOR').getAD().1 > 5" \
+
+        # T frequency is sufficiently higher (5x) than N frequency
+        # "we recommend applying post-processing filters, e.g. by hard-filtering calls with low minor allele frequencies"
+        # ( Tumor Allelic depth alt / ( Tumor Allelic depth ref + Tumor Allelic depth alt ) ) > ( Normal Allelic depth alt / ( Normal Allelic depth ref + Normal Allelic depth alt ) ) * 5
+        # -select "(vc.getGenotype('TUMOR').getAD().1 / (vc.getGenotype('TUMOR').getAD().0 + vc.getGenotype('TUMOR').getAD().1) ) > (vc.getGenotype('NORMAL').getAD().1 / (vc.getGenotype('NORMAL').getAD().0 + vc.getGenotype('NORMAL').getAD().1) ) * 5" \
+
+        # vc.getGenotype('TUMOR').getAD().0 ; Tumor Allelic depth ref
+        # vc.getGenotype('TUMOR').getAD().1 ; Tumor Allelic depth alt
+        # vc.getGenotype('NORMAL').getAD().0 ; Normal Allelic depth ref
+        # vc.getGenotype('NORMAL').getAD().1 ; Normal Allelic depth alt
+
+        # example variant format:
+        ##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+        # CHROM	chr7
+        # POS	2946342
+        # ID	.
+        # REF	A
+        # ALT	G
+        # QUAL	.
+        # FILTER	clustered_events;homologous_mapping_event
+        # INFO	ECNT=16;HCNT=3;MAX_ED=65;MIN_ED=5;NLOD=33.41;TLOD=23.04
+        # FORMAT	GT:AD:AF:ALT_F1R2:ALT_F2R1:FOXOG:PGT:PID:QSS:REF_F1R2:REF_F2R1
+        # TUMOR	0/1:1333,17:0.013:7:10:0.588:0|1:2946342_A_G:40125,535:641:689
+        # NORMAL	0/0:137,0:0.00:0:0:.:0|1:2946342_A_G:3959,0:53:80
+        """
+    else
+        error "Invalid caller: ${caller}"
+}
+
+process vcf_to_tsv_pairs {
+    tag "${prefix}"
+    publishDir "${params.outputDir}/analysis/variants", overwrite: true, mode: 'copy'
+
+    input:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from filtered_vcf_pairs.combine(ref_fasta12).combine(ref_fai12).combine(ref_dict12)
+
+    output:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(vcf), file("${reformat_tsv}") into vcf_tsv_pairs // to annotation
+
+    script:
+    prefix = "${comparisonID}.${chrom}.${caller}"
+    tsv_file = "${prefix}.tsv"
+    reformat_tsv = "${prefix}.reformat.tsv"
+    if( caller == 'MuTect2' )
+        """
+        # convert VCF to TSV
+        gatk.sh -T VariantsToTable \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
+        -F CHROM -F POS -F ID -F REF -F ALT -F FILTER -F QUAL -F AC -F AN -F NLOD -F TLOD \
+        -GF AD -GF DP -GF AF \
+        -o "${tsv_file}"
+
+        # reformat and adjust the TSV table for consistency downstream
+        # add extra columns to the VCF TSV file for downstream
+        reformat-vcf-table.py -c MuTect2 -s "${tumorID}" -i "${tsv_file}" | \
+        paste-col.py --header "Sample" -v "${tumorID}"  | \
+        paste-col.py --header "Tumor" -v "${tumorID}"  | \
+        paste-col.py --header "Normal" -v "${normalID}"  | \
+        paste-col.py --header "Run" -v "${runID}" | \
+        paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+        paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+        paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+        paste-col.py --header "Location" -v "${workflow.projectDir}" | \
+        paste-col.py --header "VariantCaller" -v "${caller}" | \
+        paste-col.py --header "System" -v "${localhostname}" > \
+        "${reformat_tsv}"
+        """
+    else
+        error "Invalid caller: ${caller}"
+}
 
 samples_mutect3.combine(dbsnp_ref_vcf5)
                 .combine(ref_fasta5)
@@ -1770,7 +1881,7 @@ samples_vcfs_tsvs_bad.map { caller, sampleID, sample_vcf, sample_tsv ->
     return(output)
 }.set { samples_vcfs_tsvs_bad_logs }
 
-samples_mutect2.choice( pairs_vcfs_tsvs_good, pairs_vcfs_tsvs_bad ){ items ->
+vcf_tsv_pairs.choice( pairs_vcfs_tsvs_good, pairs_vcfs_tsvs_bad ){ items ->
     def caller = items[0]
     def comparisonID = items[1]
     def tumorID = items[2]
