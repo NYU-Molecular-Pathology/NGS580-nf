@@ -612,6 +612,7 @@ realigned_intervals_tables.combine(ref_fasta6)
             .combine(gatk_1000G_phase1_indels_vcf2)
             .combine(mills_and_1000G_gold_standard_indels_vcf2)
             .combine(dbsnp_ref_vcf6)
+            .combine(dbsnp_ref_vcf_idx6)
             .set { realigned_intervals_tables_comb }
 
 process gatk_IndelRealigner {
@@ -621,7 +622,7 @@ process gatk_IndelRealigner {
     publishDir "${params.outputDir}/samples/${sampleID}", pattern: "*.dd.ra.bam*", overwrite: true, mode: 'copy'
 
     input:
-    set val(sampleID), file(intervals_file), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file() from realigned_intervals_tables_comb
+    set val(sampleID), file(intervals_file), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx) from realigned_intervals_tables_comb
 
     output:
     set val(sampleID), file("${ra_bam_file}"), file("${ra_bai_file}") into realigned_intervals_bams
