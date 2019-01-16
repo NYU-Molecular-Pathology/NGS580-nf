@@ -131,7 +131,7 @@ Channel.fromPath( file(params.ref_fa_bwa_dir) ).set{ ref_fa_bwa_dir }
 Channel.fromPath( file(params.gatk_1000G_phase1_indels_hg19_vcf) ).into{ gatk_1000G_phase1_indels_vcf; gatk_1000G_phase1_indels_vcf2; gatk_1000G_phase1_indels_vcf3; gatk_1000G_phase1_indels_vcf4 }
 Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf) ).into{ mills_and_1000G_gold_standard_indels_vcf; mills_and_1000G_gold_standard_indels_vcf2; mills_and_1000G_gold_standard_indels_vcf3; mills_and_1000G_gold_standard_indels_vcf4 }
 Channel.fromPath( file(params.dbsnp_ref_vcf) ).into{ dbsnp_ref_vcf; dbsnp_ref_vcf2; dbsnp_ref_vcf3; dbsnp_ref_vcf4; dbsnp_ref_vcf5; dbsnp_ref_vcf6; dbsnp_ref_vcf7; dbsnp_ref_vcf8 }
-Channel.fromPath( file(params.dbsnp_ref_vcf_idx) ).into{ dbsnp_ref_vcf_idx; dbsnp_ref_vcf_idx2 }
+Channel.fromPath( file(params.dbsnp_ref_vcf_idx) ).into{ dbsnp_ref_vcf_idx; dbsnp_ref_vcf_idx2; dbsnp_ref_vcf_idx3; dbsnp_ref_vcf_idx4; dbsnp_ref_vcf_idx5; dbsnp_ref_vcf_idx6; dbsnp_ref_vcf_idx7; dbsnp_ref_vcf_idx8 }
 Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref_vcf2 }
 Channel.fromPath( file(params.cosmic_ref_vcf_idx) ).into{ cosmic_ref_vcf_idx; cosmic_ref_vcf_idx2 }
 Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
@@ -571,6 +571,7 @@ samples_dd_bam.combine(ref_fasta)
             .combine(gatk_1000G_phase1_indels_vcf)
             .combine(mills_and_1000G_gold_standard_indels_vcf)
             .combine(dbsnp_ref_vcf)
+            .combine(dbsnp_ref_vcf_idx)
             .set { samples_dd_bam_ref_gatk }
 
 // MAIN REALIGNMENT AND RECALIBRATION STEP
@@ -581,7 +582,7 @@ process gatk_RealignerTargetCreator {
     publishDir "${params.outputDir}/samples/${sampleID}", pattern: "${intervals_file}", overwrite: true, mode: 'copy'
 
     input:
-    set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from samples_dd_bam_ref_gatk
+    set val(sampleID), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx) from samples_dd_bam_ref_gatk
 
     output:
     set val(sampleID), file("${intervals_file}"), file(sample_bam) into realigned_intervals_tables
@@ -620,7 +621,7 @@ process gatk_IndelRealigner {
     publishDir "${params.outputDir}/samples/${sampleID}", pattern: "*.dd.ra.bam*", overwrite: true, mode: 'copy'
 
     input:
-    set val(sampleID), file(intervals_file), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from realigned_intervals_tables_comb
+    set val(sampleID), file(intervals_file), file(sample_bam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file() from realigned_intervals_tables_comb
 
     output:
     set val(sampleID), file("${ra_bam_file}"), file("${ra_bai_file}") into realigned_intervals_bams
@@ -654,6 +655,7 @@ realigned_intervals_bams.combine(ref_fasta7)
             .combine(gatk_1000G_phase1_indels_vcf3)
             .combine(mills_and_1000G_gold_standard_indels_vcf3)
             .combine(dbsnp_ref_vcf7)
+            .combine(dbsnp_ref_vcf_idx7)
             .set { realigned_intervals_bams_comb }
 
 process gatk_BaseRecalibrator {
@@ -663,7 +665,7 @@ process gatk_BaseRecalibrator {
     publishDir "${params.outputDir}/samples/${sampleID}", pattern: "*.table1.txt", overwrite: true, mode: 'copy'
 
     input:
-    set val(sampleID), file(ra_bam_file), file(ra_bai_file), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from realigned_intervals_bams_comb
+    set val(sampleID), file(ra_bam_file), file(ra_bai_file), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx) from realigned_intervals_bams_comb
 
     output:
     set val(sampleID), file("${table1}"), file(ra_bam_file), file(ra_bai_file) into recalibrated_bases_table1
@@ -695,6 +697,7 @@ recalibrated_bases_table1.combine(ref_fasta8)
             .combine(gatk_1000G_phase1_indels_vcf4)
             .combine(mills_and_1000G_gold_standard_indels_vcf4)
             .combine(dbsnp_ref_vcf8)
+            .combine(dbsnp_ref_vcf_idx8)
             .set { recalibrated_bases_table1_comb }
 
 process gatk_BaseRecalibratorBQSR {
@@ -704,7 +707,7 @@ process gatk_BaseRecalibratorBQSR {
     publishDir "${params.outputDir}/samples/${sampleID}", pattern: "${table2}", overwrite: true, mode: 'copy'
 
     input:
-    set val(sampleID), file(table1), file(ra_bam_file), file(ra_bai_file), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf) from recalibrated_bases_table1_comb
+    set val(sampleID), file(table1), file(ra_bam_file), file(ra_bai_file), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(gatk_1000G_phase1_indels_vcf), file(mills_and_1000G_gold_standard_indels_vcf), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx) from recalibrated_bases_table1_comb
 
     output:
     set val(sampleID), file(table1), file("${table2}"), file(ra_bam_file), file(ra_bai_file) into recalibrated_bases_table2
@@ -811,6 +814,7 @@ samples_dd_ra_rc_bam.combine(ref_fasta2)
 
 
 samples_dd_ra_rc_bam_ref.combine( dbsnp_ref_vcf3 )
+                        .combine(dbsnp_ref_vcf_idx3)
                         .tap { samples_dd_ra_rc_bam_ref_dbsnp;
                                 samples_dd_ra_rc_bam_ref_dbsnp2 }
 
@@ -1065,7 +1069,7 @@ process lofreq {
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
 
     input:
-    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx) from samples_dd_ra_rc_bam_ref_dbsnp
 
     output:
     set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_lofreq_vcf
@@ -1143,7 +1147,7 @@ process gatk_hc {
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
 
     input:
-    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf) from samples_dd_ra_rc_bam_ref_dbsnp2
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx) from samples_dd_ra_rc_bam_ref_dbsnp2
 
     output:
     set val(caller), val(sampleID), file("${filtered_vcf}") into sample_vcf_hc
@@ -1223,6 +1227,7 @@ process gatk_hc {
 
 sample_vcf_hc3.mix(samples_lofreq_vcf2)
                 .combine(dbsnp_ref_vcf4)
+                .combine(dbsnp_ref_vcf_idx4)
                 .combine(ref_fasta4)
                 .combine(ref_fai4)
                 .combine(ref_dict4)
@@ -1234,7 +1239,7 @@ process eval_sample_vcf {
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
 
     input:
-    set val(caller), val(sampleID), file(sample_vcf), file(dbsnp_ref_vcf), file(ref_fasta), file(ref_fai), file(ref_dict4) from samples_filtered_vcfs
+    set val(caller), val(sampleID), file(sample_vcf), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx), file(ref_fasta), file(ref_fai), file(ref_dict4) from samples_filtered_vcfs
 
     output:
     file("${eval_file}")
@@ -1830,6 +1835,7 @@ process vcf_to_tsv_pairs {
 }
 
 samples_mutect3.combine(dbsnp_ref_vcf5)
+                .combine(dbsnp_ref_vcf_idx5)
                 .combine(ref_fasta5)
                 .combine(ref_fai5)
                 .combine(ref_dict5)
@@ -1841,7 +1847,7 @@ process eval_pair_vcf {
     publishDir "${params.outputDir}/samples/${tumorID}", overwrite: true, mode: 'copy'
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(pairs_vcf), file(dbsnp_ref_vcf), file(ref_fasta), file(ref_fai), file(ref_dict4) from pairs_filtered_vcfs
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(pairs_vcf), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx), file(ref_fasta), file(ref_fai), file(ref_dict4) from pairs_filtered_vcfs
 
     output:
     file("${eval_file}")
