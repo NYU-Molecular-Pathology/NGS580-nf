@@ -96,6 +96,7 @@ def LoFreq(fin, fout):
 def MuTect2(fin, fout):
     """
     Outputs the TUMOR.AF as a new column called 'FREQ', and outputs the TLOD value as QUAL
+    Adds extra allelic depth columns
 
     Parameters
     ----------
@@ -106,16 +107,33 @@ def MuTect2(fin, fout):
 
     """
     reader = csv.DictReader(fin, delimiter = '\t')
+    # get old headers
     fieldnames = reader.fieldnames
+    # append new headers for the columns to be created
     fieldnames.append('FREQ')
+    fieldnames.append('QUAL')
+    fieldnames.append('TUMOR.AD.REF')
+    fieldnames.append('TUMOR.AD.ALT')
+    fieldnames.append('TUMOR.AD.TOTAL')
+    fieldnames.append('NORMAL.AD.REF')
+    fieldnames.append('NORMAL.AD.ALT')
+    fieldnames.append('NORMAL.AD.TOTAL')
     writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
     writer.writeheader()
     for row in reader:
         # set the FREQ to the tumor AF
-        tumor_AF_value = row[tumor_AF_key]
+        tumor_AF_value = row["TUMOR.AF"]
         row['FREQ'] = row['TUMOR.AF']
         # change QUAL to the TLOD
         row['QUAL'] = row['TLOD']
+        # split the tumor AD values for ref and alt
+        row['TUMOR.AD.REF'] = row['TUMOR.AD'].split(',')[0]
+        row['TUMOR.AD.ALT'] = row['TUMOR.AD'].split(',')[1]
+        row['NORMAL.AD.REF'] = row['NORMAL.AD'].split(',')[0]
+        row['NORMAL.AD.ALT'] = row['NORMAL.AD'].split(',')[1]
+        # add up the total allelic depths
+        row['TUMOR.AD.TOTAL'] = int(row['TUMOR.AD.REF']) + int(row['TUMOR.AD.ALT'])
+        row['NORMAL.AD.TOTAL'] = int(row['NORMAL.AD.REF']) + int(row['NORMAL.AD.ALT'])
         writer.writerow(row)
 
 

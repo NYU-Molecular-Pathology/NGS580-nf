@@ -1744,11 +1744,18 @@ process filter_vcf_pairs {
         # filter VCF
         # report if:
         # only keep 'PASS' entries
-        gatk.sh -T SelectVariants \
-        -R "${ref_fasta}" \
-        -V "${vcf}" \
-        -select 'vc.isNotFiltered()' \
-        > "${filtered_vcf}"
+
+        # get the header
+        grep '^#' "${vcf}" > "${output_vcf}"
+        # get the 'PASS' entries
+        grep -v '^#' "${vcf}" | grep 'PASS' >> "${output_vcf}" || :
+
+        # old method
+        # gatk.sh -T SelectVariants \
+        # -R "${ref_fasta}" \
+        # -V "${vcf}" \
+        # -select 'vc.isNotFiltered()' \
+        # > "${filtered_vcf}"
 
         # other criteria:
 
@@ -1809,6 +1816,7 @@ process vcf_to_tsv_pairs {
     if( caller == 'MuTect2' )
         """
         # convert VCF to TSV
+        # NOTE: automatically filters for only PASS entries
         gatk.sh -T VariantsToTable \
         -R "${ref_fasta}" \
         -V "${vcf}" \
@@ -2023,6 +2031,7 @@ process annotate_pairs {
     annotations_tsv = "${prefix}.annotations.tsv"
     if( caller == 'MuTect2' )
         """
+        # annotate .vcf
         table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
         --buildver "${params.ANNOVAR_BUILD_VERSION}" \
         --remove \
@@ -2033,12 +2042,14 @@ process annotate_pairs {
         --onetranscript \
         --outfile "${prefix}"
 
-        # TODO: Need to check this! Need a MuTect2 .vcf with passing variants!
-        printf "Chr\tStart\tEnd\tRef\tAlt\tId\tQuality\tDP\tCHROM\tPOS\tID\tREF\tALT\tQUAL\n" > "${avinput_tsv}"
-        cut -f1-14 ${avinput_file} >>  "${avinput_tsv}"
+        # get values from .avinput file
+        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
+        cut -f1-5,9-13 ${avinput_file} >>  "${avinput_tsv}"
 
+        # merge the tables together
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tmp}"
 
+        # add unique identifer for every variant
         hash-col.py -i "${annotations_tmp}" -o "${annotations_tsv}" --header 'Hash' -k ${hash_cols}
         """
     else
