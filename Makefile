@@ -141,7 +141,7 @@ SAMPLESHEET:=
 config: $(CONFIG_OUTPUT)
 	@[ -n "$(RUNID)" ] && echo ">>> Updating runID config" && python config.py --update "$(CONFIG_OUTPUT)" --runID "$(RUNID)" || :
 	@[ -n "$(SAMPLESHEET)" ] && echo ">>> Updating samplesheet config" && python config.py --update "$(CONFIG_OUTPUT)" --samplesheet "$(SAMPLESHEET)" || :
-	@[ -n "$(DEMUX_SAMPLESHEET)" ] && echo ">>> Updating demultiplexing samplesheet config" && python config.py --update "$(CONFIG_OUTPUT)" --samplesheet "$(DEMUX_SAMPLESHEET)" || :
+	@[ -n "$(DEMUX_SAMPLESHEET)" ] && echo ">>> Updating demultiplexing samplesheet config" && python config.py --update "$(CONFIG_OUTPUT)" --demux-samplesheet "$(DEMUX_SAMPLESHEET)" || :
 	@[ -n "$(FASTQDIR)" ] && echo ">>> Updating fastqDirs config" && python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs "$(FASTQDIR)" || :
 	@[ -n "$(FASTQDIRS)" ] && echo ">>> Adding fastq dirs to config" && python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs $(FASTQDIRS) || :
 
