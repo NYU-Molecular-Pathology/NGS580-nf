@@ -53,6 +53,8 @@ def main(**kwargs):
     fastqDirs = kwargs.pop('fastqDirs', [])
     samplesheet = kwargs.pop('samplesheet', None)
     updateFile = kwargs.pop('updateFile', False)
+    demux_samplesheet = kwargs.pop('demux_samplesheet', None)
+
 
     if fastqDirs is None:
         fastqDirs = []
@@ -60,7 +62,8 @@ def main(**kwargs):
     data = {
     'runID': runID,
     'fastqDirs': list(set(fastqDirs)),
-    'samplesheet': samplesheet
+    'samplesheet': samplesheet,
+    'demux_samplesheet': demux_samplesheet
     }
 
     if updateFile is False:
@@ -76,6 +79,7 @@ def parse():
     parser.add_argument("--runID", default = None, dest = 'runID', help="Run ID")
     parser.add_argument("--fastqDirs", nargs = '+', dest = 'fastqDirs', help="Run directory")
     parser.add_argument("--samplesheet", default = None, dest = 'samplesheet', help="Samplesheet file")
+    parser.add_argument("--demux-samplesheet", default = None, dest = 'demux_samplesheet', help="Demultiplexing Samplesheet file")
     parser.add_argument("-u", "--update", default = False, dest = 'updateFile', help="JSON file to update")
 
     args = parser.parse_args()

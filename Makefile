@@ -106,6 +106,9 @@ check-fastqdir:
 # location of production demultiplexing for deployment
 FASTQDIR:=
 FASTQDIRS:=
+# samplesheet used for sequencing run demultiplexing
+DEMUX_SAMPLESHEET:=
+DEMUX_SAMPLESHEET_output:=demux-samplesheet.csv
 # sequencing run name for deployment
 RUNID:=
 # location of production deployment for analysis
@@ -114,13 +117,14 @@ PRODDIR:=/gpfs/data/molecpathlab/production/NGS580
 deploy:
 	@$(MAKE) check-runid
 	@$(MAKE) check-fastqdir
-	@repo_dir="$${PWD}" && \
+	repo_dir="$${PWD}" && \
 	output_dir="$(PRODDIR)/$(RUNID)" && \
 	echo ">>> Setting up new repo in location: $${output_dir}" && \
 	git clone --recursive "$${repo_dir}" "$${output_dir}" && \
 	cd "$${output_dir}" && \
 	echo ">>> Linking input directory: $(FASTQDIR)" && \
 	ln -s "$(FASTQDIR)" input && \
+	[ -e "$(DEMUX_SAMPLESHEET)" ] && /bin/cp "$(DEMUX_SAMPLESHEET)" "$(DEMUX_SAMPLESHEET_output)" || : \
 	echo ">>> Creating input fastq sheet" && \
 	python generate-samplesheets.py --name-mode "$(NAMEMODE)" '$(FASTQDIR)' && \
 	echo ">>> Creating config file..." && \
@@ -137,6 +141,7 @@ SAMPLESHEET:=
 config: $(CONFIG_OUTPUT)
 	@[ -n "$(RUNID)" ] && echo ">>> Updating runID config" && python config.py --update "$(CONFIG_OUTPUT)" --runID "$(RUNID)" || :
 	@[ -n "$(SAMPLESHEET)" ] && echo ">>> Updating samplesheet config" && python config.py --update "$(CONFIG_OUTPUT)" --samplesheet "$(SAMPLESHEET)" || :
+	@[ -n "$(DEMUX_SAMPLESHEET)" ] && echo ">>> Updating demultiplexing samplesheet config" && python config.py --update "$(CONFIG_OUTPUT)" --samplesheet "$(DEMUX_SAMPLESHEET)" || :
 	@[ -n "$(FASTQDIR)" ] && echo ">>> Updating fastqDirs config" && python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs "$(FASTQDIR)" || :
 	@[ -n "$(FASTQDIRS)" ] && echo ">>> Adding fastq dirs to config" && python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs $(FASTQDIRS) || :
 
