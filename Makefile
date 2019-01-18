@@ -168,7 +168,12 @@ pairs:
 	@if [ ! -e "$(SAMPLESHEET_OUTPUT)" ]; then $(MAKE) samplesheet; fi && \
 	if [ ! -e "$(PAIRS_SHEET)" ]; then echo ">>> ERROR: PAIRS_SHEET does not exist: $(PAIRS_SHEET)"; exit 1; fi && \
 	if [ "$(PAIRS_MODE)" == "sns" ]; then \
+	echo ">>> Updating samplesheet with sample pairs from sns style sheet" ; \
 	python update-samplesheets.py --tumor-normal-sheet "$(PAIRS_SHEET)" --pairs-tumor-colname '#SAMPLE-T' --pairs-normal-colname '#SAMPLE-N' ; \
+	elif [ "$(PAIRS_MODE)" == "demux" ]; then \
+	echo ">>> Updating samplesheet with sample pairs from demultiplexing style sheet" ; \
+	python bin/demux2tumor_normal_sheet.py "$(PAIRS_SHEET)" samples.tumor.normal.csv && \
+	python update-samplesheets.py --tumor-normal-sheet samples.tumor.normal.csv ; \
 	else echo ">>> ERROR: PAIRS_MODE not recognized: $(PAIRS_MODE)"; exit 1; fi
 
 # ~~~~~ UPDATE THIS REPO ~~~~~ #
