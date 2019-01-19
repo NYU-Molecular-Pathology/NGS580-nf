@@ -117,7 +117,7 @@ PRODDIR:=/gpfs/data/molecpathlab/production/NGS580
 deploy:
 	@$(MAKE) check-runid
 	@$(MAKE) check-fastqdir
-	repo_dir="$${PWD}" && \
+	@repo_dir="$${PWD}" && \
 	output_dir="$(PRODDIR)/$(RUNID)" && \
 	echo ">>> Setting up new repo in location: $${output_dir}" && \
 	git clone --recursive "$${repo_dir}" "$${output_dir}" && \
