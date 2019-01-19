@@ -129,6 +129,8 @@ deploy:
 	python generate-samplesheets.py --name-mode "$(NAMEMODE)" '$(FASTQDIR)' && \
 	echo ">>> Creating config file..." && \
 	$(MAKE) config CONFIG_OUTPUT="$${output_dir}/config.json" && \
+	[ -e "$(DEMUX_SAMPLESHEET_output)" ] && echo ">>> Adding demux samplesheet to config" && $(MAKE) config DEMUX_SAMPLESHEET="$(DEMUX_SAMPLESHEET_output)" CONFIG_OUTPUT="$${output_dir}/config.json" || : \
+	[ -e "$(DEMUX_SAMPLESHEET_output)" ] && $(MAKE) pairs PAIRS_SHEET="$(DEMUX_SAMPLESHEET_output)" PAIRS_MODE=demux
 	printf ">>> NGS580 analysis directory prepared: $${output_dir}\n"
 
 CONFIG_INPUT:=.config.json
@@ -168,6 +170,9 @@ samplesheet:
 # requires samplesheet to exist
 # default to 'sns' style sample pairs .csv file
 PAIRS_SHEET:=samples.pairs.csv
+# type of sheet to parse pairs from;
+# 'sns': Igor sns pipeline format
+# 'demux': Illumina demultiplexing samplesheet with extra 'Paired_Normal' column added to [Data] section
 PAIRS_MODE:=sns
 pairs:
 	@if [ ! -e "$(SAMPLESHEET_OUTPUT)" ]; then $(MAKE) samplesheet; fi && \
