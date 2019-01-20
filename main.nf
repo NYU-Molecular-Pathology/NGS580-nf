@@ -1746,9 +1746,9 @@ process filter_vcf_pairs {
         # only keep 'PASS' entries
 
         # get the header
-        grep '^#' "${vcf}" > "${output_vcf}"
+        grep '^#' "${vcf}" > "${filtered_vcf}"
         # get the 'PASS' entries
-        grep -v '^#' "${vcf}" | grep 'PASS' >> "${output_vcf}" || :
+        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
 
         # old method
         # gatk.sh -T SelectVariants \
