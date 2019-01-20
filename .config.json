@@ -1,5 +1,6 @@
 {
     "samplesheet": "samples.analysis.tsv",
     "runID": null,
-    "fastqDirs": []
+    "fastqDirs": [],
+    "demux_samplesheet": "demux-samplesheet.csv"
 }

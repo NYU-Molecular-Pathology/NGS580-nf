@@ -106,6 +106,9 @@ check-fastqdir:
 # location of production demultiplexing for deployment
 FASTQDIR:=
 FASTQDIRS:=
+# samplesheet used for sequencing run demultiplexing
+DEMUX_SAMPLESHEET:=
+DEMUX_SAMPLESHEET_output:=demux-samplesheet.csv
 # sequencing run name for deployment
 RUNID:=
 # location of production deployment for analysis
@@ -121,10 +124,13 @@ deploy:
 	cd "$${output_dir}" && \
 	echo ">>> Linking input directory: $(FASTQDIR)" && \
 	ln -s "$(FASTQDIR)" input && \
+	[ -e "$(DEMUX_SAMPLESHEET)" ] && /bin/cp "$(DEMUX_SAMPLESHEET)" "$(DEMUX_SAMPLESHEET_output)" || : \
 	echo ">>> Creating input fastq sheet" && \
 	python generate-samplesheets.py --name-mode "$(NAMEMODE)" '$(FASTQDIR)' && \
 	echo ">>> Creating config file..." && \
 	$(MAKE) config CONFIG_OUTPUT="$${output_dir}/config.json" && \
+	[ -e "$(DEMUX_SAMPLESHEET_output)" ] && echo ">>> Adding demux samplesheet to config" && $(MAKE) config DEMUX_SAMPLESHEET="$(DEMUX_SAMPLESHEET_output)" CONFIG_OUTPUT="$${output_dir}/config.json" || : \
+	[ -e "$(DEMUX_SAMPLESHEET_output)" ] && $(MAKE) pairs PAIRS_SHEET="$(DEMUX_SAMPLESHEET_output)" PAIRS_MODE=demux
 	printf ">>> NGS580 analysis directory prepared: $${output_dir}\n"
 
 CONFIG_INPUT:=.config.json
@@ -137,6 +143,7 @@ SAMPLESHEET:=
 config: $(CONFIG_OUTPUT)
 	@[ -n "$(RUNID)" ] && echo ">>> Updating runID config" && python config.py --update "$(CONFIG_OUTPUT)" --runID "$(RUNID)" || :
 	@[ -n "$(SAMPLESHEET)" ] && echo ">>> Updating samplesheet config" && python config.py --update "$(CONFIG_OUTPUT)" --samplesheet "$(SAMPLESHEET)" || :
+	@[ -n "$(DEMUX_SAMPLESHEET)" ] && echo ">>> Updating demultiplexing samplesheet config" && python config.py --update "$(CONFIG_OUTPUT)" --demux-samplesheet "$(DEMUX_SAMPLESHEET)" || :
 	@[ -n "$(FASTQDIR)" ] && echo ">>> Updating fastqDirs config" && python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs "$(FASTQDIR)" || :
 	@[ -n "$(FASTQDIRS)" ] && echo ">>> Adding fastq dirs to config" && python config.py --update "$(CONFIG_OUTPUT)" --fastqDirs $(FASTQDIRS) || :
 
@@ -163,12 +170,20 @@ samplesheet:
 # requires samplesheet to exist
 # default to 'sns' style sample pairs .csv file
 PAIRS_SHEET:=samples.pairs.csv
+# type of sheet to parse pairs from;
+# 'sns': Igor sns pipeline format
+# 'demux': Illumina demultiplexing samplesheet with extra 'Paired_Normal' column added to [Data] section
 PAIRS_MODE:=sns
 pairs:
 	@if [ ! -e "$(SAMPLESHEET_OUTPUT)" ]; then $(MAKE) samplesheet; fi && \
 	if [ ! -e "$(PAIRS_SHEET)" ]; then echo ">>> ERROR: PAIRS_SHEET does not exist: $(PAIRS_SHEET)"; exit 1; fi && \
 	if [ "$(PAIRS_MODE)" == "sns" ]; then \
+	echo ">>> Updating samplesheet with sample pairs from sns style sheet" ; \
 	python update-samplesheets.py --tumor-normal-sheet "$(PAIRS_SHEET)" --pairs-tumor-colname '#SAMPLE-T' --pairs-normal-colname '#SAMPLE-N' ; \
+	elif [ "$(PAIRS_MODE)" == "demux" ]; then \
+	echo ">>> Updating samplesheet with sample pairs from demultiplexing style sheet" ; \
+	python bin/demux2tumor_normal_sheet.py "$(PAIRS_SHEET)" samples.tumor.normal.csv && \
+	python update-samplesheets.py --tumor-normal-sheet samples.tumor.normal.csv ; \
 	else echo ">>> ERROR: PAIRS_MODE not recognized: $(PAIRS_MODE)"; exit 1; fi
 
 # ~~~~~ UPDATE THIS REPO ~~~~~ #

@@ -1,0 +1,3 @@
+[submodule "bin/util"]
+	path = bin/util
+	url = git@github.com:NYU-Molecular-Pathology/util.git
