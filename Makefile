@@ -243,21 +243,35 @@ run-phoenix: install
 	@module unload java && module load java/1.8 && \
 	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP)
 
-# run on NYU Big Purple HPC in current session
+# run on NYU Big Purple HPC
+SLURM_recurse:=
 # HPC queue/partition to submit to by default
 Q:=cpu_short
-# try to automatically detect a SLURM queue with idle nodes to submit to
-SLURM_recurse:=
+# total number of CPUs on Intellispace queue
+Intellispace_queue_max:=80
+Intellispace_queue_name:=intellispace
 ifneq ($(SLURM_recurse),)
+# check the count of intellispace queue cpus used/requested
+Intellispace_queue_cpus:=$(shell squeue -p intellispace -o "%C" | tail -n +2 | paste -sd+ | bc)
+# try to automatically detect a SLURM queue with idle nodes to submit to
 AutoQ_SLURM_idle:=$(shell sinfo -N -O nodelist,partition,statelong | grep 'idle' | grep -v 'data_mover' | grep -v 'dev' | grep -v 'fn_' | grep -v 'cpu_long' | tr -s '[:space:]' | cut -d ' ' -f2 | sort -u | head -1)
 # detect which 'mixed' queue has the most open nodes
 AutoQ_SLURM_mixed:=$(shell sinfo -N -O nodelist,partition,statelong | grep 'mixed' | grep -v 'data_mover' | grep -v 'dev' | grep -v 'fn_' | grep -v 'cpu_long' | tr -s '[:space:]' | cut -d ' ' -f2 | sort | uniq -c | sort -k 1nr | head -1 | tr -s '[:space:]' | cut -d ' ' -f3)
+# first option: use queue with most idle nodes; empty if none exist
 ifneq ($(AutoQ_SLURM_idle),)
 Q:=$(AutoQ_SLURM_idle)
+# second option: use queue with most mixed nodes; empty if none exist
 else ifneq ($(AutoQ_SLURM_mixed),)
 Q:=$(AutoQ_SLURM_mixed)
+# third option: use intellispace queue if it has less than the max number of CPUs used/requested already
+else ifneq ($(shell test $(Intellispace_queue_cpus) -lt $(Intellispace_queue_max); echo $$?),0)
+Q:=$(Intellispace_queue_name)
 endif
 endif
+test-q:
+	@$(MAKE) test-q-recurse SLURM_recurse=1
+test-q-recurse:
+	@echo "Q: $(Q), AutoQ_SLURM_idle: $(AutoQ_SLURM_idle), AutoQ_SLURM_mixed: $(AutoQ_SLURM_mixed), Intellispace_queue_cpus: $(Intellispace_queue_cpus)"
 run-bigpurple:
 	$(MAKE) run-bigpurple-recurse SLURM_recurse=1
 run-bigpurple-recurse: install
