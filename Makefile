@@ -275,7 +275,7 @@ test-q-recurse:
 run-bigpurple:
 	$(MAKE) run-bigpurple-recurse SLURM_recurse=1
 run-bigpurple-recurse: install
-	./nextflow run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue $(Q) $(EP)
+	./nextflow run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue "$(Q)" $(EP)
 
 # run locally default settings
 run-local: install
