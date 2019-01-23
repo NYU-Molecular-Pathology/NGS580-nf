@@ -22,6 +22,7 @@ none:
 # ~~~~~ SETUP PIPELINE ~~~~~ #
 # install Nextflow in the current directory
 ./nextflow:
+	if [ "$$( module > /dev/null 2>&1; echo $$?)" -eq 0 ]; then module unload java && module load java/1.8 ; fi ; \
 	export NXF_VER="$(NXF_VER)" && \
 	curl -fsSL get.nextflow.io | bash
 
@@ -43,8 +44,15 @@ samples.analysis.tsv: NGS580-demo-data
 	./generate-samplesheets.py NGS580-demo-data/tiny/fastq/ && \
 	mv targets.bed targets.bed.old && \
 	/bin/cp NGS580-demo-data/tiny/targets.bed .
+	./update-samplesheets.py --tumor-normal-sheet NGS580-demo-data/tiny/samples.pairs.csv \
+	--pairs-tumor-colname '#SAMPLE-T' \
+	--pairs-normal-colname '#SAMPLE-N'
 
 demo: samples.analysis.tsv
+
+share:
+	chmod -vR g+wX .
+	chmod -vR a+X .
 
 annovar_db: install
 	if [ ! -d "$(ANNOVAR_DB_DIR)" ] ; then echo ">>> system ANNOVAR db dir does not exist, setting up local dir..." ;  ./nextflow run annovar_db.nf -profile annovar_db ; fi
