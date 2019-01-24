@@ -60,3 +60,4 @@ trace.txt
 .nextflow.submitted
 .nextflow.jobid
 demux-samplesheet.csv
+samples.pairs.csv
