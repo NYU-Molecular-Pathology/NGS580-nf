@@ -274,9 +274,11 @@ test-q-recurse:
 	@echo "Q: $(Q), AutoQ_SLURM_idle: $(AutoQ_SLURM_idle), AutoQ_SLURM_mixed: $(AutoQ_SLURM_mixed), Intellispace_queue_cpus: $(Intellispace_queue_cpus)"
 run-bigpurple:
 	$(MAKE) run-bigpurple-recurse SLURM_recurse=1
+run-bigpurple-recurse: Q_JSON:=/gpfs/home/kellys04/molecpathlab/pipelines/queue-stats/slurm.json
 run-bigpurple-recurse: export NXF_DEBUG=3
 run-bigpurple-recurse: install
-	./nextflow run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue "$(Q)" $(EP)
+	./nextflow run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue_json "$(Q_JSON)" $(EP)
+# --queue "$(Q)" # try using the queue JSON instead
 
 # run locally default settings
 run-local: install

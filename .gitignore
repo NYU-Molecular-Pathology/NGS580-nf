@@ -61,3 +61,4 @@ trace.txt
 .nextflow.jobid
 demux-samplesheet.csv
 samples.pairs.csv
+queue.log
