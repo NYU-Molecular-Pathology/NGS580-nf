@@ -1,6 +1,7 @@
 # Makefile to run the pipeline
 SHELL:=/bin/bash
-export NXF_VER:=18.10.1
+# export NXF_VER:=18.10.1
+export NXF_VER:=18.12.0-edge
 # extra params to pass for Nextflow in some recipes
 EP:=
 TIMESTAMP:=$(shell date +%s)
@@ -246,7 +247,7 @@ endif
 run-bigpurple:
 	$(MAKE) run-bigpurple-recurse SLURM_recurse=1
 run-bigpurple-recurse: install
-	./nextflow run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue $(Q) $(EP)
+	NXF_VER=18.12.0-edge ./nextflow -trace nextflow.executor run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue $(Q) $(EP)
 
 # run locally default settings
 run-local: install
