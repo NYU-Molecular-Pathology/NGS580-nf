@@ -293,7 +293,7 @@ run-power: install
 # submit the parent Nextflow process to phoenix HPC as a cluster job
 SUBJOBNAME:=NGS580-$(DIRNAME)
 SUBLOG:=$(LOGDIRABS)/slurm-%j.$(LOGFILEBASE)
-SUBQ:=cpu_long
+SUBQ:=intellispace
 SUBTHREADS:=4
 SUBEP:=
 NXF_NODEFILE:=.nextflow.node
