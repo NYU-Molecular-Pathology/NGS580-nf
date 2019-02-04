@@ -1,27 +1,26 @@
-BootStrap: debootstrap
-OSVersion: xenial
-MirrorURL: http://us.archive.ubuntu.com/ubuntu/
+BootStrap: docker
+From: ubuntu:16.04
 
 %post
-    # ~~~~~ BASIC SETUP ~~~~~ #
-    apt-get update && \
-    apt-get install -y wget \
-    bzip2
 
-    # ~~~~~ MINICONDA ~~~~~ #
-    wget https://repo.continuum.io/miniconda/Miniconda3-4.4.10-Linux-x86_64.sh && \
-    bash Miniconda3-4.4.10-Linux-x86_64.sh -b -p /conda && \
-    rm -f Miniconda3-4.4.10-Linux-x86_64.sh
-    conda config --add channels defaults
-    conda config --add channels conda-forge
-    conda config --add channels bioconda
+    apt-get update && apt-get install -y r-base-core
+    Rscript -e "source('http://bioconductor.org/biocLite.R'); biocLite('PSCBS', 'cghFLasso')"
 
-    # ~~~~~ DELLY2 ~~~~~ #
-    conda install -y -c bioconda \
-    cnvkit=0.9.0
+    apt-get install -y \
+        liblzma-dev \
+        python-biopython \
+        python-dev \
+        python-matplotlib \
+        python-numpy \
+        python-pip \
+        python-reportlab \
+        python-scipy \
+        python-tk \
+        zlib1g-dev
+
+      pip install -U future futures pandas pyfaidx pysam
+      pip install cnvkit==0.9.0
+      cnvkit.py version
 
 %test
     cnvkit.py version
-
-%environment
-    export PATH="/conda/bin:${PATH}"
