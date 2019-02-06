@@ -444,7 +444,7 @@ process samtools_flagstat_table {
     """
 }
 // sambamba_flagstat_tables.collectFile(name: "flagstat.tsv", storeDir: "${params.outputDir}/analysis", keepHeader: true)
-sambamba_flagstat_tables.collectFile(keepHeader: true).set { sambamba_flagstat_table_collected }
+sambamba_flagstat_tables.collectFile(name: ".flagstat.tsv", keepHeader: true).set { sambamba_flagstat_table_collected }
 
 process update_samtools_flagstat_table {
     // add labels to the table to output
@@ -527,7 +527,7 @@ process sambamba_dedup_log_table {
     """
 }
 // sambamba_dedup_log_tables.collectFile(name: "reads.dedup.tsv", storeDir: "${params.outputDir}/analysis", keepHeader: true)
-sambamba_dedup_log_tables.collectFile(keepHeader: true).set { sambamba_dedup_log_tables_collected }
+sambamba_dedup_log_tables.collectFile(name: ".reads.dedup.tsv", keepHeader: true).set { sambamba_dedup_log_tables_collected }
 
 process update_sambamba_dedup_log_table{
     // add labels to the table to output
@@ -597,7 +597,7 @@ process samtools_dedup_flagstat_table {
     """
 }
 // sambamba_dedup_flagstat_tables.collectFile(name: "flagstat.dedup.tsv", storeDir: "${params.outputDir}/analysis", keepHeader: true)
-sambamba_dedup_flagstat_tables.collectFile(keepHeader: true).set { sambamba_dedup_flagstat_tables_collected }
+sambamba_dedup_flagstat_tables.collectFile(name: ".flagstat.dedup.tsv", keepHeader: true).set { sambamba_dedup_flagstat_tables_collected }
 
 process update_samtools_dedup_flagstat_table {
     // add labels to the table to output
@@ -1072,7 +1072,7 @@ process update_coverage_tables {
     """
 }
 // updated_coverage_tables.collectFile(name: "${sample_coverage_file}", storeDir: "${params.outputDir}/analysis", keepHeader: true)
-updated_coverage_tables.collectFile(keepHeader: true).set { updated_coverage_tables_collected }
+updated_coverage_tables.collectFile(name: ".${sample_coverage_file}", keepHeader: true).set { updated_coverage_tables_collected }
 
 process update_updated_coverage_tables_collected {
     // add labels to the table to output
@@ -1121,7 +1121,7 @@ process update_interval_tables {
     """
 }
 // updated_coverage_interval_tables.collectFile(name: "${interval_coverage_file}", storeDir: "${params.outputDir}/analysis", keepHeader: true)
-updated_coverage_interval_tables.collectFile(keepHeader: true).set { updated_coverage_interval_tables_collected }
+updated_coverage_interval_tables.collectFile(name: ".${interval_coverage_file}", keepHeader: true).set { updated_coverage_interval_tables_collected }
 
 process update_updated_coverage_interval_tables_collected {
     // add labels to the table to output
@@ -1476,7 +1476,6 @@ process deconstructSigs_signatures {
 
 process merge_signatures_plots {
     // combine all signatures plots into a single PDF
-    executor "local"
     publishDir "${params.outputDir}/analysis", overwrite: true, mode: 'copy'
 
     input:
@@ -1499,7 +1498,6 @@ process merge_signatures_plots {
 
 process merge_signatures_pie_plots {
     // combine all signatures plots into a single PDF
-    executor "local"
     publishDir "${params.outputDir}/analysis", overwrite: true, mode: 'copy'
 
     input:
@@ -2116,7 +2114,6 @@ process annotate_pairs {
 
 process collect_annotation_tables {
     // combine all variants into a single table
-    publishDir "${params.outputDir}/analysis", overwrite: true, mode: 'copy'
 
     input:
     file('t*') from annotations_tables.concat(annotations_tables_pairs).collect()
@@ -2352,8 +2349,6 @@ process custom_analysis_report {
     // create a batch report for all samples in the analysis
     tag "${html_output}"
     publishDir "${params.outputDir}/analysis", overwrite: true, mode: 'copy'
-    executor "local"
-    scratch false
 
     input:
     val(items) from all_done1.collect()
@@ -2394,8 +2389,6 @@ process custom_analysis_report {
 process custom_sample_report {
     // create per-sample reports
     tag "${sampleID}"
-    executor "local"
-    scratch false
     publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/analysis/sample-reports", overwrite: true, mode: 'copy'
 
@@ -2427,8 +2420,6 @@ Channel.fromPath("${params.outputDir}").set { output_dir_ch }
 process multiqc {
     // automatic reporting based on detected output; might take a while to parse and create report
     publishDir "${params.outputDir}/analysis", overwrite: true, mode: 'copy'
-    executor "local"
-    scratch false
 
     input:
     val(all_vals) from all_done2.collect()
