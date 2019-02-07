@@ -3,7 +3,8 @@
 remove_vars(vars = c(
     ))
 
-annotations_file <- input_files[grep(pattern = params$annotations_file, x = input_files)][1]
+# annotations_file <- input_files[grep(pattern = params$annotations_file, x = input_files)][1]
+annotations_file <- params$annotations_file
 annotations <- read.delim(file = annotations_file, header = TRUE, sep = '\t', check.names = FALSE, na.strings = c('.'))
 ```
 

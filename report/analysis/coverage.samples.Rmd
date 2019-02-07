@@ -1,6 +1,7 @@
 ```{r load_sample_coverage}
 # summary of .sample_summary files produced by GATK DepthOfCoverage
-coverage_file <- input_files[grep(pattern = params$sample_coverage_file, x = basename(input_files))][1]
+# coverage_file <- input_files[grep(pattern = params$sample_coverage_file, x = basename(input_files))][1]
+coverage_file <- params$sample_coverage_file
 coverage_df <- read.delim(file = coverage_file, header = TRUE, sep = '\t', check.names = FALSE)
 
 # get the column names that represent threshold cutoffs; colnames that are plain numeric values

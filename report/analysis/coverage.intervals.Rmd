@@ -1,6 +1,7 @@
 ```{r load_interval_coverage}
 # summary of .sample_interval_summary files produced by GATK DepthOfCoverage
-interval_coverage_file <- input_files[grep(pattern = 'coverage.intervals.tsv', x = basename(input_files))][1]
+# interval_coverage_file <- input_files[grep(pattern = 'coverage.intervals.tsv', x = basename(input_files))][1]
+interval_coverage_file <- params$interval_coverage_file
 interval_coverage_df <- read.delim(file = interval_coverage_file, header = TRUE, sep = '\t', check.names = FALSE)
 
 # only operate on the 'bed' mode interval qc values

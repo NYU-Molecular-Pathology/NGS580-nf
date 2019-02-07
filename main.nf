@@ -89,7 +89,7 @@ if(params.samplesheet == null){
     samplesheet = params.samplesheet
 }
 
-disable_multiqc = false // for faster testing of the rest of the pipeline
+disable_multiqc = true // for faster testing of the rest of the pipeline
 disable_msisensor = false // breaks on very small demo datasets
 
 // names of some important output files to use throughout the pipeline
@@ -227,7 +227,7 @@ process copy_samplesheet {
     file(input_sheet: "input_samplesheet.tsv") from samples_analysis_sheet
 
     output:
-    file("${samplesheet_output_file}")
+    file("${samplesheet_output_file}") into samplesheet_output_file_ch
     val("") into done_copy_samplesheet
 
     script:
@@ -1082,7 +1082,7 @@ process update_updated_coverage_tables_collected {
     file(table) from updated_coverage_tables_collected
 
     output:
-    file("${output_file}")
+    file("${output_file}") into sample_coverage_file_ch
     val('') into done_update_updated_coverage_tables_collected
 
     script:
@@ -1131,7 +1131,7 @@ process update_updated_coverage_interval_tables_collected {
     file(table) from updated_coverage_interval_tables_collected
 
     output:
-    file("${output_file}")
+    file("${output_file}") into interval_coverage_file_ch
     val('') into done_update_updated_coverage_interval_tables_collected
 
     script:
@@ -2136,7 +2136,7 @@ process update_collect_annotation_tables {
     file(table) from collected_annotation_tables
 
     output:
-    file("${output_file}")
+    file("${output_file}") into all_annotations_file_ch
     val('') into done_update_collect_annotation_tables
 
     script:
@@ -2353,6 +2353,10 @@ process custom_analysis_report {
     input:
     val(items) from all_done1.collect()
     set file(report_items: '*'), file(input_dir) from analysis_report_files
+    file(all_annotations_file) from all_annotations_file_ch
+    file(samplesheet_output_file) from samplesheet_output_file_ch
+    file(sample_coverage_file) from sample_coverage_file_ch
+    file(interval_coverage_file) from interval_coverage_file_ch
 
     output:
     file("${html_output}")
