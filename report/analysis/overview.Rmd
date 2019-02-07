@@ -1,6 +1,6 @@
 ```{r}
 # loads overview analysis metrics from meta.tsv file
-meta_file <- input_files[grep(pattern = 'meta.tsv', x = basename(input_files))][1]
+meta_file <- params$meta_file
 ```
 
 ```{r}

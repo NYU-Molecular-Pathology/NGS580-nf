@@ -1,18 +1,107 @@
 ```{r load_annotations}
 # loads variant information from 'all_annotations.tsv' file
-remove_vars(vars = c(
-    ))
-
-# annotations_file <- input_files[grep(pattern = params$annotations_file, x = input_files)][1]
 annotations_file <- params$annotations_file
-annotations <- read.delim(file = annotations_file, header = TRUE, sep = '\t', check.names = FALSE, na.strings = c('.'))
+annotations <- read.delim(file = annotations_file, 
+                          header = TRUE, 
+                          sep = '\t', 
+                          check.names = FALSE, 
+                          na.strings = c('.'))
+
+# sort the Sample levels
+annotations[["Sample"]] <- factor(x = annotations[["Sample"]], 
+                                  levels = sort(unique(as.character(annotations[["Sample"]]), 
+                                                       decreasing = TRUE)))
 ```
 
 # Variants
 
+## MuTect2
+
+Variant calling with GATK MuTect2 [@GATKToolkit]
+
+```{r mutect2}
+make_mutect2_plots <- function(df){
+    plots <- list()
+    if(is.data.frame(df)){
+        if(nrow(df) > 0){
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            mutect2_counts <- ggplot(data = df, aes(x = Sample)) +
+                geom_bar(stat="count") + 
+                ggtitle("Number of Variants") + 
+                coord_flip() +
+                theme_bw() +
+                theme(panel.grid.minor = element_blank()) 
+            
+            plots[['counts']] <- list(
+                plot = mutect2_counts,
+                subheader = 'Counts'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            mutect2_qual <- ggplot(data = df, aes(x=Sample, y=QUAL, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Quality Scores") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['qual']] <- list(
+                plot = mutect2_qual,
+                subheader = 'Quality Scores'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            mutect2_dp <- ggplot(data = df, aes(x=Sample, y=TUMOR.AD.TOTAL, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Tumor Depth of Coverage") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['dp']] <- list(
+                plot = mutect2_dp,
+                subheader = 'Tumor Depth of Coverage'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            mutect2_af <- ggplot(data = df, aes(x=Sample, y=TUMOR.AF, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Tumor Allele Frequency") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['af']] <- list(
+                plot = mutect2_af,
+                subheader = 'Tumor Allele Frequency'
+            )
+        }
+    }
+    return(plots)
+}
+
+mutect2_plots <- make_mutect2_plots(annotations[annotations[["VariantCaller"]] == 'MuTect2', ])
+
+```
+
+```{r mutect2_print, results='asis'}
+# print any results found
+if (length(mutect2_plots) < 1){
+    cat('\n\n- __No results found__\n\n')
+} else {
+    for(item in mutect2_plots){
+        subplot<- item[["plot"]]
+        subheader <- item[["subheader"]]
+        
+        cat(sprintf('\n\n### %s\n\n', subheader))
+        print(subplot)
+    }
+}
+```
+
 ## GATK HaplotypeCaller
 
-Variant calling with the GATK `HaplotypeCaller` program [@GATKToolkit]
+Variant calling with GATK HaplotypeCaller [@GATKToolkit]
 
 ```{r haplotypecaller}
 # ~~~~~~~ FUNCTIONS ~~~~~~~ #
@@ -23,7 +112,7 @@ make_haplotypecaller_plots <- function(df){
             # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
             haplotypecaller_counts <- ggplot(data = df, aes(x = Sample)) +
                 geom_bar(stat="count") + 
-                ggtitle("Number of Mutations") + 
+                ggtitle("Number of Variants") + 
                 coord_flip() +
                 theme_bw() +
                 theme(panel.grid.minor = element_blank()) 
@@ -56,7 +145,7 @@ make_haplotypecaller_plots <- function(df){
             
             plots[['dp']] <- list(
                 plot = haplotypecaller_dp,
-                subheader = 'Quality Scores'
+                subheader = 'Depth of Coverage'
             )
             # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
             haplotypecaller_af <- ggplot(data = df, aes(x=Sample, y=AF, fill=Sample)) + 
@@ -108,7 +197,7 @@ make_lofreq_plots <- function(df){
             # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
             lofreq_counts <- ggplot(data = df, aes(x = Sample)) +
                 geom_bar(stat="count") + 
-                ggtitle("Number of Mutations") + 
+                ggtitle("Number of Variants") + 
                 coord_flip() +
                 theme_bw() +
                 theme(panel.grid.minor = element_blank()) 
@@ -181,3 +270,8 @@ if (length(lofreq_plots) < 1){
 }
 ```
 
+
+```{r}
+# save environment to file
+save.image(file="variants.Rdata",compress = TRUE)
+```

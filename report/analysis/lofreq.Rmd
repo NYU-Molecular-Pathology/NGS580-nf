@@ -68,16 +68,16 @@ make_lofreq_plots <- function(df){
 }
 
 
-# find matching files; missing or no-match files dropped by default
-lofreq_files <- unlist(sapply(X = samplesIDs, FUN = function(x){
-    pattern <- paste(x, '.LoFreq.annotations.tsv', sep = '')
-    return(input_files[grep(pattern = pattern, x = basename(input_files))])
-}))
+# # find matching files; missing or no-match files dropped by default
+# lofreq_files <- unlist(sapply(X = samplesIDs, FUN = function(x){
+#     pattern <- paste(x, '.LoFreq.annotations.tsv', sep = '')
+#     return(input_files[grep(pattern = pattern, x = basename(input_files))])
+# }))
 
-lofreq_df <- do.call('rbind', lapply(X = lofreq_files, FUN = function(x){
-    df <- read.delim(file = x, header = TRUE, sep = '\t')
-    return(df)
-}))
+# lofreq_df <- do.call('rbind', lapply(X = lofreq_files, FUN = function(x){
+#     df <- read.delim(file = x, header = TRUE, sep = '\t')
+#     return(df)
+# }))
 
 
 

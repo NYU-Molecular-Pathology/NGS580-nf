@@ -153,10 +153,6 @@ Channel.fromPath("${outputDirPath}/analysis").into { analysis_output; analysis_o
 // load analysis report files
 Channel.fromPath("${reportDirPath}/analysis/*")
         .toList()
-        .map { items ->
-            return( [items])
-        }
-        .combine( analysis_output ) // [[report files list], analysis output dir]
         .set { analysis_report_files }
 
 // load samples report files
@@ -248,13 +244,14 @@ process print_metadata {
     val(x) from Channel.from('')
 
     output:
-    file("meta.tsv")
-    val("meta.tsv") into done_print_metadata
+    file("${output_file}") into metadata_ch
+    val("") into done_print_metadata
 
     script:
+    output_file = "meta.tsv"
     """
-    printf "Run\tTime\tSession\tWorkflow\tLocation\tSystem\tOutputPath\tUsername\n" > meta.tsv
-    printf "${runID}\t${workflowTimestamp}\t${workflow.sessionId}\t${workflow.runName}\t${workflow.projectDir}\t${localhostname}\t${outputDirPath}\t${username}\n" >> meta.tsv
+    printf "Run\tTime\tSession\tWorkflow\tLocation\tSystem\tOutputPath\tUsername\n" > "${output_file}"
+    printf "${runID}\t${workflowTimestamp}\t${workflow.sessionId}\t${workflow.runName}\t${workflow.projectDir}\t${localhostname}\t${outputDirPath}\t${username}\n" >> "${output_file}"
     """
 }
 
@@ -455,7 +452,7 @@ process update_samtools_flagstat_table {
     file(table) from sambamba_flagstat_table_collected
 
     output:
-    file("${output_file}")
+    file("${output_file}") into samtools_flagstat_table_ch
     val('') into done_samtools_flagstat_table_update
 
     script:
@@ -538,7 +535,7 @@ process update_sambamba_dedup_log_table{
     file(table) from sambamba_dedup_log_tables_collected
 
     output:
-    file("${output_file}")
+    file("${output_file}") into sambamba_dedup_log_table_ch
     val('') into done_update_sambamba_dedup_log_table
 
     script:
@@ -608,7 +605,7 @@ process update_samtools_dedup_flagstat_table {
     file(table) from sambamba_dedup_flagstat_tables_collected
 
     output:
-    file("${output_file}")
+    file("${output_file}") into samtools_dedup_flagstat_table_ch
     val('') into done_update_samtools_dedup_flagstat_table
 
     script:
@@ -2356,11 +2353,15 @@ process custom_analysis_report {
 
     input:
     val(items) from all_done1.collect()
-    set file(report_items: '*'), file(input_dir) from analysis_report_files
+    file(report_items: '*') from analysis_report_files
     file(all_annotations_file) from all_annotations_file_ch
     file(samplesheet_output_file) from samplesheet_output_file_ch
     file(sample_coverage_file) from sample_coverage_file_ch
     file(interval_coverage_file) from interval_coverage_file_ch
+    file(meta_file) from metadata_ch
+    file(reads_dedup_table) from sambamba_dedup_log_table_ch
+    file(flagstat_table) from samtools_flagstat_table_ch
+    file(dedup_flagstat_table) from samtools_dedup_flagstat_table_ch
 
     output:
     file("${html_output}")
@@ -2381,11 +2382,14 @@ process custom_analysis_report {
     R --vanilla <<E0F
     rmarkdown::render(input = "main.Rmd",
     params = list(
-        input_dir = "${input_dir}",
         annotations_file = "${all_annotations_file}",
         samplesheet_file = "${samplesheet_output_file}",
         sample_coverage_file = "${sample_coverage_file}",
-        interval_coverage_file = "${interval_coverage_file}"
+        interval_coverage_file = "${interval_coverage_file}",
+        meta_file = "${meta_file}",
+        reads_dedup_table = "${reads_dedup_table}",
+        flagstat_table = "${flagstat_table}",
+        dedup_flagstat_table = "${dedup_flagstat_table}"
         ),
     output_format = "html_document",
     output_file = "${html_output}")
