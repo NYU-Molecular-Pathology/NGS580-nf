@@ -218,6 +218,7 @@ process copy_samplesheet {
     // make a copy of the samplesheet in the output directory
     // this ensures the output sheet has the correct name
     publishDir "${params.outputDir}", overwrite: true, mode: 'copy'
+    executor "local"
 
     input:
     file(input_sheet: "input_samplesheet.tsv") from samples_analysis_sheet
@@ -236,7 +237,6 @@ process copy_samplesheet {
 process print_metadata {
     // print the workflow meta data to the output directory
     publishDir "${params.outputDir}", overwrite: true, mode: 'copy'
-    echo true
     executor "local"
 
     input:
