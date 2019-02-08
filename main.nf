@@ -151,8 +151,7 @@ Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_d
 Channel.fromPath("${outputDirPath}").into { analysis_output; analysis_output2 }
 
 // load analysis report files
-Channel.fromPath("${reportDirPath}/*")
-        .toList()
+Channel.fromPath("${reportDirPath}/analysis/*")
         .set { analysis_report_files }
 
 // load samples report files
@@ -441,7 +440,6 @@ process samtools_flagstat_table {
     paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}" > "${output_file}"
     """
 }
-// sambamba_flagstat_tables.collectFile(name: "flagstat.tsv", storeDir: "${params.outputDir}", keepHeader: true)
 sambamba_flagstat_tables.collectFile(name: ".flagstat.tsv", keepHeader: true).set { sambamba_flagstat_table_collected }
 
 process update_samtools_flagstat_table {
@@ -524,7 +522,6 @@ process sambamba_dedup_log_table {
     paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}" > "${output_file}"
     """
 }
-// sambamba_dedup_log_tables.collectFile(name: "reads.dedup.tsv", storeDir: "${params.outputDir}", keepHeader: true)
 sambamba_dedup_log_tables.collectFile(name: ".reads.dedup.tsv", keepHeader: true).set { sambamba_dedup_log_tables_collected }
 
 process update_sambamba_dedup_log_table{
@@ -594,7 +591,6 @@ process samtools_dedup_flagstat_table {
     paste-col.py -i tmp.tsv --header "Sample" -v "${sampleID}" > "${output_file}"
     """
 }
-// sambamba_dedup_flagstat_tables.collectFile(name: "flagstat.dedup.tsv", storeDir: "${params.outputDir}", keepHeader: true)
 sambamba_dedup_flagstat_tables.collectFile(name: ".flagstat.dedup.tsv", keepHeader: true).set { sambamba_dedup_flagstat_tables_collected }
 
 process update_samtools_dedup_flagstat_table {
@@ -1069,7 +1065,6 @@ process update_coverage_tables {
     paste-col.py -i tmp.tsv --header "Mode" -v "${mode}" > "${output_file}"
     """
 }
-// updated_coverage_tables.collectFile(name: "${sample_coverage_file}", storeDir: "${params.outputDir}", keepHeader: true)
 updated_coverage_tables.collectFile(name: ".${sample_coverage_file}", keepHeader: true).set { updated_coverage_tables_collected }
 
 process update_updated_coverage_tables_collected {
@@ -1118,7 +1113,6 @@ process update_interval_tables {
     paste-col.py --header "Sample" -v "${sampleID}" > "${output_file}"
     """
 }
-// updated_coverage_interval_tables.collectFile(name: "${interval_coverage_file}", storeDir: "${params.outputDir}", keepHeader: true)
 updated_coverage_interval_tables.collectFile(name: ".${interval_coverage_file}", keepHeader: true).set { updated_coverage_interval_tables_collected }
 
 process update_updated_coverage_interval_tables_collected {
@@ -1234,13 +1228,6 @@ process lofreq {
     "${reformat_tsv}"
     """
 }
-// paste-col.py --header "Run" -v "${runID}" | \
-// paste-col.py --header "Time" -v "${workflowTimestamp}" | \
-// paste-col.py --header "Session" -v "${workflow.sessionId}" | \
-// paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-// paste-col.py --header "Location" -v "${workflow.projectDir}" | \
-// | \
-// paste-col.py --header "System" -v "${localhostname}"
 
 process gatk_hc {
     // variant calling
@@ -1320,13 +1307,6 @@ process gatk_hc {
     "${reformat_tsv}"
     """
 }
-// | \
-// paste-col.py --header "System" -v "${localhostname}"
-// paste-col.py --header "Run" -v "${runID}" | \
-// paste-col.py --header "Time" -v "${workflowTimestamp}" | \
-// paste-col.py --header "Session" -v "${workflow.sessionId}" | \
-// paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-// paste-col.py --header "Location" -v "${workflow.projectDir}" | \
 
 sample_vcf_hc3.mix(samples_lofreq_vcf2)
                 .combine(dbsnp_ref_vcf4)
@@ -1874,12 +1854,6 @@ process vcf_to_tsv_pairs {
     else
         error "Invalid caller: ${caller}"
 }
-// paste-col.py --header "Run" -v "${runID}" | \
-// paste-col.py --header "Time" -v "${workflowTimestamp}" | \
-// paste-col.py --header "Session" -v "${workflow.sessionId}" | \
-// paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-// paste-col.py --header "Location" -v "${workflow.projectDir}" | \
-// paste-col.py --header "System" -v "${localhostname}"
 
 samples_mutect3.combine(dbsnp_ref_vcf5)
                 .combine(dbsnp_ref_vcf_idx5)
@@ -2350,10 +2324,11 @@ process custom_analysis_report {
     // create a batch report for all samples in the analysis
     tag "${html_output}"
     publishDir "${params.outputDir}", overwrite: true, mode: 'copy'
+    stageInMode "copy"
 
     input:
     val(items) from all_done1.collect()
-    file(report_items: '*') from analysis_report_files
+    file(report_items: '*') from analysis_report_files.collect()
     file(all_annotations_file) from all_annotations_file_ch
     file(samplesheet_output_file) from samplesheet_output_file_ch
     file(sample_coverage_file) from sample_coverage_file_ch
