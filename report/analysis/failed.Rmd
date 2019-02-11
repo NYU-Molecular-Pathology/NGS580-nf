@@ -1,0 +1,34 @@
+```{r}
+failed_log <- params$failed_log
+failed_pairs_log <- params$failed_pairs_log
+```
+
+# Failed Samples
+
+```{r, results='asis'}
+cat('## Samples\n\n')
+
+if(file.exists(failed_log)){
+    failed <- read.delim(file = failed_log, header = TRUE, sep = '\t', check.names = FALSE)
+    if(nrow(failed) > 0){
+        kable(failed[names(failed)[!names(failed) %in% "Files"]])
+    } else {
+        cat('- none\n\n')
+    }
+}
+
+cat('## Tumor-Normal Pairs\n\n')
+
+if(file.exists(failed_pairs_log)){
+    failed_pairs <- read.delim(file = failed_pairs_log, header = TRUE, sep = '\t', check.names = FALSE)
+    if(nrow(failed_pairs) > 0){
+        kable(failed_pairs[names(failed_pairs)[!names(failed_pairs) %in% "Files"]])
+    } else {
+        cat('- none\n\n')
+    }
+}
+```
+
+```{r}
+save.image(file = 'failed.Rdata', compress = TRUE)
+```

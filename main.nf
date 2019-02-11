@@ -2266,6 +2266,16 @@ done_copy_samplesheet.concat(
     )
     .tap { all_done1; all_done2; all_done3 }
 
+
+// collect failed log messages
+failed_samples.mix(samples_vcfs_tsvs_bad_logs, sample_vcf_hc_bad_logs)
+    .collectFile(name: "failed.tsv", storeDir: "${params.outputDir}", newLine: true)
+    .set { failed_log_ch }
+failed_pairs.mix(pairs_vcfs_tsvs_bad_logs)
+    .collectFile(name: "failed.pairs.tsv", storeDir: "${params.outputDir}", newLine: true)
+    .set{ failed_pairs_log_ch }
+
+
 process custom_analysis_report {
     // create a batch report for all samples in the analysis
     tag "${html_output}"
@@ -2284,6 +2294,8 @@ process custom_analysis_report {
     file(flagstat_table) from samtools_flagstat_table_ch
     file(dedup_flagstat_table) from samtools_dedup_flagstat_table_ch
     file(targets_metrics_table) from targets_metrics_ch
+    file(failed_log) from failed_log_ch
+    file(failed_pairs_log) from failed_pairs_log_ch
 
     output:
     file("${html_output}")
@@ -2312,7 +2324,9 @@ process custom_analysis_report {
         reads_dedup_table = "${reads_dedup_table}",
         flagstat_table = "${flagstat_table}",
         dedup_flagstat_table = "${dedup_flagstat_table}",
-        targets_metrics_table = "${targets_metrics_table}"
+        targets_metrics_table = "${targets_metrics_table}",
+        failed_log = "${failed_log}",
+        failed_pairs_log = "${failed_pairs_log}"
         ),
     output_format = "html_document",
     output_file = "${html_output}")
@@ -2384,10 +2398,6 @@ process multiqc {
 // gather email file attachments
 Channel.fromPath( file(samplesheet) ).set{ samples_analysis_sheet }
 def attachments = samples_analysis_sheet.toList().getVal()
-
-// collect failed log messages
-failed_samples.mix(samples_vcfs_tsvs_bad_logs, sample_vcf_hc_bad_logs).collectFile(name: "failed.txt", storeDir: "${params.outputDir}", newLine: true)
-failed_pairs.mix(pairs_vcfs_tsvs_bad_logs).collectFile(name: "failed.pairs.txt", storeDir: "${params.outputDir}", newLine: true)
 
 workflow.onComplete {
 
