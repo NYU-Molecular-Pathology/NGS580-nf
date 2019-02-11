@@ -1056,6 +1056,7 @@ process qc_target_reads_gatk_bed {
     --outputFormat csv \
     --out "${prefix}"
     """
+    // TODO: change this to levels: 10, 50, 100, 200, 300, 400, 500
 }
 
 process update_coverage_tables {
