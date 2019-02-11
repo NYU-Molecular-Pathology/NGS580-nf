@@ -118,11 +118,8 @@ log.info "* Nextflow version:   ${workflow.nextflow.version}, build ${workflow.n
 log.info "* Launch command:\n${workflow.commandLine}\n"
 
 // ~~~~~ DATA INPUT ~~~~~ //
-// targets .bed file
-Channel.fromPath( file(params.targetsBed) ).set{ targets_bed }
-
 // reference files
-Channel.fromPath( file(params.targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8 }
+Channel.fromPath( file(params.targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8; targets_bed9 }
 
 Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12 }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12 }
@@ -251,6 +248,40 @@ process print_metadata {
     """
     printf "Run\tTime\tSession\tWorkflow\tLocation\tSystem\tOutputPath\tUsername\n" > "${output_file}"
     printf "${runID}\t${workflowTimestamp}\t${workflow.sessionId}\t${workflow.runName}\t${workflow.projectDir}\t${localhostname}\t${outputDirPath}\t${username}\n" >> "${output_file}"
+    """
+}
+
+process targets_metrics {
+    // print metrics about the targets
+    publishDir "${params.outputDir}", overwrite: true, mode: 'copy'
+    executor "local"
+
+    input:
+    file(targets) from targets_bed9
+
+    output:
+    file("${targets_metrics}")
+
+    script:
+    targets_merged = "targets.merged.bed"
+    targets_metrics = "targets.metrics.tsv"
+    """
+    num_targets="\$(cat "${targets}" | wc -l)"
+    targets_md5="\$(python -c "import hashlib; print(hashlib.md5(open('${targets}', 'rb').read()).hexdigest())")"
+
+    # check if there are strands in the targets
+    if [ "\$(bed.py "${targets}" hasStrands)" == "True" ]; then
+        bedtools merge -s -i "${targets}" > "${targets_merged}"
+    else
+        bedtools merge -i "${targets}" > "${targets_merged}"
+    fi
+
+    num_merged_targets="\$(cat "${targets_merged}" | wc -l)"
+
+    targets_coverage="\$(bed.py "${targets}" breadthOfCoverage)"
+
+    printf 'NumTargets\tNumMergedTargets\tBreadthOfCoverage\tmd5\n' > "${targets_metrics}"
+    printf "\${num_targets}\t\${num_merged_targets}\t\${targets_coverage}\t\${targets_md5}\n" >> "${targets_metrics}"
     """
 }
 
