@@ -260,7 +260,7 @@ process targets_metrics {
     file(targets) from targets_bed9
 
     output:
-    file("${targets_metrics}")
+    file("${targets_metrics}") into targets_metrics_ch
 
     script:
     targets_merged = "targets.merged.bed"
@@ -278,10 +278,13 @@ process targets_metrics {
 
     num_merged_targets="\$(cat "${targets_merged}" | wc -l)"
 
-    targets_coverage="\$(bed.py "${targets}" breadthOfCoverage)"
+    targets_coverage_bp="\$(bed.py "${targets}" breadthOfCoverage)"
+    targets_coverage_Mbp="\$(python -c "print( \${targets_coverage_bp} / float((10**6)) )")"
 
-    printf 'NumTargets\tNumMergedTargets\tBreadthOfCoverage\tmd5\n' > "${targets_metrics}"
-    printf "\${num_targets}\t\${num_merged_targets}\t\${targets_coverage}\t\${targets_md5}\n" >> "${targets_metrics}"
+    targets_filename="\$(python -c "import os; print(os.path.basename(os.path.realpath('${targets}')))")"
+
+    printf 'Targets File\tNumber of Targets\tNumber of Merged Targets\tBreadth Of Coverage (Mbp)\tBreadth Of Coverage (bp)\tmd5\n' > "${targets_metrics}"
+    printf "\${targets_filename}\t\${num_targets}\t\${num_merged_targets}\t\${targets_coverage_Mbp}\t\${targets_coverage_bp}\t\${targets_md5}\n" >> "${targets_metrics}"
     """
 }
 
@@ -2280,6 +2283,7 @@ process custom_analysis_report {
     file(reads_dedup_table) from sambamba_dedup_log_table_ch
     file(flagstat_table) from samtools_flagstat_table_ch
     file(dedup_flagstat_table) from samtools_dedup_flagstat_table_ch
+    file(targets_metrics_table) from targets_metrics_ch
 
     output:
     file("${html_output}")
@@ -2307,7 +2311,8 @@ process custom_analysis_report {
         meta_file = "${meta_file}",
         reads_dedup_table = "${reads_dedup_table}",
         flagstat_table = "${flagstat_table}",
-        dedup_flagstat_table = "${dedup_flagstat_table}"
+        dedup_flagstat_table = "${dedup_flagstat_table}",
+        targets_metrics_table = "${targets_metrics_table}"
         ),
     output_format = "html_document",
     output_file = "${html_output}")
