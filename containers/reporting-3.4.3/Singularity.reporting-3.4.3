@@ -19,13 +19,22 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     conda config --add channels bioconda
 
     # ~~~~~ R ~~~~~ #
-    conda install -y -c r r-base=3.4.3 \
+    conda install -y -c r \
     r=3.4.3 \
+    r-base=3.4.3 \
     pandoc=2.2.3.2 \
     r-reshape2=1.4.3 \
+    r-knitr=1.18 \
     r-rmarkdown=1.8 \
     r-ggplot2=2.2.1 \
-    r-knitr=1.18
+    r-dt=0.2
+
+%test
+    Rscript -e 'library("reshape2")'
+    Rscript -e 'library("knitr")'
+    Rscript -e 'library("rmarkdown")'
+    Rscript -e 'library("ggplot2")'
+    Rscript -e 'library("DT")'
 
 %environment
     export PATH="/conda/bin:${PATH}"
