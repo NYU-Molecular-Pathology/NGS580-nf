@@ -2327,7 +2327,7 @@ done_copy_samplesheet.concat(
     done_update_sambamba_dedup_log_table,
     done_update_samtools_dedup_flagstat_table,
     done_update_updated_coverage_tables_collected,
-    done_update_collect_annotation_tables
+    done_update_collect_annotation_tables,
     done_update_updated_coverage_interval_tables_collected
     )
     .tap { all_done1; all_done2; all_done3 }
