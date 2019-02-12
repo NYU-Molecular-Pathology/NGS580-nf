@@ -142,7 +142,7 @@ Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref
 Channel.fromPath( file(params.cosmic_ref_vcf_idx) ).into{ cosmic_ref_vcf_idx; cosmic_ref_vcf_idx2 }
 
 Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
-Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_db_dir2 }
+Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_db_dir2; annovar_db_dir3 }
 
 // report and output dir
 Channel.fromPath("${outputDirPath}").into { analysis_output; analysis_output2 }
@@ -1105,28 +1105,92 @@ process update_updated_coverage_tables_collected {
     """
 }
 
+process coverage_intervals_to_table {
+    // convert the intervals coverage file into a formatted table for downstream usage
+    tag "${prefix}"
+
+    input:
+    set val(sampleID), val(mode), file(sample_interval_summary) from qc_target_reads_gatk_beds_intervals
+
+    output:
+    set val(sampleID), val(mode), file("${output_file}") into updated_coverage_interval_tables
+
+    script:
+    prefix = "${sampleID}.${mode}"
+    output_file = "${prefix}.sample_interval_summary.table.tsv"
+    """
+    sample-interval-summary2table.R "${sample_interval_summary}" "${output_file}"
+    """
+}
+
+cov_ANNOVAR_BUILD_VERSION = "hg19"
+cov_ANNOVAR_PROTOCOL = "refGene"
+cov_ANNOVAR_OPERATION = "g"
+process annotate_coverage_intervals {
+    // annotate the coverage table regions
+    tag "${prefix}"
+
+    input:
+    set val(sampleID), val(mode), file(interval_table), file(annovar_db_dir) from updated_coverage_interval_tables.combine(annovar_db_dir3)
+
+    output:
+    set val(sampleID), val(mode), file("${annotations_tsv}") into annotated_interval_tables
+
+    script:
+    prefix = "${sampleID}.${mode}.sample_interval_summary"
+    noHeader_tsv = "${prefix}.noHeader.tsv"
+    interval_tmp = "${prefix}.intervals.tmp"
+    remainder_tsv = "${prefix}.remainder.tsv"
+    avinput_file = "${prefix}.avinput"
+    // avinput_tsv = "${prefix}.avinput.tsv"
+    annovar_output_txt = "${prefix}.${cov_ANNOVAR_BUILD_VERSION}_multianno.txt"
+    // annovar_output_vcf = "${prefix}.${cov_ANNOVAR_PROTOCOL}_multianno.vcf"
+    annotations_tsv = "${prefix}.annotations.tsv"
+    """
+    # convert table to ANNOVAR format for annotation; http://annovar.openbioinformatics.org/en/latest/user-guide/input/
+    # strip headers and add '0' cols for ref and alt
+    tail -n +2 "${interval_table}" > "${noHeader_tsv}"
+    cut -f1-3 "${noHeader_tsv}" > "${interval_tmp}"
+    cut -f4- "${noHeader_tsv}" > "${remainder_tsv}"
+    sed -e 's|\$|\t0|' -i "${interval_tmp}"
+    sed -e 's|\$|\t0|' -i "${interval_tmp}"
+    paste "${interval_tmp}" "${remainder_tsv}" > "${avinput_file}"
+
+    # annotate
+    table_annovar.pl "${avinput_file}" "${annovar_db_dir}" \
+    --buildver "${cov_ANNOVAR_BUILD_VERSION}" \
+    --remove \
+    --protocol "${cov_ANNOVAR_PROTOCOL}" \
+    --operation "${cov_ANNOVAR_OPERATION}" \
+    --nastring . \
+    --onetranscript \
+    --outfile "${prefix}"
+
+    merge-interval-tables.R "${interval_table}" "${annovar_output_txt}" "${avinput_file}" "${annotations_tsv}"
+    """
+}
+
 process update_interval_tables {
     // add more information to the intervals coverage output
     tag "${prefix}"
     publishDir "${params.outputDir}/metrics", overwrite: true, mode: 'copy'
 
     input:
-    set val(sampleID), val(mode), file(sample_interval_summary) from qc_target_reads_gatk_beds_intervals
+    set val(sampleID), val(mode), file(sample_interval_summary) from annotated_interval_tables
 
     output:
-    file("${output_file}") into updated_coverage_interval_tables
+    file("${output_file}") into updated_annotated_interval_tables
     val(sampleID) into done_update_interval_tables
 
     script:
     prefix = "${sampleID}.${mode}"
     output_file = "${prefix}.sample_interval_summary.tsv"
     """
-    sample-interval-summary2table.R "${sample_interval_summary}" tmp.tsv
-    paste-col.py -i tmp.tsv --header "Mode" -v "${mode}" | \
+    paste-col.py -i "${sample_interval_summary}" --header "Mode" -v "${mode}" | \
     paste-col.py --header "Sample" -v "${sampleID}" > "${output_file}"
     """
 }
-updated_coverage_interval_tables.collectFile(name: ".${interval_coverage_file}", keepHeader: true).set { updated_coverage_interval_tables_collected }
+updated_annotated_interval_tables.collectFile(name: ".${interval_coverage_file}", keepHeader: true).set { updated_coverage_interval_tables_collected }
 
 process update_updated_coverage_interval_tables_collected {
     // add labels to the table to output
@@ -1869,7 +1933,7 @@ process eval_pair_vcf {
     """
 }
 
-// ~~~~~~ ANNOTATION ~~~~~~ //
+// ~~~~~~ VARIANT ANNOTATION ~~~~~~ //
 samples_vcfs_tsvs_good = Channel.create()
 samples_vcfs_tsvs_bad = Channel.create()
 pairs_vcfs_tsvs_good = Channel.create()
@@ -2078,6 +2142,7 @@ process update_collect_annotation_tables {
     """
 }
 
+
 // ~~~~ Tumor Burden Analysis ~~~~ //
 samples_dd_ra_rc_bam4.combine(ref_fasta10)
 .combine(ref_fai10)
@@ -2262,7 +2327,7 @@ done_copy_samplesheet.concat(
     done_update_sambamba_dedup_log_table,
     done_update_samtools_dedup_flagstat_table,
     done_update_updated_coverage_tables_collected,
-    done_update_collect_annotation_tables,
+    done_update_collect_annotation_tables
     done_update_updated_coverage_interval_tables_collected
     )
     .tap { all_done1; all_done2; all_done3 }

@@ -1,5 +1,5 @@
 ```{r load_interval_coverage}
-# summary of .sample_interval_summary files produced by GATK DepthOfCoverage
+# summary of .sample_interval_summary files produced by GATK DepthOfCoverage, annotated with ANNOVAR
 interval_coverage_file <- params$interval_coverage_file
 interval_coverage_df <- read.delim(file = interval_coverage_file, header = TRUE, sep = '\t', check.names = FALSE)
 
@@ -11,6 +11,25 @@ interval_coverage_df <- interval_coverage_df[interval_coverage_df[["Mode"]] == '
 # names(interval_coverage_df)
 interval_mean_coverage <- aggregate(MeanCoverage ~ Target, data = interval_coverage_df, FUN = mean)
 interval_samples_mean_coverage <- aggregate(MeanCoverage ~ Sample, data = interval_coverage_df, FUN = mean)
+
+# add the ANNOVAR annotations back to target regions
+interval_mean_coverage_annotations <- merge(x = interval_mean_coverage, 
+      y = interval_coverage_df[ ! duplicated(interval_coverage_df[, c("Target", "Func.refGene", "Gene.refGene")]), c("Chr", "Start", "End", "Target", "Func.refGene", "Gene.refGene")], all = TRUE)
+rownames(interval_mean_coverage_annotations) <- NULL
+
+# get <50 intervals
+intervals_below_50 <- interval_mean_coverage_annotations[interval_mean_coverage_annotations[["MeanCoverage"]] < 50, ]
+intervals_below_50[["MeanCoverage"]] <- signif(intervals_below_50[["MeanCoverage"]], 3)
+intervals_below_50[["Chr"]] <- as.character(intervals_below_50[["Chr"]])
+intervals_below_50 <- intervals_below_50[with(intervals_below_50, order(-MeanCoverage, Chr, -Start)), ]
+rownames(intervals_below_50) <- NULL
+
+# get 0 intervals
+intervals_at_0 <- interval_mean_coverage_annotations[interval_mean_coverage_annotations[["MeanCoverage"]] <= 0, ]
+intervals_at_0[["Chr"]] <- as.character(intervals_at_0[["Chr"]])
+intervals_at_0 <- intervals_at_0[with(intervals_at_0, order(Chr, -Start)), ]
+rownames(intervals_at_0) <- NULL
+
 
 # the coverages extend >10,000, need to cut off the plot for just entries <1,000
 y_lim <- 750
@@ -48,9 +67,29 @@ Coverage across target intervals.
 print(region_coverage)
 ```
 
+## Low Coverage Targets
+
+Targets with <50 average coverage across all samples.
+
+```{r}
+DT::datatable(data = intervals_below_50,
+              options = list(pageLength = 25),
+              class = 'cell-border stripe')
+```
+
+## Zero Coverage Targets
+
+Targets with 0 coverage across all samples.
+
+```{r}
+DT::datatable(data = intervals_at_0,
+              options = list(pageLength = 25),
+              class = 'cell-border stripe')
+```
+
 ## Per Sample 
 
-Per sample coverage metrics across intervals
+Per sample coverage metrics across intervals.
 
 ```{r}
 print(interval_samples_boxplot)

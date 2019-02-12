@@ -38,6 +38,7 @@ knitr::opts_chunk$set(fig.width = 12)
 library("knitr")
 library("ggplot2")
 library("reshape2")
+library("DT")
 # ~~~~~~~ CONFIGS ~~~~~~~ #
 pwd <- getwd()
 child <- params$child
