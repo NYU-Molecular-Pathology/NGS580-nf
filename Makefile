@@ -294,6 +294,7 @@ run-power: install
 SUBJOBNAME:=NGS580-$(DIRNAME)
 SUBLOG:=$(LOGDIRABS)/slurm-%j.$(LOGFILEBASE)
 SUBQ:=intellispace
+SUBTIME:=--time=2-00:00:00
 SUBTHREADS:=4
 SUBMEM:=32G
 SUBEP:=
@@ -320,7 +321,7 @@ submit-bigpurple:
 	@touch "$(NXF_SUBMIT)" && \
 	printf "#!/bin/bash\n \
 	make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)" | \
-	sbatch -D "$(ABSDIR)" -o "$(SUBLOG)" -J "$(SUBJOBNAME)" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --mem "$(SUBMEM)" --export=HOSTNAME /dev/stdin | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
+	sbatch -D "$(ABSDIR)" -o "$(SUBLOG)" -J "$(SUBJOBNAME)" -p "$(SUBQ)" $(SUBTIME) --ntasks-per-node=1 -c "$(SUBTHREADS)" --mem "$(SUBMEM)" --export=HOSTNAME /dev/stdin | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
 # sbatch -D "$(ABSDIR)" -o "$(SUBLOG)" -J "$(SUBJOBNAME)" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)"' | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
 # srun -D "$$PWD" --output "$(LOGDIRABS)/slurm-%j.out" --input none -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" bash -c 'make submit-bigpurple-run $(SUBEP)'
 
