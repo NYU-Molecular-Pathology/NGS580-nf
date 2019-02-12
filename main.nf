@@ -263,6 +263,7 @@ process targets_metrics {
     file("${targets_metrics}") into targets_metrics_ch
 
     script:
+    targets_sorted = "targets.sorted.bed"
     targets_merged = "targets.merged.bed"
     targets_metrics = "targets.metrics.tsv"
     """
@@ -271,9 +272,11 @@ process targets_metrics {
 
     # check if there are strands in the targets
     if [ "\$(bed.py "${targets}" hasStrands)" == "True" ]; then
-        bedtools merge -s -i "${targets}" > "${targets_merged}"
+        sort -k 1,1 -k2,2n "${targets}" > "${targets_sorted}"
+        bedtools merge -s -i "${targets_sorted}" > "${targets_merged}"
     else
-        bedtools merge -i "${targets}" > "${targets_merged}"
+        sort -k 1,1 -k2,2n "${targets}" > "${targets_sorted}"
+        bedtools merge -i "${targets_sorted}" > "${targets_merged}"
     fi
 
     num_merged_targets="\$(cat "${targets_merged}" | wc -l)"
