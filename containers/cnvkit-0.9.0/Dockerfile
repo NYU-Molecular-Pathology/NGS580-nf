@@ -17,7 +17,14 @@ RUN apt-get install -y \
     python-scipy \
     python-tk \
     zlib1g-dev
-RUN pip install -U future futures pandas pyfaidx pysam
-RUN pip install cnvkit==0.9.0
+
+RUN pip install \
+future==0.17.1 \
+futures==3.2.0 \
+pyfaidx==0.5.5.2 \
+pysam==0.15.2 \
+pandas==0.20.3 \
+cnvkit==0.9.0
+
 # Let matplotlib build its font cache
 RUN cnvkit.py version

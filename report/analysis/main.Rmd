@@ -16,86 +16,35 @@ output:
     toc: yes
 bibliography: citations.bib
 params:
-  child: !r c("samples.Rmd", "reads.Rmd", "coverage.samples.Rmd", "coverage.intervals.Rmd", "variants.Rmd")
+  child: !r c("targets.Rmd", "samples.Rmd", "failed.Rmd","reads.Rmd", "coverage.samples.Rmd", "coverage.intervals.Rmd", "variants.Rmd")
   input_dir: input
   annotations_file: annotations.tsv
   samplesheet_file: samplesheet.tsv
   sample_coverage_file: coverage.samples.tsv
   interval_coverage_file: coverage.intervals.tsv
+  meta_file: meta.tsv
+  reads_dedup_table: reads.dedup.tsv
+  flagstat_table: flagstat.tsv
+  dedup_flagstat_table: flagstat.dedup.tsv
+  targets_metrics_table: targets.metrics.tsv
+  failed_log: failed.tsv
+  failed_pairs_log: failed.pairs.tsv
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report
 knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(fig.height = 12)
+knitr::opts_chunk$set(fig.width = 12)
 library("knitr")
 library("ggplot2")
 library("reshape2")
+library("DT")
 # ~~~~~~~ CONFIGS ~~~~~~~ #
 pwd <- getwd()
-input_dir <- params$input_dir
-input_files <- dir(path = input_dir, recursive = TRUE, full.names = TRUE)
 child <- params$child
 start_child <- c("overview.Rmd")
 end_child <- c("sysinfo.Rmd")
 child_docs <- c(start_child, child, end_child)
-
-
-# ~~~~~~~ FUNCTIONS ~~~~~~~ #
-remove_vars <- function(vars, env){
-    # clean out variables from the evironment, if they exist
-    for(item in vars){
-        if(exists(item)) rm(list = item, pos = env)
-    }
-}
-
-find_sample_files <- function(samplesIDs, ext){
-    # returns paths to files that match sample ID + extension
-    # NOTE: uses global `input_files`
-    pattern <- paste(samplesIDs, ext, sep = '', collapse = '|')
-    return(input_files[grep(pattern = pattern, x = basename(input_files))])
-}
-
-
-get_element_default <- function(object, name, default, is.index = FALSE){
-    # get an element from an object, or return default value
-    
-    # if getting element by index value
-    if (isTRUE(is.index)){
-        # if the index is not in the object
-        if(length(object) < as.numeric(name)){
-            return(default)
-        } else {
-            return(object[[name]])
-        }
-        # if getting element by name
-    } else {
-        # if the name is in the object
-        if (name %in% names(object)){
-            return(object[[name]])
-        } else {
-            return(default)
-        }
-    }
-    
-}
-
-
-search_parse_file <- function(pattern, files, FUN, na = NULL, ...){
-    # search for a file with the given `pattern` amongst the given `files`
-    # if a file was found, try to parse the file with function `FUN`
-    # else, return `na` value
-    # set `na = NULL` for `FUN` that should return dataframe
-    # Error handling included for when file does not exist, return a default value gracefully
-    matched_file <- files[grep(pattern = pattern, x = basename(files))]
-
-    # check if a file was found
-    if(identical(matched_file, character(0))){
-        message(sprintf("WARNING: No matching file found for pattern '%s'", pattern))
-        return(na)
-    } else {
-        return(FUN(matched_file, ...))
-    }
-    # consider doing a tryCatch later if needed...
-}
 
 # save environment to file
 save.image(file = 'loaded.Rdata', compress = TRUE)

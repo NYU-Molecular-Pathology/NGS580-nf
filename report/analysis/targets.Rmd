@@ -1,0 +1,17 @@
+```{r}
+targets_metrics_table <- params$targets_metrics_table
+```
+
+```{r}
+targets_metrics <- read.delim(file = targets_metrics_table, header = TRUE, sep = '\t', check.names = FALSE)
+```
+
+# Targets
+
+```{r, results='asis'}
+kable(as.data.frame(t(targets_metrics)), col.names = 'Info')
+```
+
+```{r}
+save.image(file = 'targets.Rdata', compress = TRUE)
+```

@@ -1,106 +1,59 @@
-```{r load_flagstat}
-# ~~~~~~ FUNCTIONS ~~~~~ #
-read.flagstat <- function(file){
-    # reads a samtools flagstat text file to parse values
-    file_lines <- readLines(file)
+```{r load_reads}
+# BWA original flagstat values
+flagstat_df <- read.delim(file = params$flagstat_table, header = TRUE, sep = '\t') 
+flagstat_df[["MappedReads"]] <- flagstat_df[["SequencedPairedReads"]]
 
-    mapped_all_line <- grep(pattern = 'mapped (', x = file_lines, value = TRUE, fixed = TRUE)[1]
-    mapped_all <- unlist(strsplit(x = mapped_all_line, split = ' '))[1]
-    
-    mapped_secondary_line <- grep(pattern = 'secondary', x = file_lines, value = TRUE, fixed = TRUE)[1]
-    mapped_secondary <- unlist(strsplit(x = mapped_secondary_line, split = ' '))[1]
-    
-    mapped_total <- as.numeric(mapped_all) - as.numeric(mapped_secondary)
-    
-    chimeric_line <- grep(pattern = 'mate mapped to a different chr', x = file_lines, value = TRUE, fixed = TRUE)[1]
-    chimeric <- unlist(strsplit(x = chimeric_line, split = ' '))[1]
-    
-    return(list(
-        MappedReads = as.numeric(mapped_total),
-        ChimericReads = as.numeric(chimeric)
-    ))
-}
+# sambamaba/samtools dedup flagstat values
+dedup_flagstat_df <- read.delim(file = params$dedup_flagstat_table, header = TRUE, sep = '\t')
+dedup_flagstat_df[["DeduplicatedReads"]] <- dedup_flagstat_df[["SequencedPairedReads"]]
 
-read.dedup.log <- function(file){
-    # reads the stderr message from sambamba dedup
-    file_lines <- readLines(file)
-    dup_line <- grep(pattern = 'found.*duplicates', x = file_lines, value = TRUE)
-    dups <- as.numeric(gsub(pattern = '.*found ([0-9]*) duplicates.*', replacement = '\\1', x = dup_line))
-    
-    return(list(
-        Duplicates = dups
-    ))
-}
+# sambamaba/samtools dedup log message values
+dedup_df <- read.delim(file = params$reads_dedup_table, header = TRUE, sep = '\t')
+dedup_df[["DuplicatedReads"]] <- dedup_df[["Duplicates"]]
 
+# create aggregate df
+reads_df <- merge(x = flagstat_df[, c("MappedReads", "Sample")], y = dedup_df[, c("DuplicatedReads", "Sample")], by = "Sample")
+reads_df <- merge(x = reads_df, y = dedup_flagstat_df[, c("DeduplicatedReads", "Sample")], by = "Sample")
 
-# ~~~~~~ AGGREGATE METRICS ~~~~~ #
-metrics_df <- do.call('rbind', lapply(X = samplesIDs, FUN = function(samplesID){
-    # raw_pattern <- paste(samplesID, '.reads.txt', sep = '', collapse = '|')
-    # raw_reads_file <- input_files[grep(pattern = raw_pattern, x = basename(input_files))]
-    # raw_reads <- as.numeric(readLines(raw_reads_file))
-    
-    # raw_R1_pattern <- paste(samplesID, '_R1.reads.txt', sep = '', collapse = '|')
-    # raw_R1_file <- input_files[grep(pattern = raw_R1_pattern, x = basename(input_files))]
-    # raw_R1_reads <- as.numeric(readLines(raw_R1_file))
-    
-    # stats from sambamba stderr dedup message 
-    dd_pattern <- paste(samplesID, '.dd.log', sep = '', collapse = '|')
-    dedup <- search_parse_file(pattern = dd_pattern, files = input_files, FUN = read.dedup.log, na = list())
-    duplicates <- get_element_default(object = dedup, name = "Duplicates", default = NA)
-    duplicates <- get_element_default(object = duplicates, name = 1, default = NA, is.index = TRUE)
+# sort Sample factor levels
+reads_df[["Sample"]] <- factor(x = reads_df[["Sample"]], levels = sort(unique(as.character(reads_df[["Sample"]]), decreasing = TRUE)))
 
-    
-    # stats from BWA alignment
-    flagstat_pattern <- paste(samplesID, '.flagstat.txt', sep = '', collapse = '|')
-    flagstat <- search_parse_file(pattern = flagstat_pattern, files = input_files, FUN = read.flagstat, na = list())
-    mapped_reads <- get_element_default(object = flagstat, name = "MappedReads", default = NA)
-    mapped_reads <- get_element_default(object = mapped_reads, name = 1, default = NA, is.index = TRUE)
-    chimeric_reads <- get_element_default(object = flagstat, name = "ChimericReads", default = NA)
-    chimeric_reads <- get_element_default(object = chimeric_reads, name = 1, default = NA, is.index = TRUE)
-    
-    # stats from deduplication
-    flagstat_dd_pattern <- paste(samplesID, '.dd.flagstat.txt', sep = '', collapse = '|')
-    flagstat_dd <- search_parse_file(pattern = flagstat_dd_pattern, files = input_files, FUN = read.flagstat, na = list())
-    dedup_reads <- get_element_default(object = flagstat_dd, name = "MappedReads", default = NA)
-    dedup_reads <- get_element_default(object = dedup_reads, name = 1, default = NA, is.index = TRUE)
-    
-    # mapped_pcnt <- mapped_reads / raw_reads
-    # chimeric_pcnt <- chimeric_reads / mapped_reads
+# convert to long format for plotting
+reads_df_long <- reshape2::melt(reads_df, id.vars="Sample", variable.name="Type", value.name="Reads")
 
-    return(data.frame(
-        Sample = samplesID, 
-        # TotalReads = raw_reads,
-        # RawReadsR1 = raw_R1_reads,
-        MappedReads = mapped_reads,
-        DuplicatedReads = duplicates,
-        DeduplicatedReads = dedup_reads
-        # MappedPercent = mapped_pcnt,
-        # ChimericReads = chimeric_reads
-        # ChimericPercent = chimeric_pcnt
-    ))
-}))
+# convert to millions for plot
+reads_df_long[["Reads"]] <- as.numeric(reads_df_long[["Reads"]]) / 1e6
 
-metrics_long <- reshape2::melt(metrics_df[c('Sample', 'MappedReads', 'DeduplicatedReads')], id.vars="Sample", variable.name="Type", value.name="Reads")
-metrics_long[["Reads"]] <- as.numeric(metrics_long[["Reads"]]) / 1e6
-metrics_long[["Type"]] <- factor(x = metrics_long[["Type"]], levels = sort(unique(as.character(metrics_long[["Type"]]), decreasing = TRUE)))
+# sort Type factor levels
+reads_df_long[["Type"]] <- factor(x = reads_df_long[["Type"]], levels = sort(unique(as.character(reads_df_long[["Type"]]), decreasing = TRUE)))
 
-mapping_plot <- ggplot(data = metrics_long, aes(x = Sample, y = Reads, fill = Type)) + 
-    geom_bar(stat="identity", position = "dodge") + 
-    ggtitle("Sample Read Mapping") + 
-    coord_flip() + 
-    ylab("Reads (millions)") + 
+# minimum number of reads required (millions)
+min_reads_cutoff <- 10
+
+mapping_plot <- ggplot(data = reads_df_long[ reads_df_long[["Type"]] %in% c("MappedReads", "DeduplicatedReads") , ], 
+       aes(x = Sample, y = Reads, fill = Type)) + 
+    geom_bar(stat="identity", position = "dodge") +
+    geom_hline(yintercept = min_reads_cutoff, color = "red") +
+    ggtitle("Sample Read Mapping") +
+    coord_flip() +
+    ylab("Reads (millions)") +
     theme_bw() +
     theme(panel.grid.minor = element_blank())
-
+    
 ```
 
 # Reads
 
 ```{r print_reads, results='asis'}
-kable(metrics_df, row.names = TRUE)
+kable(reads_df, row.names = TRUE)
 ```
 
 ```{r mapping_plot}
-# , fig.height=11.5, fig.width=8
 mapping_plot
+```
+
+- Each sample must have at least `r min_reads_cutoff` million deduplicated reads to qualify for NGS580 panel analysis.
+
+```{r}
+save.image(file="reads.Rdata", compress = TRUE)
 ```

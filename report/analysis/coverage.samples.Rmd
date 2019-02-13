@@ -1,6 +1,6 @@
 ```{r load_sample_coverage}
 # summary of .sample_summary files produced by GATK DepthOfCoverage
-coverage_file <- input_files[grep(pattern = params$sample_coverage_file, x = basename(input_files))][1]
+coverage_file <- params$sample_coverage_file
 coverage_df <- read.delim(file = coverage_file, header = TRUE, sep = '\t', check.names = FALSE)
 
 # get the column names that represent threshold cutoffs; colnames that are plain numeric values
@@ -8,7 +8,13 @@ threshold_cols <- names(coverage_df)[!is.na(as.numeric(names(coverage_df)))]
 non_threshold_cols <- names(coverage_df)[!names(coverage_df) %in% threshold_cols]
 
 # create long format table for plotting
+# version melted on cutoffs
 coverage_long <- reshape2::melt(coverage_df,  id.vars=non_threshold_cols, variable.name="Cutoff", value.name="Percent")
+
+# version melted on mean/median
+coverage_long2 <- reshape2::melt(coverage_df[names(coverage_df)[! names(coverage_df) %in% threshold_cols]], 
+               id.vars = non_threshold_cols[ ! non_threshold_cols %in% c("MeanCoverage", "MedianCoverage")],
+               variable.name="Statistic", value.name="Value")
 ```
 
 ```{r make_sample_coverage_plots}
@@ -42,6 +48,16 @@ for(cov_mode in modes){
         theme_bw() +
         theme(panel.grid.minor = element_blank()) +
         scale_y_continuous(limits = c(0, 100))
+    
+    coverage_plots[[cov_mode]][["samplebarplot"]] <- ggplot(data = droplevels(coverage_long2[coverage_long2[["Mode"]] == cov_mode, ]),
+           aes(x = Sample, y = Value, fill = Statistic)) + 
+        geom_bar(stat = "identity", position = "dodge") +
+        ggtitle("Coverage per Sample") + 
+        coord_flip() + 
+        theme_bw() +
+        theme(panel.grid.minor = element_blank()) +
+        scale_y_continuous(limits = c(0, max(coverage_long2[["Value"]]) * 1.10))
+    
 }
 
 ```
@@ -54,9 +70,9 @@ Coverage types:
 
 - `bed`: coverage at target intervals
 
-- `padxxx`: coverage at target interval regions with extra bp padding
+- `padxxx`: coverage at target interval regions with extra bp padding, for detection of off-target sequencing
 
-- `genome`: coverage across reference genome
+- `genome`: coverage across reference genome, for detection of off-target sequencing
 
 ```{r print_sample_coverage_plots, results='asis'}
 if(length(coverage_plots) < 1){
@@ -65,6 +81,7 @@ if(length(coverage_plots) < 1){
     for(name in names(coverage_plots)){
         subheader <- sprintf('\n\n## Coverage type: %s\n\n', name)
         cat(subheader)
+        print(coverage_plots[[name]][["samplebarplot"]])
         print(coverage_plots[[name]][["barplot"]])
         print(coverage_plots[[name]][["boxplot"]])
     }
@@ -72,4 +89,7 @@ if(length(coverage_plots) < 1){
 
 ```
 
-
+```{r}
+# save environment to file
+save.image(file="coverage.samples.Rdata",compress = TRUE)
+```
