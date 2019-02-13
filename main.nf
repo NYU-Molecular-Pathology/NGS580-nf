@@ -28,6 +28,7 @@ params.configFile = "config.json"
 params.outputDir = "output"
 params.reportDir = "report"
 params.targetsBed = "targets.bed"
+params.targetsrefFlatBed = "targets.refFlat.580.bed"
 params.probesBed = "probes.bed"
 params.samplesheet = null
 params.runID = null
@@ -119,13 +120,14 @@ log.info "* Launch command:\n${workflow.commandLine}\n"
 // ~~~~~ DATA INPUT ~~~~~ //
 // targets .bed file
 Channel.fromPath( file(params.targetsBed) ).set{ targets_bed }
+Channel.fromPath( file(params.targetsrefFlatBed) ).set{ targets_refFlat_bed }
 
 // reference files
 Channel.fromPath( file(params.targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8 }
 
-Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12 }
-Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12 }
-Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9; ref_dict10; ref_dict11; ref_dict12 }
+Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12; ref_fasta13 }
+Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12; ref_fai13 }
+Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9; ref_dict10; ref_dict11; ref_dict12; ref_dict13 }
 
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
@@ -198,7 +200,7 @@ Channel.fromPath( file(samplesheet) )
         .filter { item ->
             item[1] != 'NA' // unpaired samples
         }
-        .set { samples_pairs }
+        .into { samples_pairs; samples_pairs2 }
 
 // read sample IDs from analysis sheet
 Channel.fromPath( file(samplesheet) )
@@ -375,7 +377,7 @@ process alignment {
     set val(sampleID), file(fastq_R1_trim), file(fastq_R2_trim), file(ref_fa_bwa_dir) from samples_fastq_trimmed.combine(ref_fa_bwa_dir)
 
     output:
-    set val(sampleID), file("${bam_file}") into samples_bam, samples_bam2
+    set val(sampleID), file("${bam_file}") into samples_bam, samples_bam2, samples_bam3, samples_bam4
     val(sampleID) into done_alignment
 
     script:
@@ -400,6 +402,7 @@ process alignment {
     --out="${bam_file}" /dev/stdin
     """
 }
+
 
 process samtools_flagstat {
     // alignment stats
@@ -2299,6 +2302,135 @@ process calculate_tmb {
 }
 tmbs.collectFile(name: 'tmb.tsv', keepHeader: true, storeDir: "${params.outputDir}/analysis") //.into { all_tmb; all_tmb2 }
 
+
+// SETUP CHANNELS FOR PAIRED TUMOR-NORMAL STEPS FOR CNV analysis
+// samples_pairs // [ tumorID, normalID ]
+// get all the combinations of samples & pairs
+samples_bam3.combine(samples_pairs2) // [ sampleID, sampleBam, tumorID, normalID ]
+                    .filter { item -> // only keep combinations where sample is same as tumor pair sample
+                        def sampleID = item[0]
+                        def sampleBam = item[1]
+                        def tumorID = item[2]
+
+                        sampleID == tumorID
+                     }
+                    .map { sampleID, sampleBam, tumorID, normalID -> // re-order the elements
+                        def tumorBam = sampleBam
+                        return [ tumorID, tumorBam, normalID ]
+                    }
+                    .combine(samples_bam4)  // combine again to get the samples & files again
+                    .filter { item -> // keep only combinations where the normal ID matches the new sample ID
+                        def tumorID = item[0]
+                        def tumorBam = item[1]
+                        def normalID = item[2]
+                        def sampleID = item[3]
+                        def sampleBam = item[4]
+                        normalID == sampleID
+                    }
+                    .map {tumorID, tumorBam, normalID, sampleID, sampleBam  -> // re arrange the elements
+                        def normalBam = sampleBam
+                        def comparisonID = "${tumorID}_${normalID}"
+                        return [ comparisonID, tumorID, tumorBam, normalID, normalBam ]
+                    }//.subscribe { println "[samples_bam3]${it}"}
+                    .combine(ref_fasta13) // add reference genome and targets
+                    .combine(ref_fai13)
+                    .combine(ref_dict13)
+                    .combine(targets_refFlat_bed)
+                    .tap {
+                      samples_bam_ref_targets
+                    }
+                    // .subscribe { println "[samples_bam_ref_targets]${it}"}
+                    // echo "[cnvkit] comparisonID: ${comparisonID}, tumorID: ${tumorID}, tumorBam: ${tumorBam}, normalID: ${normalID}, normalBam: ${normalBam}, ref_fasta: ${ref_fasta13}, ref_fai: ${ref_fai13}, ref_dict: ${ref_dict13}, targets_bed: ${targets_refFlat_bed} "
+
+process cnvkit {
+
+  publishDir "${params.outputDir}/analysis/cnv", mode: 'copy', overwrite: true
+
+  input:
+  set val(comparisonID), val(tumorID), file(tumorBam), val(normalID), file(normalBam), file(ref_fasta13), file(ref_fai13), file(ref_dict13), file(targets_refFlat_bed) from samples_bam_ref_targets
+
+  output:
+  file("${output_cns}")
+  file("${output_finalcnr}")
+  set val(comparisonID), val(tumorID), val(normalID), file("${output_cnr}"), file("${output_call_cns}"), file("${segment_gainloss}") into sample_cnvs
+
+  script:
+  prefix = "${comparisonID}"
+  tumorBamID = "${tumorBam}".replaceFirst(/.bam$/, "")
+  normal_reference = "normal_reference.cnn"
+  tmp_cns = "${tumorBamID}.cns"
+  tmp_cnr = "${tumorBamID}.cnr"
+  output_cns = "${prefix}.cns"
+  output_cnr = "${prefix}.cnr"
+  output_finalcnr = "${prefix}.final.cnr"
+  output_call_cns = "${prefix}.call.cns"
+  segment_gainloss = "${prefix}.segment-gainloss.txt"
+  """
+  # running cnvkit pipeline on paried tumor/normal bams using batch mode, required tumorBam, normalBam, reference fasta and bed.
+  cnvkit.py batch "${tumorBam}" \
+    --normal "${normalBam}" \
+    --targets "${targets_refFlat_bed}" \
+    --fasta "${ref_fasta13}" \
+    --output-reference "${normal_reference}" \
+    -p \${NSLOTS:-\${NTHREADS:-1}}
+
+    # Produces ${tmp_cns} and ${tmp_cnr}, rename to ${output_cns} and ${output_cnr}
+    mv ${tmp_cns} ${output_cns}
+    mv ${tmp_cnr} ${output_cnr}
+
+  # Given segmented log2 ratio estimates (.cns), derive each segment’s absolute integer copy number.
+  cnvkit.py call --filter cn "${output_cns}"
+
+  # Identify targeted genes with copy number gain or loss above or below a threshold, -t :threshold and -m:number of bins
+  cnvkit.py gainloss "${output_cnr}" -s "${output_call_cns}" -t 0.3 -m 5 > "${segment_gainloss}"
+  cnvkit.py gainloss "${output_cnr}" -t 0.3 -m 5 > "${output_finalcnr}"
+
+  """
+}
+
+// only keep files with at least 1 variant for TMB analysis
+sample_cnvs.filter { comparisonID, tumorID, normalID, cnr, call_cns, segment_gainloss ->
+    def count = cnr.readLines().size()
+    if (count <= 1) log.warn "${comparisonID} doesn't have enough lines in cnr and will not be processed"
+    count > 1
+}
+.filter { comparisonID, tumorID, normalID, cnr, call_cns, segment_gainloss ->
+    def count = segment_gainloss.readLines().size()
+    if (count <= 1) log.warn "${comparisonID} doesn't have enough lines in segment_gainloss and will not be processed"
+    count > 1
+}
+.set { sample_cnvs_filtered }
+
+process cnvkit_gene_segments {
+  // Need to tweak copy number segment/ratio files for making plots later
+
+  input:
+  set val(comparisonID), val(tumorID), val(normalID), file(cnr), file(call_cns), file(segment_gainloss) from sample_cnvs_filtered
+
+  output:
+  file("${output_finalcns}")
+
+  script:
+  prefix = "${comparisonID}"
+  segment_genes = "${prefix}.segment-genes.txt"
+  ratio_genes = "${prefix}.ratio-genes.txt"
+  trusted_genes = "${prefix}.trusted-genes.txt"
+  output_finalcns = "${prefix}.final.cns" // use this file for report
+  """
+  # Generate segment genes (from .cns) and ratio genes (from .cnr) by applying threshold
+  cnvkit.py gainloss "${cnr}" -s "${call_cns}" -t 0.3 -m 5 | tail -n+2 | cut -f1 | sort > "${segment_genes}"
+  cnvkit.py gainloss "${cnr}" -t 0.3 -m 5 | tail -n+2 | cut -f1 | sort > "${ratio_genes}"
+
+  # Take intersection of segment and ratio as trusted genes (final set of cnv genes)
+  comm -12 "${ratio_genes}" "${segment_genes}" > "${trusted_genes}"
+
+  # Get the trusted genes and their segment gain loss info from segment_gainloss file and write to final.cns
+  cat "${segment_gainloss}" | head -n +1 > "${output_finalcns}"
+  grep -w -f "${trusted_genes}" "${segment_gainloss}" >> "${output_finalcns}"
+
+  """
+
+}
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
 // collect from all processes to make sure they are finished before starting reports
