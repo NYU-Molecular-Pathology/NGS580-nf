@@ -2392,20 +2392,20 @@ sample_cnvs.filter { comparisonID, tumorID, normalID, cnr, call_cns, segment_gai
 .set { sample_cnvs_filtered }
 
 process cnvkit_gene_segments {
-  // Need to tweak copy number segment/ratio files for making plots later
+  // filter for segement and ratio genes that are in common between segment and ratio files; "trusted genes", avoid artifacts in the results
 
   input:
   set val(comparisonID), val(tumorID), val(normalID), file(cnr), file(call_cns), file(segment_gainloss) from sample_cnvs_filtered
 
   output:
-  file("${output_finalcns}")
+  set val(comparisonID), val(tumorID), val(normalID), file(segment_gainloss), file("${trusted_genes}") into sample_cnv_gene_segments
+  // file("${output_finalcns}")
 
   script:
   prefix = "${comparisonID}"
   segment_genes = "${prefix}.segment-genes.txt"
   ratio_genes = "${prefix}.ratio-genes.txt"
   trusted_genes = "${prefix}.trusted-genes.txt"
-  output_finalcns = "${prefix}.final.cns" // use this file for report
   """
   # Generate segment genes (from .cns) and ratio genes (from .cnr) by applying threshold
   cnvkit.py gainloss "${cnr}" -s "${call_cns}" -t 0.3 -m 5 | tail -n+2 | cut -f1 | sort > "${segment_genes}"
@@ -2413,14 +2413,35 @@ process cnvkit_gene_segments {
 
   # Take intersection of segment and ratio as trusted genes (final set of cnv genes)
   comm -12 "${ratio_genes}" "${segment_genes}" > "${trusted_genes}"
-
-  # Get the trusted genes and their segment gain loss info from segment_gainloss file and write to final.cns
-  cat "${segment_gainloss}" | head -n +1 > "${output_finalcns}"
-  grep -w -f "${trusted_genes}" "${segment_gainloss}" >> "${output_finalcns}"
-
   """
 
 }
+
+// make sure that there are trusted genes present
+sample_cnv_gene_segments.filter { comparisonID, tumorID, normalID, segment_gainloss, trusted_genes ->
+    def count = trusted_genes.readLines().size()
+    if (count <= 1) log.warn "${comparisonID} doesn't have enough lines in trusted_genes and will not be processed"
+    count > 1
+}.set { sample_cnv_gene_segments_filtered }
+
+process cnvkit_extract_trusted_genes {
+    // find gainloss segments with the trusted genes
+    input:
+    set val(comparisonID), val(tumorID), val(normalID), file(segment_gainloss), file(trusted_genes) from sample_cnv_gene_segments_filtered
+
+    script:
+    prefix = "${comparisonID}"
+    trusted_genes = "${prefix}.trusted-genes.txt"
+    output_finalcns = "${prefix}.final.cns" // use this file for report
+    """
+    # Get the trusted genes and their segment gain loss info from segment_gainloss file and write to final.cns
+    cat "${segment_gainloss}" | head -n +1 > "${output_finalcns}"
+    grep -w -f "${trusted_genes}" "${segment_gainloss}" >> "${output_finalcns}"
+    """
+}
+
+
+
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
 // collect from all processes to make sure they are finished before starting reports
