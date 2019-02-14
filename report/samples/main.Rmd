@@ -17,10 +17,16 @@ params:
   input_dir: input
   child: !r c("signatures.Rmd")
   sampleID: null
+  signatures_Rds: signatures.Rds
+  signatures_plot_Rds: signatures.plot.Rds
+  signatures_pieplot_Rds: signatures.pieplot.Rds
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(fig.width = 10)
+knitr::opts_chunk$set(fig.height = 10)
+
 library("knitr")
 # ~~~~~~~ CONFIGS ~~~~~~~ #
 pwd <- getwd()

@@ -90,6 +90,7 @@ if(params.samplesheet == null){
     samplesheet = params.samplesheet
 }
 
+// Enable or disable some pipeline steps here TODO: better config management for this
 disable_multiqc = true // for faster testing of the rest of the pipeline
 disable_msisensor = false // breaks on very small demo datasets
 disable_delly2 = true
@@ -99,6 +100,9 @@ def all_annotations_file = "annotations.tsv"
 def samplesheet_output_file = 'samplesheet.tsv'
 def sample_coverage_file = "coverage.samples.tsv"
 def interval_coverage_file = "coverage.intervals.tsv"
+
+// start a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
+file_map = [:]
 
 // ~~~~~ START WORKFLOW ~~~~~ //
 log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
@@ -162,8 +166,9 @@ Channel.fromPath("${reportDirPath}/samples/*")
         .map { items ->
             return( [items])
         }
-        .combine( analysis_output2 ) // [[report files list], analysis output dir]
-        .set { samples_report_files }
+        .tap { samples_report_files }
+        // .combine( analysis_output2 ) // [[report files list], analysis output dir]
+        // .set { samples_report_files }
 
 // read samples from analysis samplesheet
 Channel.fromPath( file(samplesheet) )
@@ -206,7 +211,7 @@ Channel.fromPath( file(samplesheet) )
             return(sampleID)
         }
         .unique()
-        .set { sampleIDs }
+        .tap { sampleIDs; sampleIDs2 }
 
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
@@ -1506,7 +1511,11 @@ sample_vcf_hc_bad.map {  caller, sampleID, filtered_vcf ->
     return(output)
 }.set { sample_vcf_hc_bad_logs }
 
-
+file_map['deconstructSigs'] = [:]
+file_map['deconstructSigs']['suffix'] = [:]
+file_map['deconstructSigs']['suffix']['signatures_Rds'] = 'signatures.Rds'
+file_map['deconstructSigs']['suffix']['signatures_plot_Rds'] = 'signatures.plot.Rds'
+file_map['deconstructSigs']['suffix']['signatures_pieplot_Rds'] = 'signatures.pieplot.Rds'
 process deconstructSigs_signatures {
     // search for mutation signatures
     tag "${sampleID}"
@@ -1521,20 +1530,25 @@ process deconstructSigs_signatures {
     file("${signatures_pieplot_Rds}")
     file("${signatures_plot_pdf}") into signatures_plots
     file("${signatures_pieplot_pdf}") into signatures_pie_plots
+    set val(sampleID), file("${signatures_rds}"), file("${signatures_plot_Rds}"), file("${signatures_pieplot_Rds}") into sample_signatures
     val(sampleID) into done_deconstructSigs_signatures
 
     script:
     prefix = "${sampleID}.${caller}"
-    signatures_rds = "${prefix}_signatures.Rds"
-    signatures_plot_pdf = "${prefix}_signatures_plot.pdf"
-    signatures_plot_Rds = "${prefix}_signatures_plot.Rds"
-    signatures_pieplot_pdf = "${prefix}_signatures_pieplot.pdf"
-    signatures_pieplot_Rds = "${prefix}_signatures_pieplot.Rds"
+    signatures_rds = "${prefix}.${file_map['deconstructSigs']['suffix']['signatures_Rds']}"
+    signatures_plot_pdf = "${prefix}.signatures.plot.pdf"
+    signatures_plot_Rds = "${prefix}.${file_map['deconstructSigs']['suffix']['signatures_plot_Rds']}"
+    signatures_pieplot_pdf = "${prefix}.signatures.pieplot.pdf"
+    signatures_pieplot_Rds = "${prefix}.${file_map['deconstructSigs']['suffix']['signatures_pieplot_Rds']}"
     """
     deconstructSigs_make_signatures.R "${sampleID}" "${sample_vcf}" "${signatures_rds}" "${signatures_plot_pdf}" "${signatures_plot_Rds}" "${signatures_pieplot_pdf}" "${signatures_pieplot_Rds}"
     """
 }
-
+// need to re-format the channel for combination with reporting channels
+sample_signatures.map { sampleID, signatures_rds, signatures_plot_Rds, signatures_pieplot_Rds ->
+    return([ sampleID, [ signatures_rds, signatures_plot_Rds, signatures_pieplot_Rds ] ])
+}
+.set { sample_signatures_reformated }
 
 process merge_signatures_plots {
     // combine all signatures plots into a single PDF
@@ -2559,6 +2573,30 @@ process custom_analysis_report {
     """
 }
 
+// channel for sample reports; gather items per-sample from other processes
+sampleIDs.map { sampleID ->
+    // dummy file to pass through channel
+    def placholder = file(".placeholder")
+
+    return([ sampleID, placholder ])
+}
+// add items from other channels
+.concat(sample_signatures_reformated) // [ sampleID, [ sig_file1, sig_file2, ... ] ]
+// group all the items by the sampleID, first element in each
+.groupTuple() // [ sampleID, [ [ sig_file1, sig_file2, ... ], .placeholder, ... ] ]
+// need to flatten any nested lists
+.map { sampleID, fileList ->
+    def newFileList = fileList.flatten()
+
+    return([ sampleID, newFileList ])
+}
+.tap { sample_output_files }
+.subscribe { println "[sampleIDs] ${it}" }
+
+
+// file_map['deconstructSigs']['suffix']['signatures_Rds'] = 'signatures.Rds'
+// file_map['deconstructSigs']['suffix']['signatures_plot_Rds'] = 'signatures.plot.Rds'
+// file_map['deconstructSigs']['suffix']['signatures_pieplot_Rds'] = 'signatures.pieplot.Rds'
 process custom_sample_report {
     // create per-sample reports
     tag "${sampleID}"
@@ -2566,8 +2604,9 @@ process custom_sample_report {
     publishDir "${params.outputDir}/sample-reports", overwrite: true, mode: 'copy'
 
     input:
-    val(items) from all_done3.collect()
-    set val(sampleID), file(report_items: '*'), file(input_dir: "input") from sampleIDs.combine(samples_report_files)
+    // val(items) from all_done3.collect()
+    set val(sampleID), file(sampleFiles: "*"), file(report_items: '*') from sample_output_files.combine(samples_report_files) // , file(input_dir: "input")
+
 
     output:
     file("${html_output}")
@@ -2585,8 +2624,19 @@ process custom_sample_report {
         fi
     done
 
-    Rscript -e 'rmarkdown::render(input = "main.Rmd", params = list(input_dir = "input", sampleID = "${sampleID}"), output_format = "html_document", output_file = "${html_output}")'
+    R --vanilla <<E0F
+    rmarkdown::render(input = "main.Rmd",
+    params = list(
+        sampleID = "${sampleID}",
+        signatures_Rds = "${file_map['deconstructSigs']['suffix']['signatures_Rds']}",
+        signatures_plot_Rds = "${file_map['deconstructSigs']['suffix']['signatures_plot_Rds']}",
+        signatures_pieplot_Rds = "${file_map['deconstructSigs']['suffix']['signatures_pieplot_Rds']}"
+        ),
+    output_format = "html_document",
+    output_file = "${html_output}")
+    E0F
     """
+    // # Rscript -e 'rmarkdown::render(input = "main.Rmd", params = list(input_dir = "input", sampleID = "${sampleID}"), output_format = "html_document", output_file = "${html_output}")'
 }
 
 Channel.fromPath("${params.outputDir}").set { output_dir_ch }
