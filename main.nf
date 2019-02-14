@@ -2493,10 +2493,10 @@ done_copy_samplesheet.concat(
 
 
 // collect failed log messages
-failed_samples.mix(samples_vcfs_tsvs_bad_logs, sample_vcf_hc_bad_logs)
+failed_samples.concat(samples_vcfs_tsvs_bad_logs, sample_vcf_hc_bad_logs)
     .collectFile(name: "failed.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set { failed_log_ch }
-failed_pairs.mix(pairs_vcfs_tsvs_bad_logs)
+failed_pairs.concat(pairs_vcfs_tsvs_bad_logs)
     .collectFile(name: "failed.pairs.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set{ failed_pairs_log_ch }
 
