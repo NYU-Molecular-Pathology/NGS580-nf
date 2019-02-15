@@ -19,6 +19,9 @@ tryCatch(
             weights <- weights[ order(-weights[,1]), , drop=FALSE]
             
             signatures[["weights"]] <- weights
+        },
+        error=function(cond) {
+            return(NA)
         }
     )
 
@@ -57,6 +60,30 @@ if (length(signatures) < 1){
 
 ```
 
+## Signature Descriptions
+
+```{r}
+signatures_cosmic <- data.frame()
+tryCatch(
+    {
+    signatures_cosmic <- read.delim(file = params$signatures_cosmic_tsv, header = TRUE, sep = '\t', check.names = FALSE)
+    },
+    error=function(cond) {
+    return(NA)
+        }
+)
+
+```
+
+```{r, results='asis'}
+if(nrow(signatures_cosmic) > 1){
+    datatable(signatures_cosmic, rownames = FALSE, options = list(pageLength = 5))
+} else {
+    cat('\n\n- Could not load COSMIC reference descriptions')
+}
+```
+
+Source: https://cancer.sanger.ac.uk/cosmic/signatures (accessed on Feb 15, 2019)
 
 ```{r}
 save.image("signatures.Rdata", compress = TRUE)

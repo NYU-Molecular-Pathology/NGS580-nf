@@ -20,6 +20,7 @@ params:
   signatures_Rds: signatures.Rds
   signatures_plot_Rds: signatures.plot.Rds
   signatures_pieplot_Rds: signatures.pieplot.Rds
+  signatures_cosmic_tsv: signatures.cosmic.tsv
 ---
 
 ```{r setup, include=FALSE}
@@ -28,6 +29,7 @@ knitr::opts_chunk$set(fig.width = 10)
 knitr::opts_chunk$set(fig.height = 10)
 
 library("knitr")
+library("DT")
 # ~~~~~~~ CONFIGS ~~~~~~~ #
 pwd <- getwd()
 input_dir <- params$input_dir
