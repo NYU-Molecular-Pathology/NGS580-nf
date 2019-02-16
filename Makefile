@@ -294,7 +294,7 @@ run-power: install
 SUBJOBNAME:=NGS580-$(DIRNAME)
 SUBLOG:=$(LOGDIRABS)/slurm-%j.$(LOGFILEBASE)
 SUBQ:=intellispace
-SUBTIME:=--time=3-01:00:00
+SUBTIME:=--time=5-00:00:00
 SUBTHREADS:=4
 SUBMEM:=32G
 SUBEP:=
