@@ -199,6 +199,7 @@ Channel.fromPath( file(samplesheet) )
         .filter { item ->
             item[0] != item[1] // remove Normal samples
         }
+        .tap { samples_pairs_with_NA; samples_pairs_with_NA2 }
         .filter { item ->
             item[1] != 'NA' // unpaired samples
         }
@@ -2439,6 +2440,9 @@ process cnvkit_extract_trusted_genes {
     input:
     set val(comparisonID), val(tumorID), val(normalID), file(segment_gainloss), file(trusted_genes) from sample_cnv_gene_segments_filtered
 
+    output:
+    set val(tumorID), val(normalID), file("${output_final_cns}") into cnvs_cns
+
     script:
     prefix = "${comparisonID}"
     trusted_genes = "${prefix}.trusted-genes.txt"
@@ -2572,11 +2576,11 @@ process custom_analysis_report {
 // channel for sample reports; gather items per-sample from other processes
 sampleIDs.map { sampleID ->
     // dummy file to pass through channel
-    def placholder = file(".placeholder")
+    def placeholder = file(".placeholder1")
 
-    return([ sampleID, placholder ])
+    return([ sampleID, placeholder ])
 }
-// add items from other channels
+// add items from other channels (unpaired steps)
 .concat(sample_signatures_reformated) // [ sampleID, [ sig_file1, sig_file2, ... ] ]
 // group all the items by the sampleID, first element in each
 .groupTuple() // [ sampleID, [ [ sig_file1, sig_file2, ... ], .placeholder, ... ] ]
@@ -2586,26 +2590,53 @@ sampleIDs.map { sampleID ->
 
     return([ sampleID, newFileList ])
 }
-.tap { sample_output_files }
-.subscribe { println "[sampleIDs] ${it}" }
+.tap { sample_output_files; sample_output_files2 }
 
+// channel for items from sample pairs
+samples_pairs_with_NA.map { tumorID, normalID ->
+    // dummy file to pass through channel
+    def placeholder = file(".placeholder2")
+
+    return([ tumorID, normalID, placeholder ])
+}
+// add tumor-normal process output channels here
+.concat(cnvs_cns)
+// group by tumor and normal id's
+.groupTuple(by: [0,1])
+.map { tumorID, normalID, fileList ->
+    // un-nest any nested lists of files
+    def newFileList = fileList.flatten()
+
+    return([ tumorID, normalID, newFileList ])
+}
+.tap { sample_pairs_output_files }
+
+// combine the channels
+sample_pairs_output_files.combine(sample_output_files2)
+.filter { tumorID, normalID, tumorNormalFileList, sampleID, sampleFileList ->
+    sampleID == tumorID
+}
+.map { tumorID, normalID, tumorNormalFileList, sampleID, sampleFileList ->
+    return([ tumorID, normalID, tumorNormalFileList, sampleFileList ])
+}
+.set { sample_pairs_output_files2 }
+// .subscribe { println "[sample_output_files2] ${it}" }
 
 process custom_sample_report {
     // create per-sample reports
-    tag "${sampleID}"
+    tag "${prefix}"
     // publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/sample-reports", overwrite: true, mode: 'copy'
 
     input:
+    set val(tumorID), val(normalID), file(tumorNormalFiles: "*"), file(sampleFiles: "*"), file(report_items: '*') from sample_pairs_output_files2.combine(samples_report_files)
     // val(items) from all_done3.collect()
-    set val(sampleID), file(sampleFiles: "*"), file(report_items: '*') from sample_output_files.combine(samples_report_files) // , file(input_dir: "input")
-
 
     output:
     file("${html_output}")
 
     script:
-    prefix = "${sampleID}"
+    prefix = "${tumorID}"
     html_output = "${prefix}.report.html"
     """
     # convert report file symlinks to copies of original files, because knitr doesnt work well unless all report files are in pwd
@@ -2620,16 +2651,16 @@ process custom_sample_report {
     R --vanilla <<E0F
     rmarkdown::render(input = "main.Rmd",
     params = list(
-        sampleID = "${sampleID}",
+        sampleID = "${tumorID}",
         signatures_Rds = "${filemap['deconstructSigs']['suffix']['signatures_Rds']}",
         signatures_plot_Rds = "${filemap['deconstructSigs']['suffix']['signatures_plot_Rds']}",
-        signatures_pieplot_Rds = "${filemap['deconstructSigs']['suffix']['signatures_pieplot_Rds']}"
+        signatures_pieplot_Rds = "${filemap['deconstructSigs']['suffix']['signatures_pieplot_Rds']}",
+        paired_normal = "${normalID}"
         ),
     output_format = "html_document",
     output_file = "${html_output}")
     E0F
     """
-    // # Rscript -e 'rmarkdown::render(input = "main.Rmd", params = list(input_dir = "input", sampleID = "${sampleID}"), output_format = "html_document", output_file = "${html_output}")'
 }
 
 Channel.fromPath("${params.outputDir}").set { output_dir_ch }

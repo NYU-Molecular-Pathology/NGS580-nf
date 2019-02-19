@@ -15,7 +15,7 @@ output:
     toc: yes
 params:
   input_dir: input
-  child: !r c("signatures.Rmd")
+  child: !r c("signatures.Rmd", "cnvs.Rmd")
   sampleID: null
   signatures_Rds: signatures.Rds
   signatures_plot_Rds: signatures.plot.Rds
@@ -32,14 +32,19 @@ knitr::opts_chunk$set(fig.height = 10)
 
 library("knitr")
 library("DT")
+library("ggplot2")
+
 # ~~~~~~~ CONFIGS ~~~~~~~ #
 pwd <- getwd()
 input_dir <- params$input_dir
 input_files <- dir(path = input_dir, recursive = TRUE, full.names = TRUE)
 child <- params$child
 sampleID <- params$sampleID
+paired_normal <- params$paired_normal
+comparisonID <- sprintf("%s_%s", sampleID, paired_normal)[1]
+start_child <- c("sample.Rmd")
 end_child <- c("sysinfo.Rmd")
-child_docs <- c(child, end_child)
+child_docs <- c(start_child, child, end_child)
 
 save.image(file = "loaded.Rdata")
 ```
