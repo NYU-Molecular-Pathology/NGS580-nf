@@ -101,8 +101,9 @@ def samplesheet_output_file = 'samplesheet.tsv'
 def sample_coverage_file = "coverage.samples.tsv"
 def interval_coverage_file = "coverage.intervals.tsv"
 
-// start a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
-file_map = [:]
+// load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
+String filemapJSON = new File("filemap.json").text
+def filemap = jsonSlurper.parseText(filemapJSON)
 
 // ~~~~~ START WORKFLOW ~~~~~ //
 log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
@@ -1511,11 +1512,6 @@ sample_vcf_hc_bad.map {  caller, sampleID, filtered_vcf ->
     return(output)
 }.set { sample_vcf_hc_bad_logs }
 
-file_map['deconstructSigs'] = [:]
-file_map['deconstructSigs']['suffix'] = [:]
-file_map['deconstructSigs']['suffix']['signatures_Rds'] = 'signatures.Rds'
-file_map['deconstructSigs']['suffix']['signatures_plot_Rds'] = 'signatures.plot.Rds'
-file_map['deconstructSigs']['suffix']['signatures_pieplot_Rds'] = 'signatures.pieplot.Rds'
 process deconstructSigs_signatures {
     // search for mutation signatures
     tag "${sampleID}"
@@ -1535,11 +1531,11 @@ process deconstructSigs_signatures {
 
     script:
     prefix = "${sampleID}.${caller}"
-    signatures_rds = "${prefix}.${file_map['deconstructSigs']['suffix']['signatures_Rds']}"
+    signatures_rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_Rds']}"
     signatures_plot_pdf = "${prefix}.signatures.plot.pdf"
-    signatures_plot_Rds = "${prefix}.${file_map['deconstructSigs']['suffix']['signatures_plot_Rds']}"
+    signatures_plot_Rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_plot_Rds']}"
     signatures_pieplot_pdf = "${prefix}.signatures.pieplot.pdf"
-    signatures_pieplot_Rds = "${prefix}.${file_map['deconstructSigs']['suffix']['signatures_pieplot_Rds']}"
+    signatures_pieplot_Rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_pieplot_Rds']}"
     """
     deconstructSigs_make_signatures.R "${sampleID}" "${sample_vcf}" "${signatures_rds}" "${signatures_plot_pdf}" "${signatures_plot_Rds}" "${signatures_pieplot_pdf}" "${signatures_pieplot_Rds}"
     """
@@ -2446,11 +2442,11 @@ process cnvkit_extract_trusted_genes {
     script:
     prefix = "${comparisonID}"
     trusted_genes = "${prefix}.trusted-genes.txt"
-    output_finalcns = "${prefix}.final.cns" // use this file for report
+    output_final_cns = "${prefix}.${filemap['cnvkit']['suffix']['final_cns']}" // use this file for report
     """
     # Get the trusted genes and their segment gain loss info from segment_gainloss file and write to final.cns
-    cat "${segment_gainloss}" | head -n +1 > "${output_finalcns}"
-    grep -w -f "${trusted_genes}" "${segment_gainloss}" >> "${output_finalcns}"
+    cat "${segment_gainloss}" | head -n +1 > "${output_final_cns}"
+    grep -w -f "${trusted_genes}" "${segment_gainloss}" >> "${output_final_cns}"
     """
 }
 
@@ -2594,9 +2590,6 @@ sampleIDs.map { sampleID ->
 .subscribe { println "[sampleIDs] ${it}" }
 
 
-// file_map['deconstructSigs']['suffix']['signatures_Rds'] = 'signatures.Rds'
-// file_map['deconstructSigs']['suffix']['signatures_plot_Rds'] = 'signatures.plot.Rds'
-// file_map['deconstructSigs']['suffix']['signatures_pieplot_Rds'] = 'signatures.pieplot.Rds'
 process custom_sample_report {
     // create per-sample reports
     tag "${sampleID}"
@@ -2628,9 +2621,9 @@ process custom_sample_report {
     rmarkdown::render(input = "main.Rmd",
     params = list(
         sampleID = "${sampleID}",
-        signatures_Rds = "${file_map['deconstructSigs']['suffix']['signatures_Rds']}",
-        signatures_plot_Rds = "${file_map['deconstructSigs']['suffix']['signatures_plot_Rds']}",
-        signatures_pieplot_Rds = "${file_map['deconstructSigs']['suffix']['signatures_pieplot_Rds']}"
+        signatures_Rds = "${filemap['deconstructSigs']['suffix']['signatures_Rds']}",
+        signatures_plot_Rds = "${filemap['deconstructSigs']['suffix']['signatures_plot_Rds']}",
+        signatures_pieplot_Rds = "${filemap['deconstructSigs']['suffix']['signatures_pieplot_Rds']}"
         ),
     output_format = "html_document",
     output_file = "${html_output}")

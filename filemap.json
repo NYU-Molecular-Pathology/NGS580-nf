@@ -1,0 +1,14 @@
+{
+    "deconstructSigs": {
+        "suffix": {
+            "signatures_Rds": "signatures.Rds",
+            "signatures_plot_Rds": "signatures.plot.Rds",
+            "signatures_pieplot_Rds": "signatures_pieplot_Rds"
+        }
+    },
+    "cnvkit": {
+        "suffix": {
+            "final_cns": "final.cns"
+        }
+    }
+}

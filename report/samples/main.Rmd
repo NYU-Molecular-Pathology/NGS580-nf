@@ -21,6 +21,8 @@ params:
   signatures_plot_Rds: signatures.plot.Rds
   signatures_pieplot_Rds: signatures.pieplot.Rds
   signatures_cosmic_tsv: signatures.cosmic.tsv
+  cnvs_final_cns: final.cns
+  paired_normal: null
 ---
 
 ```{r setup, include=FALSE}
