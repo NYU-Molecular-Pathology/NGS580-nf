@@ -7,9 +7,9 @@ anno_txt <- args[3]
 # values used in the ANNOVAR output for nastring
 NA_vals <- c('.')  
 
-# sampleID <- "RD-18-508-S12-24039.HaplotypeCaller"
-# avinput <- "output/RD-18-508-S12-24039/RD-18-508-S12-24039.HaplotypeCaller.avinput"
-# anno_txt <- "output/RD-18-508-S12-24039/RD-18-508-S12-24039.HaplotypeCaller.hg19_multianno.txt"
+# sampleID <- "Sample1.HaplotypeCaller"
+# avinput <- "Sample1.HaplotypeCaller.avinput"
+# anno_txt <- "Sample1.HaplotypeCaller.hg19_multianno.txt"
 
 read.annot_txt <- function(file){
     # read ANNOVAR hg19_multianno.txt when 'Otherinfo' results in more columns than headers
