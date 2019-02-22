@@ -167,9 +167,7 @@ Channel.fromPath("${reportDirPath}/samples/*")
         .map { items ->
             return( [items])
         }
-        .tap { samples_report_files }
-        // .combine( analysis_output2 ) // [[report files list], analysis output dir]
-        // .set { samples_report_files }
+        .set { samples_report_files }
 
 // read samples from analysis samplesheet
 Channel.fromPath( file(samplesheet) )
@@ -213,7 +211,7 @@ Channel.fromPath( file(samplesheet) )
             return(sampleID)
         }
         .unique()
-        .tap { sampleIDs; sampleIDs2 }
+        .into { sampleIDs; sampleIDs2 }
 
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
@@ -901,10 +899,10 @@ samples_dd_ra_rc_bam.combine(ref_fasta2)
                     .combine(ref_dict2)
                     .tap { samples_dd_ra_rc_bam_ref_nointervals }
                     .combine(targets_bed2)
-                    .tap { samples_dd_ra_rc_bam_ref;
+                    .into { samples_dd_ra_rc_bam_ref;
                             samples_dd_ra_rc_bam_ref2;
                             samples_dd_ra_rc_bam_ref3;
-                            samples_dd_ra_rc_bam_ref4; // delly2
+                            samples_dd_ra_rc_bam_ref4;
                             samples_dd_ra_rc_bam_ref5;
                             samples_dd_ra_rc_bam_ref6;
                             samples_dd_ra_rc_bam_ref7;
@@ -913,7 +911,7 @@ samples_dd_ra_rc_bam.combine(ref_fasta2)
 
 samples_dd_ra_rc_bam_ref.combine( dbsnp_ref_vcf3 )
                         .combine(dbsnp_ref_vcf_idx3)
-                        .tap { samples_dd_ra_rc_bam_ref_dbsnp;
+                        .into { samples_dd_ra_rc_bam_ref_dbsnp;
                                 samples_dd_ra_rc_bam_ref_dbsnp2 }
 
 
@@ -1692,7 +1690,7 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
                             samples_dd_ra_rc_bam_pairs_ref3;
                             samples_dd_ra_rc_bam_pairs_ref4 }
                     .combine(microsatellites) // add MSI ref
-                    .tap { samples_dd_ra_rc_bam_pairs_ref_msi }
+                    .set { samples_dd_ra_rc_bam_pairs_ref_msi }
 
 
 
@@ -2337,14 +2335,11 @@ samples_bam3.combine(samples_pairs2) // [ sampleID, sampleBam, tumorID, normalID
                     .combine(ref_fai13)
                     .combine(ref_dict13)
                     .combine(targets_refFlat_bed)
-                    .tap {
+                    .set {
                       samples_bam_ref_targets
                     }
-                    // .subscribe { println "[samples_bam_ref_targets]${it}"}
-                    // echo "[cnvkit] comparisonID: ${comparisonID}, tumorID: ${tumorID}, tumorBam: ${tumorBam}, normalID: ${normalID}, normalBam: ${normalBam}, ref_fasta: ${ref_fasta13}, ref_fai: ${ref_fai13}, ref_dict: ${ref_dict13}, targets_bed: ${targets_refFlat_bed} "
 
 process cnvkit {
-
   publishDir "${params.outputDir}/analysis/cnv", mode: 'copy', overwrite: true
 
   input:
@@ -2410,7 +2405,6 @@ process cnvkit_gene_segments {
 
   output:
   set val(comparisonID), val(tumorID), val(normalID), file(segment_gainloss), file("${trusted_genes}") into sample_cnv_gene_segments
-  // file("${output_finalcns}")
 
   script:
   prefix = "${comparisonID}"
@@ -2503,7 +2497,7 @@ done_copy_samplesheet.concat(
     done_update_collect_annotation_tables,
     done_update_updated_coverage_interval_tables_collected
     )
-    .tap { all_done1; all_done2; all_done3 }
+    .set { all_done }
 
 
 // collect failed log messages
@@ -2522,7 +2516,6 @@ process custom_analysis_report {
     stageInMode "copy"
 
     input:
-    val(items) from all_done1.collect()
     file(report_items: '*') from analysis_report_files.collect()
     file(all_annotations_file) from all_annotations_file_ch
     file(samplesheet_output_file) from samplesheet_output_file_ch
@@ -2590,7 +2583,7 @@ sampleIDs.map { sampleID ->
 
     return([ sampleID, newFileList ])
 }
-.tap { sample_output_files; sample_output_files2 }
+.into { sample_output_files; sample_output_files2 }
 
 // channel for items from sample pairs
 samples_pairs_with_NA.map { tumorID, normalID ->
@@ -2609,7 +2602,7 @@ samples_pairs_with_NA.map { tumorID, normalID ->
 
     return([ tumorID, normalID, newFileList ])
 }
-.tap { sample_pairs_output_files }
+.set { sample_pairs_output_files }
 
 // combine the channels
 sample_pairs_output_files.combine(sample_output_files2)
@@ -2630,7 +2623,6 @@ process custom_sample_report {
 
     input:
     set val(tumorID), val(normalID), file(tumorNormalFiles: "*"), file(sampleFiles: "*"), file(report_items: '*') from sample_pairs_output_files2.combine(samples_report_files)
-    // val(items) from all_done3.collect()
 
     output:
     file("${html_output}")
@@ -2669,7 +2661,7 @@ process multiqc {
     publishDir "${params.outputDir}", overwrite: true, mode: 'copy'
 
     input:
-    val(all_vals) from all_done2.collect()
+    val(all_vals) from all_done.collect()
     file(output_dir) from output_dir_ch
 
     output:
@@ -2695,8 +2687,8 @@ process multiqc {
 
 // ~~~~~~~~~~~~~~~ PIPELINE COMPLETION EVENTS ~~~~~~~~~~~~~~~~~~~ //
 // gather email file attachments
-Channel.fromPath( file(samplesheet) ).set{ samples_analysis_sheet }
-def attachments = samples_analysis_sheet.toList().getVal()
+// Channel.fromPath( file(samplesheet) ).set{ samples_analysis_sheet }
+// def attachments = samples_analysis_sheet.toList().getVal()
 
 workflow.onComplete {
 
