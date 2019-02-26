@@ -92,7 +92,7 @@ if(params.samplesheet == null){
 
 // Enable or disable some pipeline steps here TODO: better config management for this
 disable_multiqc = true // for faster testing of the rest of the pipeline
-disable_msisensor = false // breaks on very small demo datasets
+disable_msisensor = true // breaks on very small demo datasets
 disable_delly2 = true
 
 // names of some important output files to use throughout the pipeline
