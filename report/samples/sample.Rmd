@@ -1,0 +1,7 @@
+# Sample
+
+- Sample ID: `r params$sampleID`
+
+- Paired Normal: `r params$paired_normal`
+
+- Comparison ID: `r comparisonID`

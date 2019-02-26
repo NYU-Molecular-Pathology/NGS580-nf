@@ -90,8 +90,9 @@ if(params.samplesheet == null){
     samplesheet = params.samplesheet
 }
 
+// Enable or disable some pipeline steps here TODO: better config management for this
 disable_multiqc = true // for faster testing of the rest of the pipeline
-disable_msisensor = false // breaks on very small demo datasets
+disable_msisensor = true // breaks on very small demo datasets
 disable_delly2 = true
 
 // names of some important output files to use throughout the pipeline
@@ -99,6 +100,10 @@ def all_annotations_file = "annotations.tsv"
 def samplesheet_output_file = 'samplesheet.tsv'
 def sample_coverage_file = "coverage.samples.tsv"
 def interval_coverage_file = "coverage.intervals.tsv"
+
+// load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
+String filemapJSON = new File("filemap.json").text
+def filemap = jsonSlurper.parseText(filemapJSON)
 
 // ~~~~~ START WORKFLOW ~~~~~ //
 log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
@@ -162,7 +167,6 @@ Channel.fromPath("${reportDirPath}/samples/*")
         .map { items ->
             return( [items])
         }
-        .combine( analysis_output2 ) // [[report files list], analysis output dir]
         .set { samples_report_files }
 
 // read samples from analysis samplesheet
@@ -193,6 +197,7 @@ Channel.fromPath( file(samplesheet) )
         .filter { item ->
             item[0] != item[1] // remove Normal samples
         }
+        .tap { samples_pairs_with_NA; samples_pairs_with_NA2 }
         .filter { item ->
             item[1] != 'NA' // unpaired samples
         }
@@ -206,7 +211,7 @@ Channel.fromPath( file(samplesheet) )
             return(sampleID)
         }
         .unique()
-        .set { sampleIDs }
+        .into { sampleIDs; sampleIDs2 }
 
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
@@ -894,10 +899,10 @@ samples_dd_ra_rc_bam.combine(ref_fasta2)
                     .combine(ref_dict2)
                     .tap { samples_dd_ra_rc_bam_ref_nointervals }
                     .combine(targets_bed2)
-                    .tap { samples_dd_ra_rc_bam_ref;
+                    .into { samples_dd_ra_rc_bam_ref;
                             samples_dd_ra_rc_bam_ref2;
                             samples_dd_ra_rc_bam_ref3;
-                            samples_dd_ra_rc_bam_ref4; // delly2
+                            samples_dd_ra_rc_bam_ref4;
                             samples_dd_ra_rc_bam_ref5;
                             samples_dd_ra_rc_bam_ref6;
                             samples_dd_ra_rc_bam_ref7;
@@ -906,7 +911,7 @@ samples_dd_ra_rc_bam.combine(ref_fasta2)
 
 samples_dd_ra_rc_bam_ref.combine( dbsnp_ref_vcf3 )
                         .combine(dbsnp_ref_vcf_idx3)
-                        .tap { samples_dd_ra_rc_bam_ref_dbsnp;
+                        .into { samples_dd_ra_rc_bam_ref_dbsnp;
                                 samples_dd_ra_rc_bam_ref_dbsnp2 }
 
 
@@ -1506,7 +1511,6 @@ sample_vcf_hc_bad.map {  caller, sampleID, filtered_vcf ->
     return(output)
 }.set { sample_vcf_hc_bad_logs }
 
-
 process deconstructSigs_signatures {
     // search for mutation signatures
     tag "${sampleID}"
@@ -1521,20 +1525,25 @@ process deconstructSigs_signatures {
     file("${signatures_pieplot_Rds}")
     file("${signatures_plot_pdf}") into signatures_plots
     file("${signatures_pieplot_pdf}") into signatures_pie_plots
+    set val(sampleID), file("${signatures_rds}"), file("${signatures_plot_Rds}"), file("${signatures_pieplot_Rds}") into sample_signatures
     val(sampleID) into done_deconstructSigs_signatures
 
     script:
     prefix = "${sampleID}.${caller}"
-    signatures_rds = "${prefix}_signatures.Rds"
-    signatures_plot_pdf = "${prefix}_signatures_plot.pdf"
-    signatures_plot_Rds = "${prefix}_signatures_plot.Rds"
-    signatures_pieplot_pdf = "${prefix}_signatures_pieplot.pdf"
-    signatures_pieplot_Rds = "${prefix}_signatures_pieplot.Rds"
+    signatures_rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_Rds']}"
+    signatures_plot_pdf = "${prefix}.signatures.plot.pdf"
+    signatures_plot_Rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_plot_Rds']}"
+    signatures_pieplot_pdf = "${prefix}.signatures.pieplot.pdf"
+    signatures_pieplot_Rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_pieplot_Rds']}"
     """
     deconstructSigs_make_signatures.R "${sampleID}" "${sample_vcf}" "${signatures_rds}" "${signatures_plot_pdf}" "${signatures_plot_Rds}" "${signatures_pieplot_pdf}" "${signatures_pieplot_Rds}"
     """
 }
-
+// need to re-format the channel for combination with reporting channels
+sample_signatures.map { sampleID, signatures_rds, signatures_plot_Rds, signatures_pieplot_Rds ->
+    return([ sampleID, [ signatures_rds, signatures_plot_Rds, signatures_pieplot_Rds ] ])
+}
+.set { sample_signatures_reformated }
 
 process merge_signatures_plots {
     // combine all signatures plots into a single PDF
@@ -1681,7 +1690,7 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
                             samples_dd_ra_rc_bam_pairs_ref3;
                             samples_dd_ra_rc_bam_pairs_ref4 }
                     .combine(microsatellites) // add MSI ref
-                    .tap { samples_dd_ra_rc_bam_pairs_ref_msi }
+                    .set { samples_dd_ra_rc_bam_pairs_ref_msi }
 
 
 
@@ -2326,14 +2335,11 @@ samples_bam3.combine(samples_pairs2) // [ sampleID, sampleBam, tumorID, normalID
                     .combine(ref_fai13)
                     .combine(ref_dict13)
                     .combine(targets_refFlat_bed)
-                    .tap {
+                    .set {
                       samples_bam_ref_targets
                     }
-                    // .subscribe { println "[samples_bam_ref_targets]${it}"}
-                    // echo "[cnvkit] comparisonID: ${comparisonID}, tumorID: ${tumorID}, tumorBam: ${tumorBam}, normalID: ${normalID}, normalBam: ${normalBam}, ref_fasta: ${ref_fasta13}, ref_fai: ${ref_fai13}, ref_dict: ${ref_dict13}, targets_bed: ${targets_refFlat_bed} "
 
 process cnvkit {
-
   publishDir "${params.outputDir}/analysis/cnv", mode: 'copy', overwrite: true
 
   input:
@@ -2399,7 +2405,6 @@ process cnvkit_gene_segments {
 
   output:
   set val(comparisonID), val(tumorID), val(normalID), file(segment_gainloss), file("${trusted_genes}") into sample_cnv_gene_segments
-  // file("${output_finalcns}")
 
   script:
   prefix = "${comparisonID}"
@@ -2429,14 +2434,17 @@ process cnvkit_extract_trusted_genes {
     input:
     set val(comparisonID), val(tumorID), val(normalID), file(segment_gainloss), file(trusted_genes) from sample_cnv_gene_segments_filtered
 
+    output:
+    set val(tumorID), val(normalID), file("${output_final_cns}") into cnvs_cns
+
     script:
     prefix = "${comparisonID}"
     trusted_genes = "${prefix}.trusted-genes.txt"
-    output_finalcns = "${prefix}.final.cns" // use this file for report
+    output_final_cns = "${prefix}.${filemap['cnvkit']['suffix']['final_cns']}" // use this file for report
     """
     # Get the trusted genes and their segment gain loss info from segment_gainloss file and write to final.cns
-    cat "${segment_gainloss}" | head -n +1 > "${output_finalcns}"
-    grep -w -f "${trusted_genes}" "${segment_gainloss}" >> "${output_finalcns}"
+    cat "${segment_gainloss}" | head -n +1 > "${output_final_cns}"
+    grep -w -f "${trusted_genes}" "${segment_gainloss}" >> "${output_final_cns}"
     """
 }
 
@@ -2489,7 +2497,7 @@ done_copy_samplesheet.concat(
     done_update_collect_annotation_tables,
     done_update_updated_coverage_interval_tables_collected
     )
-    .tap { all_done1; all_done2; all_done3 }
+    .set { all_done }
 
 
 // collect failed log messages
@@ -2508,7 +2516,6 @@ process custom_analysis_report {
     stageInMode "copy"
 
     input:
-    val(items) from all_done1.collect()
     file(report_items: '*') from analysis_report_files.collect()
     file(all_annotations_file) from all_annotations_file_ch
     file(samplesheet_output_file) from samplesheet_output_file_ch
@@ -2559,21 +2566,69 @@ process custom_analysis_report {
     """
 }
 
+// channel for sample reports; gather items per-sample from other processes
+sampleIDs.map { sampleID ->
+    // dummy file to pass through channel
+    def placeholder = file(".placeholder1")
+
+    return([ sampleID, placeholder ])
+}
+// add items from other channels (unpaired steps)
+.concat(sample_signatures_reformated) // [ sampleID, [ sig_file1, sig_file2, ... ] ]
+// group all the items by the sampleID, first element in each
+.groupTuple() // [ sampleID, [ [ sig_file1, sig_file2, ... ], .placeholder, ... ] ]
+// need to flatten any nested lists
+.map { sampleID, fileList ->
+    def newFileList = fileList.flatten()
+
+    return([ sampleID, newFileList ])
+}
+.into { sample_output_files; sample_output_files2 }
+
+// channel for items from sample pairs
+samples_pairs_with_NA.map { tumorID, normalID ->
+    // dummy file to pass through channel
+    def placeholder = file(".placeholder2")
+
+    return([ tumorID, normalID, placeholder ])
+}
+// add tumor-normal process output channels here
+.concat(cnvs_cns)
+// group by tumor and normal id's
+.groupTuple(by: [0,1])
+.map { tumorID, normalID, fileList ->
+    // un-nest any nested lists of files
+    def newFileList = fileList.flatten()
+
+    return([ tumorID, normalID, newFileList ])
+}
+.set { sample_pairs_output_files }
+
+// combine the channels
+sample_pairs_output_files.combine(sample_output_files2)
+.filter { tumorID, normalID, tumorNormalFileList, sampleID, sampleFileList ->
+    sampleID == tumorID
+}
+.map { tumorID, normalID, tumorNormalFileList, sampleID, sampleFileList ->
+    return([ tumorID, normalID, tumorNormalFileList, sampleFileList ])
+}
+.set { sample_pairs_output_files2 }
+// .subscribe { println "[sample_output_files2] ${it}" }
+
 process custom_sample_report {
     // create per-sample reports
-    tag "${sampleID}"
+    tag "${prefix}"
     // publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/sample-reports", overwrite: true, mode: 'copy'
 
     input:
-    val(items) from all_done3.collect()
-    set val(sampleID), file(report_items: '*'), file(input_dir: "input") from sampleIDs.combine(samples_report_files)
+    set val(tumorID), val(normalID), file(tumorNormalFiles: "*"), file(sampleFiles: "*"), file(report_items: '*') from sample_pairs_output_files2.combine(samples_report_files)
 
     output:
     file("${html_output}")
 
     script:
-    prefix = "${sampleID}"
+    prefix = "${tumorID}"
     html_output = "${prefix}.report.html"
     """
     # convert report file symlinks to copies of original files, because knitr doesnt work well unless all report files are in pwd
@@ -2585,7 +2640,18 @@ process custom_sample_report {
         fi
     done
 
-    Rscript -e 'rmarkdown::render(input = "main.Rmd", params = list(input_dir = "input", sampleID = "${sampleID}"), output_format = "html_document", output_file = "${html_output}")'
+    R --vanilla <<E0F
+    rmarkdown::render(input = "main.Rmd",
+    params = list(
+        sampleID = "${tumorID}",
+        signatures_Rds = "${filemap['deconstructSigs']['suffix']['signatures_Rds']}",
+        signatures_plot_Rds = "${filemap['deconstructSigs']['suffix']['signatures_plot_Rds']}",
+        signatures_pieplot_Rds = "${filemap['deconstructSigs']['suffix']['signatures_pieplot_Rds']}",
+        paired_normal = "${normalID}"
+        ),
+    output_format = "html_document",
+    output_file = "${html_output}")
+    E0F
     """
 }
 
@@ -2595,7 +2661,7 @@ process multiqc {
     publishDir "${params.outputDir}", overwrite: true, mode: 'copy'
 
     input:
-    val(all_vals) from all_done2.collect()
+    val(all_vals) from all_done.collect()
     file(output_dir) from output_dir_ch
 
     output:
@@ -2621,8 +2687,8 @@ process multiqc {
 
 // ~~~~~~~~~~~~~~~ PIPELINE COMPLETION EVENTS ~~~~~~~~~~~~~~~~~~~ //
 // gather email file attachments
-Channel.fromPath( file(samplesheet) ).set{ samples_analysis_sheet }
-def attachments = samples_analysis_sheet.toList().getVal()
+// Channel.fromPath( file(samplesheet) ).set{ samples_analysis_sheet }
+// def attachments = samples_analysis_sheet.toList().getVal()
 
 workflow.onComplete {
 
