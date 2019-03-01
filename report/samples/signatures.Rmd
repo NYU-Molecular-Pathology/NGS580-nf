@@ -1,40 +1,33 @@
 # Genomic Signatures
 
 ```{r signatures_load}
-get_signatures <- function(){
-    signatures <- tryCatch(
-        {
-            output <- list()
-                
-            signaturesRds <- input_files[grep(pattern = paste0(sampleID, '.*_signatures.Rds$'), x = input_files)][1]
-            signatures <- readRDS(signaturesRds)
-            
-            signatures_plotRds <- input_files[grep(pattern = paste0(sampleID, '.*_signatures_plot.Rds$'), x = input_files)][1]
-            signatures_plot <- readRDS(signatures_plotRds)
-            
-            signatures_pieplotRds <- input_files[grep(pattern =  paste0(sampleID, '.*_signatures_pieplot.Rds$'), x = input_files)][1]
-            signatures_pieplot <- readRDS(signatures_pieplotRds)
-            
-            weights <- as.data.frame(t(signatures[["weights"]]))
-            weights <- weights[ order(-weights[,1]), , drop=FALSE]
+variant_caller <- "HaplotypeCaller" # only using this caller for signatures right now, should be embedded in filename
+# filenames: sampleID.HaplotypeCaller.signatures.Rds
+signatures_Rds <- paste(sampleID, variant_caller, params$signatures_Rds, sep = '.')[1] 
+signatures_plot_Rds <- paste(sampleID, variant_caller, params$signatures_plot_Rds, sep = '.')[1]
+signatures_pieplot_Rds <- paste(sampleID, variant_caller, params$signatures_pieplot_Rds, sep = '.')[1]
 
-            output[["signatures"]] <- signatures
-            output[["signatures_plot"]] <- signatures_plot
-            output[["signatures_pieplot"]] <- signatures_pieplot
-            output[["weights"]] <- weights
-            output
+# start with an emtpy list, try to load the signatures into it
+signatures <- list()
+tryCatch(
+        {
+            signatures[["signatures"]] <- readRDS(signatures_Rds)
+            signatures[["signatures_plot"]] <- readRDS(signatures_plot_Rds)
+            signatures[["signatures_pieplot"]] <- readRDS(signatures_pieplot_Rds)
+            
+            weights <- as.data.frame(t(signatures[["signatures"]][["weights"]]))
+            weights <- weights[ order(-weights[,1]), , drop=FALSE]
+            
+            signatures[["weights"]] <- weights
         },
         error=function(cond) {
-            return(list())
-        },
-        warning=function(cond) {
-            return(list())
+            return(NA)
         }
-    )    
-    return(signatures)
-}
-signatures <- get_signatures()
+    )
+
 ```
+
+- variant caller: `r variant_caller`
 
 ```{r signatures_weights, results='asis'}
 if (length(signatures) < 1){
@@ -43,14 +36,55 @@ if (length(signatures) < 1){
     cat(sprintf('\n\n## %s\n\n', "Weights"))
     signatures[["weights"]]
 }
+
 ```
 
-```{r signatures_plots, fig.width=10, fig.height=8, warning=FALSE, results='asis'}
+## Plots
+
+```{r, results='asis', warning = FALSE}
 if (length(signatures) < 1){
     cat('\n\n- __No results found__\n\n')
 } else {
-    cat(sprintf('\n\n## %s\n\n', "Plots"))
-    signatures[["signatures_pieplot"]]
-    signatures[["signatures_plot"]]
+    print(signatures[["signatures_pieplot"]])
 }
+
+```
+
+
+```{r, results='asis', warning = FALSE}
+if (length(signatures) < 1){
+    cat('\n\n- __No results found__\n\n')
+} else {
+    print(signatures[["signatures_plot"]])
+}
+
+```
+
+## Signature Descriptions
+
+```{r}
+signatures_cosmic <- data.frame()
+tryCatch(
+    {
+    signatures_cosmic <- read.delim(file = params$signatures_cosmic_tsv, header = TRUE, sep = '\t', check.names = FALSE)
+    },
+    error=function(cond) {
+    return(NA)
+        }
+)
+
+```
+
+```{r, results='asis'}
+if(nrow(signatures_cosmic) > 1){
+    datatable(signatures_cosmic, rownames = FALSE, options = list(pageLength = 5))
+} else {
+    cat('\n\n- Could not load COSMIC reference descriptions')
+}
+```
+
+Source: https://cancer.sanger.ac.uk/cosmic/signatures (accessed on Feb 15, 2019)
+
+```{r}
+save.image("signatures.Rdata", compress = TRUE)
 ```

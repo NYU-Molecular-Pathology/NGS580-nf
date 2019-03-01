@@ -28,6 +28,7 @@ params.configFile = "config.json"
 params.outputDir = "output"
 params.reportDir = "report"
 params.targetsBed = "targets.bed"
+params.targetsrefFlatBed = "targets.refFlat.580.bed"
 params.probesBed = "probes.bed"
 params.samplesheet = null
 params.runID = null
@@ -89,8 +90,9 @@ if(params.samplesheet == null){
     samplesheet = params.samplesheet
 }
 
+// Enable or disable some pipeline steps here TODO: better config management for this
 disable_multiqc = true // for faster testing of the rest of the pipeline
-disable_msisensor = false // breaks on very small demo datasets
+disable_msisensor = true // breaks on very small demo datasets
 disable_delly2 = true
 
 // names of some important output files to use throughout the pipeline
@@ -99,6 +101,10 @@ def samplesheet_output_file = 'samplesheet.tsv'
 def sample_coverage_file = "coverage.samples.tsv"
 def interval_coverage_file = "coverage.intervals.tsv"
 def signatures_weights_file = "signatures.weights.tsv"
+
+// load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
+String filemapJSON = new File("filemap.json").text
+def filemap = jsonSlurper.parseText(filemapJSON)
 
 // ~~~~~ START WORKFLOW ~~~~~ //
 log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
@@ -119,12 +125,16 @@ log.info "* Nextflow version:   ${workflow.nextflow.version}, build ${workflow.n
 log.info "* Launch command:\n${workflow.commandLine}\n"
 
 // ~~~~~ DATA INPUT ~~~~~ //
+// targets .bed file
+Channel.fromPath( file(params.targetsBed) ).set{ targets_bed }
+Channel.fromPath( file(params.targetsrefFlatBed) ).set{ targets_refFlat_bed }
+
 // reference files
 Channel.fromPath( file(params.targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8; targets_bed9 }
 
-Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12 }
-Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12 }
-Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9; ref_dict10; ref_dict11; ref_dict12 }
+Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12; ref_fasta13 }
+Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12; ref_fai13 }
+Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9; ref_dict10; ref_dict11; ref_dict12; ref_dict13 }
 
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
@@ -158,7 +168,6 @@ Channel.fromPath("${reportDirPath}/samples/*")
         .map { items ->
             return( [items])
         }
-        .combine( analysis_output2 ) // [[report files list], analysis output dir]
         .set { samples_report_files }
 
 // read samples from analysis samplesheet
@@ -189,10 +198,11 @@ Channel.fromPath( file(samplesheet) )
         .filter { item ->
             item[0] != item[1] // remove Normal samples
         }
+        .tap { samples_pairs_with_NA; samples_pairs_with_NA2 }
         .filter { item ->
             item[1] != 'NA' // unpaired samples
         }
-        .set { samples_pairs }
+        .into { samples_pairs; samples_pairs2 }
 
 // read sample IDs from analysis sheet
 Channel.fromPath( file(samplesheet) )
@@ -202,7 +212,7 @@ Channel.fromPath( file(samplesheet) )
             return(sampleID)
         }
         .unique()
-        .set { sampleIDs }
+        .into { sampleIDs; sampleIDs2 }
 
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
@@ -406,7 +416,7 @@ process alignment {
     set val(sampleID), file(fastq_R1_trim), file(fastq_R2_trim), file(ref_fa_bwa_dir) from samples_fastq_trimmed.combine(ref_fa_bwa_dir)
 
     output:
-    set val(sampleID), file("${bam_file}") into samples_bam, samples_bam2
+    set val(sampleID), file("${bam_file}") into samples_bam, samples_bam2, samples_bam3, samples_bam4
     val(sampleID) into done_alignment
 
     script:
@@ -431,6 +441,7 @@ process alignment {
     --out="${bam_file}" /dev/stdin
     """
 }
+
 
 process samtools_flagstat {
     // alignment stats
@@ -889,10 +900,10 @@ samples_dd_ra_rc_bam.combine(ref_fasta2)
                     .combine(ref_dict2)
                     .tap { samples_dd_ra_rc_bam_ref_nointervals }
                     .combine(targets_bed2)
-                    .tap { samples_dd_ra_rc_bam_ref;
+                    .into { samples_dd_ra_rc_bam_ref;
                             samples_dd_ra_rc_bam_ref2;
                             samples_dd_ra_rc_bam_ref3;
-                            samples_dd_ra_rc_bam_ref4; // delly2
+                            samples_dd_ra_rc_bam_ref4;
                             samples_dd_ra_rc_bam_ref5;
                             samples_dd_ra_rc_bam_ref6;
                             samples_dd_ra_rc_bam_ref7;
@@ -901,7 +912,7 @@ samples_dd_ra_rc_bam.combine(ref_fasta2)
 
 samples_dd_ra_rc_bam_ref.combine( dbsnp_ref_vcf3 )
                         .combine(dbsnp_ref_vcf_idx3)
-                        .tap { samples_dd_ra_rc_bam_ref_dbsnp;
+                        .into { samples_dd_ra_rc_bam_ref_dbsnp;
                                 samples_dd_ra_rc_bam_ref_dbsnp2 }
 
 
@@ -1501,7 +1512,6 @@ sample_vcf_hc_bad.map {  caller, sampleID, filtered_vcf ->
     return(output)
 }.set { sample_vcf_hc_bad_logs }
 
-
 process deconstructSigs_signatures {
     // search for mutation signatures
     tag "${sampleID}"
@@ -1517,16 +1527,17 @@ process deconstructSigs_signatures {
     file("${signatures_plot_pdf}") into signatures_plots
     file("${signatures_pieplot_pdf}") into signatures_pie_plots
     set val(caller), val(sampleID), file("${signatures_weights_tsv}") into signatures_weights
+    set val(sampleID), file("${signatures_rds}"), file("${signatures_plot_Rds}"), file("${signatures_pieplot_Rds}") into sample_signatures
     val(sampleID) into done_deconstructSigs_signatures
 
     script:
     prefix = "${sampleID}.${caller}"
     signatures_weights_tsv = "${prefix}.signatures.weights.tmp"
-    signatures_rds = "${prefix}_signatures.Rds"
-    signatures_plot_pdf = "${prefix}_signatures_plot.pdf"
-    signatures_plot_Rds = "${prefix}_signatures_plot.Rds"
-    signatures_pieplot_pdf = "${prefix}_signatures_pieplot.pdf"
-    signatures_pieplot_Rds = "${prefix}_signatures_pieplot.Rds"
+    signatures_rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_Rds']}"
+    signatures_plot_pdf = "${prefix}.signatures.plot.pdf"
+    signatures_plot_Rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_plot_Rds']}"
+    signatures_pieplot_pdf = "${prefix}.signatures.pieplot.pdf"
+    signatures_pieplot_Rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_pieplot_Rds']}"
     """
     deconstructSigs_make_signatures.R "${sampleID}" "${sample_vcf}" "${signatures_rds}" "${signatures_plot_pdf}" "${signatures_plot_Rds}" "${signatures_pieplot_pdf}" "${signatures_pieplot_Rds}" "${signatures_weights_tsv}"
     """
@@ -1575,6 +1586,11 @@ process update_update_signatures_weights_collected {
     "${output_file}"
     """
 }
+// need to re-format the channel for combination with reporting channels
+sample_signatures.map { sampleID, signatures_rds, signatures_plot_Rds, signatures_pieplot_Rds ->
+    return([ sampleID, [ signatures_rds, signatures_plot_Rds, signatures_pieplot_Rds ] ])
+}
+.set { sample_signatures_reformated }
 
 process merge_signatures_plots {
     // combine all signatures plots into a single PDF
@@ -1721,7 +1737,7 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
                             samples_dd_ra_rc_bam_pairs_ref3;
                             samples_dd_ra_rc_bam_pairs_ref4 }
                     .combine(microsatellites) // add MSI ref
-                    .tap { samples_dd_ra_rc_bam_pairs_ref_msi }
+                    .set { samples_dd_ra_rc_bam_pairs_ref_msi }
 
 
 
@@ -2333,6 +2349,155 @@ process calculate_tmb {
 tmbs.collectFile(name: 'tmb.tsv', keepHeader: true, storeDir: "${params.outputDir}")
 
 
+// SETUP CHANNELS FOR PAIRED TUMOR-NORMAL STEPS FOR CNV analysis
+// samples_pairs // [ tumorID, normalID ]
+// get all the combinations of samples & pairs
+samples_bam3.combine(samples_pairs2) // [ sampleID, sampleBam, tumorID, normalID ]
+                    .filter { item -> // only keep combinations where sample is same as tumor pair sample
+                        def sampleID = item[0]
+                        def sampleBam = item[1]
+                        def tumorID = item[2]
+
+                        sampleID == tumorID
+                     }
+                    .map { sampleID, sampleBam, tumorID, normalID -> // re-order the elements
+                        def tumorBam = sampleBam
+                        return [ tumorID, tumorBam, normalID ]
+                    }
+                    .combine(samples_bam4)  // combine again to get the samples & files again
+                    .filter { item -> // keep only combinations where the normal ID matches the new sample ID
+                        def tumorID = item[0]
+                        def tumorBam = item[1]
+                        def normalID = item[2]
+                        def sampleID = item[3]
+                        def sampleBam = item[4]
+                        normalID == sampleID
+                    }
+                    .map {tumorID, tumorBam, normalID, sampleID, sampleBam  -> // re arrange the elements
+                        def normalBam = sampleBam
+                        def comparisonID = "${tumorID}_${normalID}"
+                        return [ comparisonID, tumorID, tumorBam, normalID, normalBam ]
+                    }//.subscribe { println "[samples_bam3]${it}"}
+                    .combine(ref_fasta13) // add reference genome and targets
+                    .combine(ref_fai13)
+                    .combine(ref_dict13)
+                    .combine(targets_refFlat_bed)
+                    .set {
+                      samples_bam_ref_targets
+                    }
+
+process cnvkit {
+  publishDir "${params.outputDir}/analysis/cnv", mode: 'copy', overwrite: true
+
+  input:
+  set val(comparisonID), val(tumorID), file(tumorBam), val(normalID), file(normalBam), file(ref_fasta13), file(ref_fai13), file(ref_dict13), file(targets_refFlat_bed) from samples_bam_ref_targets
+
+  output:
+  file("${output_cns}")
+  file("${output_finalcnr}")
+  set val(comparisonID), val(tumorID), val(normalID), file("${output_cnr}"), file("${output_call_cns}"), file("${segment_gainloss}") into sample_cnvs
+
+  script:
+  prefix = "${comparisonID}"
+  tumorBamID = "${tumorBam}".replaceFirst(/.bam$/, "")
+  normal_reference = "normal_reference.cnn"
+  tmp_cns = "${tumorBamID}.cns"
+  tmp_cnr = "${tumorBamID}.cnr"
+  output_cns = "${prefix}.cns"
+  output_cnr = "${prefix}.cnr"
+  output_finalcnr = "${prefix}.final.cnr"
+  output_call_cns = "${prefix}.call.cns"
+  segment_gainloss = "${prefix}.segment-gainloss.txt"
+  """
+  # running cnvkit pipeline on paried tumor/normal bams using batch mode, required tumorBam, normalBam, reference fasta and bed.
+  cnvkit.py batch "${tumorBam}" \
+    --normal "${normalBam}" \
+    --targets "${targets_refFlat_bed}" \
+    --fasta "${ref_fasta13}" \
+    --output-reference "${normal_reference}" \
+    -p \${NSLOTS:-\${NTHREADS:-1}}
+
+    # Produces ${tmp_cns} and ${tmp_cnr}, rename to ${output_cns} and ${output_cnr}
+    mv ${tmp_cns} ${output_cns}
+    mv ${tmp_cnr} ${output_cnr}
+
+  # Given segmented log2 ratio estimates (.cns), derive each segment’s absolute integer copy number.
+  cnvkit.py call --filter cn "${output_cns}"
+
+  # Identify targeted genes with copy number gain or loss above or below a threshold, -t :threshold and -m:number of bins
+  cnvkit.py gainloss "${output_cnr}" -s "${output_call_cns}" -t 0.3 -m 5 > "${segment_gainloss}"
+  cnvkit.py gainloss "${output_cnr}" -t 0.3 -m 5 > "${output_finalcnr}"
+
+  """
+}
+
+// only keep files with at least 1 variant for TMB analysis
+sample_cnvs.filter { comparisonID, tumorID, normalID, cnr, call_cns, segment_gainloss ->
+    def count = cnr.readLines().size()
+    if (count <= 1) log.warn "${comparisonID} doesn't have enough lines in cnr and will not be processed"
+    count > 1
+}
+.filter { comparisonID, tumorID, normalID, cnr, call_cns, segment_gainloss ->
+    def count = segment_gainloss.readLines().size()
+    if (count <= 1) log.warn "${comparisonID} doesn't have enough lines in segment_gainloss and will not be processed"
+    count > 1
+}
+.set { sample_cnvs_filtered }
+
+process cnvkit_gene_segments {
+  // filter for segement and ratio genes that are in common between segment and ratio files; "trusted genes", avoid artifacts in the results
+
+  input:
+  set val(comparisonID), val(tumorID), val(normalID), file(cnr), file(call_cns), file(segment_gainloss) from sample_cnvs_filtered
+
+  output:
+  set val(comparisonID), val(tumorID), val(normalID), file(segment_gainloss), file("${trusted_genes}") into sample_cnv_gene_segments
+
+  script:
+  prefix = "${comparisonID}"
+  segment_genes = "${prefix}.segment-genes.txt"
+  ratio_genes = "${prefix}.ratio-genes.txt"
+  trusted_genes = "${prefix}.trusted-genes.txt"
+  """
+  # Generate segment genes (from .cns) and ratio genes (from .cnr) by applying threshold
+  cnvkit.py gainloss "${cnr}" -s "${call_cns}" -t 0.3 -m 5 | tail -n+2 | cut -f1 | sort > "${segment_genes}"
+  cnvkit.py gainloss "${cnr}" -t 0.3 -m 5 | tail -n+2 | cut -f1 | sort > "${ratio_genes}"
+
+  # Take intersection of segment and ratio as trusted genes (final set of cnv genes)
+  comm -12 "${ratio_genes}" "${segment_genes}" > "${trusted_genes}"
+  """
+
+}
+
+// make sure that there are trusted genes present
+sample_cnv_gene_segments.filter { comparisonID, tumorID, normalID, segment_gainloss, trusted_genes ->
+    def count = trusted_genes.readLines().size()
+    if (count <= 1) log.warn "${comparisonID} doesn't have enough lines in trusted_genes and will not be processed"
+    count > 1
+}.set { sample_cnv_gene_segments_filtered }
+
+process cnvkit_extract_trusted_genes {
+    // find gainloss segments with the trusted genes
+    input:
+    set val(comparisonID), val(tumorID), val(normalID), file(segment_gainloss), file(trusted_genes) from sample_cnv_gene_segments_filtered
+
+    output:
+    set val(tumorID), val(normalID), file("${output_final_cns}") into cnvs_cns
+
+    script:
+    prefix = "${comparisonID}"
+    trusted_genes = "${prefix}.trusted-genes.txt"
+    output_final_cns = "${prefix}.${filemap['cnvkit']['suffix']['final_cns']}" // use this file for report
+    """
+    # Get the trusted genes and their segment gain loss info from segment_gainloss file and write to final.cns
+    cat "${segment_gainloss}" | head -n +1 > "${output_final_cns}"
+    grep -w -f "${trusted_genes}" "${segment_gainloss}" >> "${output_final_cns}"
+    """
+}
+
+
+
+
 // ~~~~~~~~ REPORTING ~~~~~~~ //
 // collect from all processes to make sure they are finished before starting reports
 done_copy_samplesheet.concat(
@@ -2379,14 +2544,14 @@ done_copy_samplesheet.concat(
     done_update_collect_annotation_tables,
     done_update_updated_coverage_interval_tables_collected
     )
-    .tap { all_done1; all_done2; all_done3 }
+    .set { all_done }
 
 
 // collect failed log messages
-failed_samples.mix(samples_vcfs_tsvs_bad_logs, sample_vcf_hc_bad_logs)
+failed_samples.concat(samples_vcfs_tsvs_bad_logs, sample_vcf_hc_bad_logs)
     .collectFile(name: "failed.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set { failed_log_ch }
-failed_pairs.mix(pairs_vcfs_tsvs_bad_logs)
+failed_pairs.concat(pairs_vcfs_tsvs_bad_logs)
     .collectFile(name: "failed.pairs.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set{ failed_pairs_log_ch }
 
@@ -2398,7 +2563,6 @@ process custom_analysis_report {
     stageInMode "copy"
 
     input:
-    val(items) from all_done1.collect()
     file(report_items: '*') from analysis_report_files.collect()
     file(all_annotations_file) from all_annotations_file_ch
     file(samplesheet_output_file) from samplesheet_output_file_ch
@@ -2449,21 +2613,69 @@ process custom_analysis_report {
     """
 }
 
+// channel for sample reports; gather items per-sample from other processes
+sampleIDs.map { sampleID ->
+    // dummy file to pass through channel
+    def placeholder = file(".placeholder1")
+
+    return([ sampleID, placeholder ])
+}
+// add items from other channels (unpaired steps)
+.concat(sample_signatures_reformated) // [ sampleID, [ sig_file1, sig_file2, ... ] ]
+// group all the items by the sampleID, first element in each
+.groupTuple() // [ sampleID, [ [ sig_file1, sig_file2, ... ], .placeholder, ... ] ]
+// need to flatten any nested lists
+.map { sampleID, fileList ->
+    def newFileList = fileList.flatten()
+
+    return([ sampleID, newFileList ])
+}
+.into { sample_output_files; sample_output_files2 }
+
+// channel for items from sample pairs
+samples_pairs_with_NA.map { tumorID, normalID ->
+    // dummy file to pass through channel
+    def placeholder = file(".placeholder2")
+
+    return([ tumorID, normalID, placeholder ])
+}
+// add tumor-normal process output channels here
+.concat(cnvs_cns)
+// group by tumor and normal id's
+.groupTuple(by: [0,1])
+.map { tumorID, normalID, fileList ->
+    // un-nest any nested lists of files
+    def newFileList = fileList.flatten()
+
+    return([ tumorID, normalID, newFileList ])
+}
+.set { sample_pairs_output_files }
+
+// combine the channels
+sample_pairs_output_files.combine(sample_output_files2)
+.filter { tumorID, normalID, tumorNormalFileList, sampleID, sampleFileList ->
+    sampleID == tumorID
+}
+.map { tumorID, normalID, tumorNormalFileList, sampleID, sampleFileList ->
+    return([ tumorID, normalID, tumorNormalFileList, sampleFileList ])
+}
+.set { sample_pairs_output_files2 }
+// .subscribe { println "[sample_output_files2] ${it}" }
+
 process custom_sample_report {
     // create per-sample reports
-    tag "${sampleID}"
+    tag "${prefix}"
     // publishDir "${params.outputDir}/samples/${sampleID}", overwrite: true, mode: 'copy'
     publishDir "${params.outputDir}/sample-reports", overwrite: true, mode: 'copy'
 
     input:
-    val(items) from all_done3.collect()
-    set val(sampleID), file(report_items: '*'), file(input_dir: "input") from sampleIDs.combine(samples_report_files)
+    set val(tumorID), val(normalID), file(tumorNormalFiles: "*"), file(sampleFiles: "*"), file(report_items: '*') from sample_pairs_output_files2.combine(samples_report_files)
 
     output:
     file("${html_output}")
 
     script:
-    prefix = "${sampleID}"
+    prefix = "${tumorID}"
     html_output = "${prefix}.report.html"
     """
     # convert report file symlinks to copies of original files, because knitr doesnt work well unless all report files are in pwd
@@ -2475,7 +2687,18 @@ process custom_sample_report {
         fi
     done
 
-    Rscript -e 'rmarkdown::render(input = "main.Rmd", params = list(input_dir = "input", sampleID = "${sampleID}"), output_format = "html_document", output_file = "${html_output}")'
+    R --vanilla <<E0F
+    rmarkdown::render(input = "main.Rmd",
+    params = list(
+        sampleID = "${tumorID}",
+        signatures_Rds = "${filemap['deconstructSigs']['suffix']['signatures_Rds']}",
+        signatures_plot_Rds = "${filemap['deconstructSigs']['suffix']['signatures_plot_Rds']}",
+        signatures_pieplot_Rds = "${filemap['deconstructSigs']['suffix']['signatures_pieplot_Rds']}",
+        paired_normal = "${normalID}"
+        ),
+    output_format = "html_document",
+    output_file = "${html_output}")
+    E0F
     """
 }
 
@@ -2485,7 +2708,7 @@ process multiqc {
     publishDir "${params.outputDir}", overwrite: true, mode: 'copy'
 
     input:
-    val(all_vals) from all_done2.collect()
+    val(all_vals) from all_done.collect()
     file(output_dir) from output_dir_ch
 
     output:
@@ -2511,8 +2734,8 @@ process multiqc {
 
 // ~~~~~~~~~~~~~~~ PIPELINE COMPLETION EVENTS ~~~~~~~~~~~~~~~~~~~ //
 // gather email file attachments
-Channel.fromPath( file(samplesheet) ).set{ samples_analysis_sheet }
-def attachments = samples_analysis_sheet.toList().getVal()
+// Channel.fromPath( file(samplesheet) ).set{ samples_analysis_sheet }
+// def attachments = samples_analysis_sheet.toList().getVal()
 
 workflow.onComplete {
 

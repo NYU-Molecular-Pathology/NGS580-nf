@@ -5,24 +5,55 @@ failed_pairs_log <- params$failed_pairs_log
 
 # Failed Samples
 
-```{r, results='asis'}
-cat('## Samples\n\n')
+Samples that did not complete the full pipeline for the described reasons.
 
+## Samples
+
+```{r, results='asis'}
 if(file.exists(failed_log)){
     failed <- read.delim(file = failed_log, header = TRUE, sep = '\t', check.names = FALSE)
     if(nrow(failed) > 0){
-        kable(failed[names(failed)[!names(failed) %in% "Files"]])
+        DT::datatable(data = failed[names(failed)[!names(failed) %in% "Files"]],
+              options = list(pageLength = 5),
+              class = 'cell-border stripe')
+
     } else {
         cat('- none\n\n')
     }
 }
+```
 
-cat('## Tumor-Normal Pairs\n\n')
+## Tumor-Normal Pairs
 
+```{r, results='asis', warning=FALSE}
 if(file.exists(failed_pairs_log)){
-    failed_pairs <- read.delim(file = failed_pairs_log, header = TRUE, sep = '\t', check.names = FALSE)
+    failed_pairs <- read.delim(file = failed_pairs_log, 
+                               header = TRUE, 
+                               sep = '\t', 
+                               check.names = FALSE, 
+                               stringsAsFactors = FALSE)
+    
+    # try to fix header; sometimes it shows up halfway through the table
+    if(any(grepl(pattern = "Comparison", x = failed_pairs[,1]))){
+        # find row that has the headers
+        colnames_rownum <- which(failed_pairs[,1] == "Comparison")[1]
+        new_colnames <- as.character(failed_pairs[colnames_rownum,])
+        old_colnames <- names(failed_pairs)
+        names(old_colnames) <- new_colnames
+        
+        # remove the row that has headers
+        failed_pairs <- failed_pairs[-colnames_rownum, ]
+        names(failed_pairs) <- new_colnames
+        
+        # add old row back 
+        failed_pairs <- rbind(old_colnames, failed_pairs)
+        
+    }
+    
     if(nrow(failed_pairs) > 0){
-        kable(failed_pairs[names(failed_pairs)[!names(failed_pairs) %in% "Files"]])
+        DT::datatable(data = failed_pairs[names(failed_pairs)[!names(failed_pairs) %in% "Files"]],
+              options = list(pageLength = 5),
+              class = 'cell-border stripe')
     } else {
         cat('- none\n\n')
     }
