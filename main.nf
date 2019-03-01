@@ -98,6 +98,7 @@ def all_annotations_file = "annotations.tsv"
 def samplesheet_output_file = 'samplesheet.tsv'
 def sample_coverage_file = "coverage.samples.tsv"
 def interval_coverage_file = "coverage.intervals.tsv"
+def signatures_weights_file = "signatures.weights.tsv"
 
 // ~~~~~ START WORKFLOW ~~~~~ //
 log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
@@ -1515,20 +1516,65 @@ process deconstructSigs_signatures {
     file("${signatures_pieplot_Rds}")
     file("${signatures_plot_pdf}") into signatures_plots
     file("${signatures_pieplot_pdf}") into signatures_pie_plots
+    set val(caller), val(sampleID), file("${signatures_weights_tsv}") into signatures_weights
     val(sampleID) into done_deconstructSigs_signatures
 
     script:
     prefix = "${sampleID}.${caller}"
+    signatures_weights_tsv = "${prefix}.signatures.weights.tmp"
     signatures_rds = "${prefix}_signatures.Rds"
     signatures_plot_pdf = "${prefix}_signatures_plot.pdf"
     signatures_plot_Rds = "${prefix}_signatures_plot.Rds"
     signatures_pieplot_pdf = "${prefix}_signatures_pieplot.pdf"
     signatures_pieplot_Rds = "${prefix}_signatures_pieplot.Rds"
     """
-    deconstructSigs_make_signatures.R "${sampleID}" "${sample_vcf}" "${signatures_rds}" "${signatures_plot_pdf}" "${signatures_plot_Rds}" "${signatures_pieplot_pdf}" "${signatures_pieplot_Rds}"
+    deconstructSigs_make_signatures.R "${sampleID}" "${sample_vcf}" "${signatures_rds}" "${signatures_plot_pdf}" "${signatures_plot_Rds}" "${signatures_pieplot_pdf}" "${signatures_pieplot_Rds}" "${signatures_weights_tsv}"
     """
 }
 
+process update_signatures_weights {
+    tag "${sampleID}"
+    publishDir "${params.outputDir}/signatures/weights", overwrite: true, mode: 'copy'
+
+    input:
+    set val(caller), val(sampleID), file(weights_tsv) from signatures_weights
+
+    output:
+    file("${output_tsv}") into updated_signatures_weights
+
+    script:
+    prefix = "${sampleID}.${caller}"
+    output_tsv = "${prefix}.signatures.weights.tsv"
+    """
+    cat "${weights_tsv}" | \
+    paste-col.py --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "VariantCaller" -v "${caller}" > "${output_tsv}"
+    """
+}
+updated_signatures_weights.collectFile(name: ".${signatures_weights_file}", keepHeader: true).set { updated_signatures_weights_collected }
+
+process update_update_signatures_weights_collected {
+    // add labels to the table to output
+    publishDir "${params.outputDir}", overwrite: true, mode: 'copy'
+
+    input:
+    file(table) from updated_signatures_weights_collected
+
+    output:
+    file("${output_file}")
+
+    script:
+    output_file = "${signatures_weights_file}"
+    """
+    paste-col.py -i "${table}" --header "Run" -v "${runID}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+}
 
 process merge_signatures_plots {
     // combine all signatures plots into a single PDF

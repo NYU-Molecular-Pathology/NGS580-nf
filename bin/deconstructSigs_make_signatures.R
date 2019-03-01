@@ -8,7 +8,7 @@ signatures_plot_pdf <- args[4] # output main plot file .pdf
 signatures_plot_Rds <- args[5] # output main plot file .Rds
 signatures_pie_plot_pdf <- args[6] # output pie plot file .pdf
 signatures_pie_plot_Rds <- args[7] # output pie plot file .Rds
-
+weights_tsv <- args[8]
 
 message(sprintf("vcf_file: %s", vcf_file))
 message(sprintf("sampleID: %s", sampleID))
@@ -68,6 +68,10 @@ print(makePie(signatures, sub = 'signatures.cosmic'))
 saveRDS(object = recordPlot(), file = signatures_pie_plot_Rds)
 dev.off()
 
+# save signature weights to tsv
+weights_df <- as.data.frame(signatures$weights)
+
+write.table(x = weights_df, file = weights_tsv, sep = '\t', col.names = TRUE, row.names = FALSE)
 # save session
 save.image(file = "session.Rdata")
 
