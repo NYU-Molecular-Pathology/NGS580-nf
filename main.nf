@@ -305,8 +305,6 @@ process targets_metrics {
 
 process fastq_merge {
     // merge multiple R1 and R2 fastq files (e.g. split by lane) into a single fastq each
-    tag "${sampleID}"
-
     input:
     set val(sampleID), file(fastq_r1: "*"), file(fastq_r2: "*") from samples_R1_R2
 
@@ -338,7 +336,6 @@ process fastq_merge {
 
 process trimmomatic {
     // trim low quality bases from reads
-    tag "${sampleID}"
     publishDir "${params.outputDir}/reads/trimmed", mode: 'copy', pattern: "*${fastq_R1_trimmed}"
     publishDir "${params.outputDir}/reads/trimmed", mode: 'copy', pattern: "*${fastq_R2_trimmed}"
     publishDir "${params.outputDir}/reads/stats", mode: 'copy', pattern: "*.txt"
@@ -385,7 +382,6 @@ process trimmomatic {
 
 process fastqc {
     // quality control checking with FastQC
-    tag "${sampleID}"
     publishDir "${params.outputDir}/qc/fastqc", mode: 'copy'
 
     input:
@@ -412,7 +408,6 @@ process fastqc {
 
 process alignment {
     // first pass alignment with BWA
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignments/raw", mode: 'copy'
 
     input:
@@ -448,7 +443,6 @@ process alignment {
 
 process samtools_flagstat {
     // alignment stats
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignments/stats", mode: 'copy'
 
     input:
@@ -468,7 +462,6 @@ process samtools_flagstat {
 
 process samtools_flagstat_table {
     // convert flagstat output to a flat table
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignments/stats", mode: 'copy'
 
     input:
@@ -514,7 +507,6 @@ process update_samtools_flagstat_table {
 
 process sambamba_dedup {
     // deduplicate alignments
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignments/deduplicated", mode: 'copy'
 
     input:
@@ -548,7 +540,6 @@ process sambamba_dedup {
 
 process sambamba_dedup_log_table {
     // convert the dedup stats the a flat table
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignment-stats", mode: 'copy'
 
     input:
@@ -594,7 +585,6 @@ process update_sambamba_dedup_log_table{
 
 process samtools_dedup_flagstat {
     // dedup alignment stats
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignment-stats", mode: 'copy'
 
     input:
@@ -615,7 +605,6 @@ process samtools_dedup_flagstat {
 
 process samtools_dedup_flagstat_table {
     // convert dedup stats to a flat table
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignment-stats", mode: 'copy'
 
     input:
@@ -676,7 +665,6 @@ samples_dd_bam.combine(ref_fasta)
 // MAIN REALIGNMENT AND RECALIBRATION STEP
 process gatk_RealignerTargetCreator {
     // re-align and recalibrate alignments for later variant calling
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignment-stats", pattern: "${intervals_file}", mode: 'copy'
 
     input:
@@ -717,7 +705,6 @@ realigned_intervals_tables.combine(ref_fasta6)
 
 process gatk_IndelRealigner {
     // re-align and recalibrate alignments for later variant calling
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignments/realigned", pattern: "*.dd.ra.bam*", mode: 'copy'
 
     input:
@@ -762,7 +749,6 @@ realigned_intervals_bams.combine(ref_fasta7)
 
 process gatk_BaseRecalibrator {
     // re-align and recalibrate alignments for later variant calling
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignments/stats", pattern: "*.table1.txt", mode: 'copy'
 
     input:
@@ -805,7 +791,6 @@ recalibrated_bases_table1.combine(ref_fasta8)
 
 process gatk_BaseRecalibratorBQSR {
     // re-align and recalibrate alignments for later variant calling
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignments/stats", pattern: "${table2}", mode: 'copy'
 
     input:
@@ -841,7 +826,6 @@ recalibrated_bases_table2.combine(ref_fasta9)
 
 process gatk_AnalyzeCovariates {
     // re-align and recalibrate alignments for later variant calling
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignments/stats", mode: 'copy'
 
     input:
@@ -869,7 +853,6 @@ process gatk_AnalyzeCovariates {
 
 process gatk_PrintReads {
     // re-align and recalibrate alignments for later variant calling
-    tag "${sampleID}"
     publishDir "${params.outputDir}/alignments/recalibrated", mode: 'copy'
 
     input:
@@ -922,7 +905,6 @@ samples_dd_ra_rc_bam_ref.combine( dbsnp_ref_vcf3 )
 
 process qc_target_reads_gatk_genome {
     // calculate metrics on coverage across whole genome
-    tag "${prefix}"
     publishDir "${params.outputDir}/metrics/coverage/${mode}", mode: 'copy'
 
     input:
@@ -960,7 +942,6 @@ process qc_target_reads_gatk_genome {
 
 process qc_target_reads_gatk_pad500 {
     // calculate metrics on coverage of target regions +/- 500bp
-    tag "${prefix}"
     publishDir "${params.outputDir}/metrics/coverage/${mode}", mode: 'copy'
 
     input:
@@ -998,7 +979,6 @@ process qc_target_reads_gatk_pad500 {
 
 process qc_target_reads_gatk_pad100 {
     // calculate metrics on coverage of target regions +/- 100bp
-    tag "${prefix}"
     publishDir "${params.outputDir}/metrics/coverage/${mode}", mode: 'copy'
 
     input:
@@ -1036,7 +1016,6 @@ process qc_target_reads_gatk_pad100 {
 
 process qc_target_reads_gatk_bed {
     // calculate metrics on coverage of target regions; exact region only
-    tag "${prefix}"
     publishDir "${params.outputDir}/metrics/coverage/${mode}", mode: 'copy'
 
     input:
@@ -1079,7 +1058,6 @@ process qc_target_reads_gatk_bed {
 
 process update_coverage_tables {
     // add more information to the region coverage output
-    tag "${prefix}"
     publishDir "${params.outputDir}/metrics/coverage/${mode}", mode: 'copy'
 
     input:
@@ -1125,8 +1103,6 @@ process update_updated_coverage_tables_collected {
 
 process coverage_intervals_to_table {
     // convert the intervals coverage file into a formatted table for downstream usage
-    tag "${prefix}"
-
     input:
     set val(sampleID), val(mode), file(sample_interval_summary) from qc_target_reads_gatk_beds_intervals
 
@@ -1146,8 +1122,6 @@ cov_ANNOVAR_PROTOCOL = "refGene"
 cov_ANNOVAR_OPERATION = "g"
 process annotate_coverage_intervals {
     // annotate the coverage table regions
-    tag "${prefix}"
-
     input:
     set val(sampleID), val(mode), file(interval_table), file(annovar_db_dir) from updated_coverage_interval_tables.combine(annovar_db_dir3)
 
@@ -1190,7 +1164,6 @@ process annotate_coverage_intervals {
 
 process update_interval_tables {
     // add more information to the intervals coverage output
-    tag "${prefix}"
     publishDir "${params.outputDir}/metrics/coverage/${mode}", mode: 'copy'
 
     input:
@@ -1254,7 +1227,6 @@ process update_updated_coverage_interval_tables_collected {
 
 process lofreq {
     // high sensitivity variant calling for low frequency variants
-    tag "${sampleID}"
     publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_file}"
     publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_bgz_file}"
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy', pattern: "*${norm_vcf}"
@@ -1332,7 +1304,6 @@ process lofreq {
 
 process gatk_hc {
     // variant calling
-    tag "${sampleID}"
     publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_file}"
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy', pattern: "*${norm_vcf}"
     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
@@ -1424,7 +1395,6 @@ sample_vcf_hc3.mix(samples_lofreq_vcf2)
                 .set { samples_filtered_vcfs }
 process eval_sample_vcf {
     // calcaulte variant metrics
-    tag "${sampleID}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${eval_file}"
 
     input:
@@ -1460,7 +1430,6 @@ delly2_modes = [
 ]
 process delly2 {
     // large structural nucleotide variant calling
-    tag "${sampleID}-${type}"
     publishDir "${params.outputDir}/snv/${mode}", mode: 'copy'
 
     input:
@@ -1531,7 +1500,6 @@ sample_vcf_hc_bad.map {  caller, sampleID, filtered_vcf ->
 
 process deconstructSigs_signatures {
     // search for mutation signatures
-    tag "${sampleID}"
     publishDir "${params.outputDir}/signatures/${caller}/Rds", mode: 'copy', pattern: "*.Rds"
     publishDir "${params.outputDir}/signatures/${caller}/pdf", mode: 'copy', pattern: "*.pdf"
 
@@ -1562,7 +1530,6 @@ process deconstructSigs_signatures {
 }
 
 process update_signatures_weights {
-    tag "${sampleID}"
     publishDir "${params.outputDir}/signatures/${caller}/weights", mode: 'copy'
 
     input:
@@ -1656,7 +1623,6 @@ process merge_signatures_pie_plots {
 
 // // REQUIRES ANNOTATIONS FOR DBSNP FILTERING
 // process vaf_distribution_plot {
-//     tag { "${sampleID}" }
 //     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
 //     errorStrategy 'ignore'
 //     publishDir "${params.outputDir}/vaf-distribution-hc", mode: 'copy', overwrite: true
@@ -1787,7 +1753,6 @@ process msisensor {
     // disable this since it always breaks on small sample datasets
     // this program is buggy;
     // TODO: find a method to pre-filter based on the number of alignments ??
-    tag "${prefix}"
     // validExitStatus 0,139 // allow '139' failure from small dataset; 23039 Segmentation fault      (core dumped)
     errorStrategy 'ignore'
     publishDir "${params.outputDir}/microsatellites", mode: 'copy'
@@ -1818,7 +1783,6 @@ process msisensor {
 
 process mutect2 {
     // paired tumor-normal variant calling
-    tag "${prefix}"
     publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_file}"
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy', pattern: "*${norm_vcf}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${multiallelics_stats}"
@@ -1880,7 +1844,6 @@ process mutect2 {
 
 process filter_vcf_pairs {
     // filter the .vcf for tumor-normal pairs
-    tag "${prefix}"
     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
 
     input:
@@ -1953,7 +1916,6 @@ process filter_vcf_pairs {
 }
 
 process vcf_to_tsv_pairs {
-    tag "${prefix}"
     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
 
@@ -1999,7 +1961,6 @@ samples_mutect3.combine(dbsnp_ref_vcf5)
                 .set { pairs_filtered_vcfs }
 process eval_pair_vcf {
     // variant quality metrics
-    tag "${prefix}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${eval_file}"
 
     input:
@@ -2069,7 +2030,6 @@ pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chrom, sample
 
 process annotate {
     // annotate variants
-    tag "${prefix}"
     publishDir "${params.outputDir}/annotations/${caller}", mode: 'copy', pattern: "*${annotations_tsv}"
 
     input:
@@ -2144,7 +2104,6 @@ process annotate {
 
 process annotate_pairs {
     // annotate variants
-    tag "${prefix}"
     publishDir "${params.outputDir}/annotations/${caller}", mode: 'copy', pattern: "*${annotations_tsv}"
 
     input:
@@ -2239,7 +2198,6 @@ samples_dd_ra_rc_bam4.combine(ref_fasta10)
 .set { samples_bam_ref }
 
 process gatk_CallableLoci {
-    tag "${prefix}"
     publishDir "${params.outputDir}/loci", mode: 'copy'
 
     input:
@@ -2275,7 +2233,6 @@ process gatk_CallableLoci {
 }
 
 process callable_loci_table {
-    tag "${prefix}"
     publishDir "${params.outputDir}/loci", mode: 'copy'
 
     input:
@@ -2304,7 +2261,6 @@ annotations_annovar_tables.filter { sampleID, caller, anno_tsv ->
 }.set { annotations_annovar_tables_filtered }
 
 process tmb_filter_variants {
-    tag "${prefix}"
     publishDir "${params.outputDir}/tmb/${caller}/Rdata", mode: 'copy', pattern: "*${output_Rdata}"
     publishDir "${params.outputDir}/tmb/${caller}/variants", mode: 'copy', pattern: "*${output_variants}"
 
@@ -2352,7 +2308,6 @@ loci_tables2.map{ sampleID, summary_table, callable_txt ->
 .set { loci_annotations }
 
 process calculate_tmb {
-    tag "${prefix}"
     publishDir "${params.outputDir}/tmb/${caller}/values", mode: 'copy', pattern: "*${output_tmb}"
 
     input:
@@ -2582,7 +2537,6 @@ failed_pairs.concat(pairs_vcfs_tsvs_bad_logs)
 
 process custom_analysis_report {
     // create a batch report for all samples in the analysis
-    tag "${html_output}"
     publishDir "${params.outputDir}", mode: 'copy'
     stageInMode "copy"
 
@@ -2688,7 +2642,6 @@ sample_pairs_output_files.combine(sample_output_files2)
 
 process custom_sample_report {
     // create per-sample reports
-    tag "${prefix}"
     publishDir "${params.outputDir}/reports", mode: 'copy'
 
     input:
