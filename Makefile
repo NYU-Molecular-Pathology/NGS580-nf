@@ -18,6 +18,14 @@ none:
 HOSTNAME:=$(shell echo $$HOSTNAME)
 USER_HOME=$(shell echo "$$HOME")
 USER_DATE:=$(shell date +%s)
+
+# relative locations
+# Nextflow "publishDir" directory of files to keep
+publishDir:=output
+# Nextflow "work" directory
+workDir:=work
+TRACEFILE:=trace.txt
+
 NXF_FRAMEWORK_DIR:=$(USER_HOME)/.nextflow/framework/$(NXF_VER)
 # gets stuck on NFS drive and prevents install command from finishing
 remove-framework:
@@ -369,13 +377,30 @@ RECDIR:=recorded-runs/$(PRE)$(DIRNAME)_$(TIMESTAMP_str)
 STDOUTLOGPATH:=
 STDOUTLOG:=
 ALL_LOGS:=
-record: STDOUTLOGPATH=$(shell ls -d -1t $(LOGDIR)/log.*.out | head -1 | python -c 'import sys, os; print(os.path.realpath(sys.stdin.readlines()[0].strip()))' )
-record: STDOUTLOG=$(shell basename "$(STDOUTLOGPATH)")
-record: ALL_LOGS=$(shell find "$(LOGDIR)" -type f -name '*$(STDOUTLOG)*')
+_RECORD:=
+# task in the workdir e.g. '64/c111'
+TASK:=
+TASKDIR:=
+ifneq ($(_RECORD),)
+STDOUTLOGPATH:=$(shell ls -d -1t $(LOGDIR)/log.*.out | head -1 | python -c 'import sys, os; print(os.path.realpath(sys.stdin.readlines()[0].strip()))' )
+STDOUTLOG:=$(shell basename "$(STDOUTLOGPATH)")
+ALL_LOGS:=$(shell find "$(LOGDIR)" -type f -name '*$(STDOUTLOG)*')
+ifneq ($(TASK),)
+TASKDIR:=$(shell find "$(workDir)/" -mindepth 2 -maxdepth 2 -type d -path "*$(TASK)*" | head -1)
+endif
+endif
 record:
-	@mkdir -p "$(RECDIR)" && \
+	$(MAKE) record-recurse _RECORD=1
+record-recurse:
+	@echo ">>> Recording logs to $(RECDIR)" && \
+	mkdir -p "$(RECDIR)" && \
 	cp -a *.html trace.txt .nextflow.log main.nf nextflow.config "$(RECDIR)/" ; \
 	for item in $(ALL_LOGS); do cp -a "$${item}" "$(RECDIR)/"; done ; \
+	if [ ! -z "$(TASKDIR)" -a -d "$(TASKDIR)" ]; then \
+	echo ">>> Copying task dir: $(TASKDIR)" && \
+	mkdir -p "$(RECDIR)/$(TASKDIR)" && \
+	cp -a "$(TASKDIR)" "$(RECDIR)/$$(dirname $(TASKDIR))" ; \
+	fi ; \
 	echo ">>> Copied execution reports and logs to: $(RECDIR)"
 
 # ~~~~~ CLEANUP ~~~~~ #
@@ -433,12 +458,6 @@ flowchart:
 #  Makefile configured for parallel processing of files
 #
 #  run with `make finalize -j8`
-
-# Nextflow "publishDir" directory of files to keep
-publishDir:=output
-# Nextflow "work" directory
-workDir:=work
-TRACEFILE:=trace.txt
 
 # remove extraneous work dirs
 # resolve publishDir output symlinks
