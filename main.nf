@@ -2457,11 +2457,15 @@ sample_cnv_gene_segments.filter { comparisonID, tumorID, normalID, segment_gainl
 
 process cnvkit_extract_trusted_genes {
     // find gainloss segments with the trusted genes
+    publishDir "${params.outputDir}/cnv", mode: 'copy'
+
     input:
     set val(comparisonID), val(tumorID), val(normalID), file(segment_gainloss), file(trusted_genes) from sample_cnv_gene_segments_filtered
 
     output:
     set val(tumorID), val(normalID), file("${output_final_cns}") into cnvs_cns
+    set val(comparisonID), val(tumorID), val(normalID), file("${output_final_cns}") into cnvs_cns2
+
 
     script:
     prefix = "${comparisonID}"
@@ -2474,6 +2478,51 @@ process cnvkit_extract_trusted_genes {
     """
 }
 
+process cnvkit_extract_trusted_genes_update {
+    // convert flagstat output to a flat table
+    publishDir "${params.outputDir}/cnv", mode: 'copy'
+
+    input:
+    set val(comparisonID), val(tumorID), val(normalID), file(cns) from cnvs_cns2
+
+    output:
+    file("${output_file}") into cnvkit_extract_trusted_genes_updated
+
+
+    script:
+    prefix = "${comparisonID}"
+    output_file = "${prefix}.${filemap['cnvkit']['suffix']['final_cns']}.sample.tsv"
+    """
+    paste-col.py -i "${cns}" --header "Tumor" -v "${tumorID}" | \
+    paste-col.py --header "Normal" -v "${normalID}" | \
+    paste-col.py --header "Comparison" -v "${comparisonID}" > \
+    "${output_file}"
+    """
+}
+cnvkit_extract_trusted_genes_updated.collectFile(name: ".cnv.tsv", keepHeader: true).set { cnvkit_extract_trusted_genes_collected }
+
+process update_cnvkit_extract_trusted_genes_collected {
+    // add labels to the table to output
+    publishDir "${params.outputDir}", mode: 'copy'
+
+    input:
+    file(table) from cnvkit_extract_trusted_genes_collected
+
+    output:
+    file("${output_file}")
+
+    script:
+    output_file = "cnv.tsv"
+    """
+    paste-col.py -i "${table}" --header "Run" -v "${runID}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+ }
 
 
 
