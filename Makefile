@@ -403,6 +403,15 @@ record-recurse:
 	fi ; \
 	echo ">>> Copied execution reports and logs to: $(RECDIR)"
 
+
+
+# fix group executable permissions
+fix-perm:
+	find . -type f -name "*.py" -o -name "*.R" ! -path "*/work/*" ! -path "*/output/*" -exec chmod -v g+x {} \;
+
+
+
+
 # ~~~~~ CLEANUP ~~~~~ #
 # commands to clean out items in the current directory after running the pipeline
 clean-traces:
