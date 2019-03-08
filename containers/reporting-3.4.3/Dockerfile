@@ -1,5 +1,5 @@
 # NGS580 container for making reports with R 3.4.3
-FROM stevekm/ngs580-nf:base
+FROM ubuntu:16.04
 
 MAINTAINER Stephen M. Kelly
 
@@ -27,3 +27,5 @@ r-knitr=1.18 \
 r-rmarkdown=1.8 \
 r-ggplot2=2.2.1 \
 r-dt=0.2
+RUN conda install -y -c conda-forge \
+r-plotly=4.7.1

@@ -28,6 +28,8 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     r-rmarkdown=1.8 \
     r-ggplot2=2.2.1 \
     r-dt=0.2
+    conda install -y -c conda-forge \
+    r-plotly=4.7.1
 
 %test
     Rscript -e 'library("reshape2")'
@@ -35,6 +37,7 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     Rscript -e 'library("rmarkdown")'
     Rscript -e 'library("ggplot2")'
     Rscript -e 'library("DT")'
+    Rscript -e 'library("plotly")'
 
 %environment
     export PATH="/conda/bin:${PATH}"
