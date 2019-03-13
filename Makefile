@@ -286,6 +286,7 @@ run-bigpurple-recurse: Q_JSON:=/gpfs/home/kellys04/molecpathlab/pipelines/queue-
 run-bigpurple-recurse: export NXF_DEBUG=3
 run-bigpurple-recurse: install
 	./nextflow -trace nextflow.executor run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue_json "$(Q_JSON)" $(EP)
+	$(MAKE) fix-permissions fix-group
 # --queue "$(Q)" # try using the queue JSON instead
 
 # run locally default settings
@@ -408,6 +409,21 @@ record-recurse:
 # fix group executable permissions
 fix-perm:
 	find . -type f -name "*.py" -o -name "*.R" ! -path "*/work/*" ! -path "*/output/*" -exec chmod -v g+x {} \;
+
+
+# fix permissions on this directory
+# make all executables group executable
+# make all dirs full group accessible
+# make all files group read/write
+fix-permissions:
+	@find . -type f -executable -exec chmod ug+X {} \;
+	@find . -type d -exec chmod ug+rwxs {} \;
+	@find . -type f -exec chmod ug+rw {} \;
+
+USERGROUP:=molecpathlab
+fix-group:
+	@find . ! -group "$(USERGROUP)" -exec chgrp "$(USERGROUP)" {} \;
+
 
 
 
