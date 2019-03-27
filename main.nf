@@ -2464,7 +2464,7 @@ process cnvkit_extract_trusted_genes {
 
     output:
     set val(tumorID), val(normalID), file("${output_final_cns}") into cnvs_cns
-    set val(comparisonID), val(tumorID), val(normalID), file("${output_final_cns}") into cnvs_cns2
+    set val(comparisonID), val(tumorID), val(normalID), file("${output_final_cns}") into (cnvs_cns2, cnvs_cns3)
 
 
     script:
@@ -2524,7 +2524,17 @@ process update_cnvkit_extract_trusted_genes_collected {
     """
  }
 
+process cnvkit_plotly {
+    input:
+    set val(comparisonID), val(tumorID), val(normalID), file(cns) from cnvs_cns3
 
+    script:
+    output_file = "${comparisonID}.cnvkit.plotly.html"
+    """
+    cnvplot.R "${cns}" "${output_file}"
+
+    """
+}
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
 // collect from all processes to make sure they are finished before starting reports
