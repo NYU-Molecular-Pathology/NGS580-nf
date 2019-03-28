@@ -148,6 +148,8 @@ Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf_idx)
 
 Channel.fromPath( file(params.dbsnp_ref_vcf) ).into{ dbsnp_ref_vcf; dbsnp_ref_vcf2; dbsnp_ref_vcf3; dbsnp_ref_vcf4; dbsnp_ref_vcf5; dbsnp_ref_vcf6; dbsnp_ref_vcf7; dbsnp_ref_vcf8 }
 Channel.fromPath( file(params.dbsnp_ref_vcf_idx) ).into{ dbsnp_ref_vcf_idx; dbsnp_ref_vcf_idx2; dbsnp_ref_vcf_idx3; dbsnp_ref_vcf_idx4; dbsnp_ref_vcf_idx5; dbsnp_ref_vcf_idx6; dbsnp_ref_vcf_idx7; dbsnp_ref_vcf_idx8 }
+Channel.fromPath( file(params.dbsnp_ref_vcf_gz) ).set { dbsnp_ref_vcf_gz }
+Channel.fromPath( file(params.dbsnp_ref_vcf_gz_tbi) ).set { dbsnp_ref_vcf_gz_tbi }
 
 Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref_vcf2 }
 Channel.fromPath( file(params.cosmic_ref_vcf_idx) ).into{ cosmic_ref_vcf_idx; cosmic_ref_vcf_idx2 }
@@ -1715,6 +1717,7 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
                     .combine(ref_fasta3) // add reference genome and targets
                     .combine(ref_fai3)
                     .combine(ref_dict3)
+                    .tap { samples_dd_ra_rc_bam_pairs_refFasta } // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict) ]
                     .combine(targets_bed4)
                     .tap {  samples_dd_ra_rc_bam_pairs_ref; // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) ]
                             samples_dd_ra_rc_bam_pairs2;
@@ -1839,6 +1842,34 @@ process mutect2 {
     bcftools norm --multiallelics -both --output-type v - 2>"${multiallelics_stats}" | \
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
+    """
+}
+
+
+samples_dd_ra_rc_bam_pairs_refFasta.combine(dbsnp_ref_vcf_gz)
+.combine(dbsnp_ref_vcf_gz_tbi)
+.set { samples_dd_ra_rc_bam_pairs_ref_dbsnp }
+// [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(dbsnp_ref_vcf_gz), file(dbsnp_ref_vcf_gz_tbi) ]
+
+process lofreq_somatic {
+    // somatic tumor-normal paired variant calling with LoFreq
+    // http://csb5.github.io/lofreq/commands/#somatic
+    publishDir "${params.outputDir}/variants/${caller}", mode: 'copy'
+
+    input:
+    set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(dbsnp_ref_vcf_gz), file(dbsnp_ref_vcf_gz_tbi) from samples_dd_ra_rc_bam_pairs_ref_dbsnp
+
+    script:
+    caller = "LoFreqSomatic"
+    prefix = "${comparisonID}.${caller}"
+    """
+    lofreq somatic \
+    -n "${normalBam}" \
+    -t "${tumorBam}" \
+    -f "${ref_fasta}" \
+    --threads \${NSLOTS:-\${NTHREADS:-1}} \
+    -o "${prefix}" \
+    -d "${dbsnp_ref_vcf_gz}"
     """
 }
 
