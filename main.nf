@@ -2525,13 +2525,21 @@ process update_cnvkit_extract_trusted_genes_collected {
  }
 
 process cnvkit_plotly {
+
+    publishDir "${params.outputDir}/cnv", mode: 'copy'
+
     input:
     set val(comparisonID), val(tumorID), val(normalID), file(cns) from cnvs_cns3
 
+    output:
+    file("${output_html}")
+    file("${output_pdf}")
+
     script:
-    output_file = "${comparisonID}.cnvkit.plotly.html"
+    output_html = "${comparisonID}.cnvkit.plotly.html"
+    output_pdf = "${comparisonID}.cnvkit.plotly.pdf"
     """
-    cnvplot.R "${cns}" "${output_file}"
+    cnvplot.R "${cns}" "${output_html}" "${output_pdf}"
 
     """
 }
