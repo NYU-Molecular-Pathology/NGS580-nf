@@ -19,4 +19,8 @@ RUN conda install -y -c bioconda \
 varscan=2.4.3 \
 samtools=1.9
 
-# java -jar /conda/share/varscan-2.4.3-2/VarScan.jar
+# wrapper script for pipeline compatibility
+RUN echo '#!/bin/bash' > /usr/varscan.sh
+RUN echo 'java -jar /conda/share/varscan-2.4.3-2/VarScan.jar "$@"' >> /usr/varscan.sh
+RUN chmod +x /usr/varscan.sh
+ENV PATH="/usr:${PATH}"
