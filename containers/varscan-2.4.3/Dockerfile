@@ -18,3 +18,5 @@ ENV PATH="/conda/bin:${PATH}"
 RUN conda install -y -c bioconda \
 varscan=2.4.3 \
 samtools=1.9
+
+# java -jar /conda/share/varscan-2.4.3-2/VarScan.jar
