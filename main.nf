@@ -23,12 +23,26 @@ if( !ANNOVAR_DB_DIR.exists() ){
 
 // ~~~~~~~~~~ CONFIGURATION ~~~~~~~~~~ //
 // configure pipeline settings
-// overriden by nextflow.config and CLI args
 params.configFile = "config.json"
+
+// load the JSON config, if present
+def jsonSlurper = new JsonSlurper()
+def PipelineConfig
+def PipelineConfigFile_obj = new File("${params.configFile}")
+if ( PipelineConfigFile_obj.exists() ) {
+    log.info("Loading configs from ${params.configFile}")
+    String PipelineConfigJSON = PipelineConfigFile_obj.text
+    PipelineConfig = jsonSlurper.parseText(PipelineConfigJSON)
+}
+
+// overriden by nextflow.config and CLI args
 params.outputDir = "output"
 params.reportDir = "report"
-params.targetsBed = "targets.bed"
-params.targetsrefFlatBed = "targets.refFlat.580.bed"
+// params.targetsBed = "targets.bed"
+params.targetsBed = "${PipelineConfig.targetsBed}"
+// params.targetsrefFlatBed = "targets.refFlat.580.bed"
+params.targetsrefFlatBed = "${PipelineConfig.targetsrefFlatBed}"
+// runID = "${PipelineConfig.runID}"
 params.probesBed = "probes.bed"
 params.samplesheet = null
 params.runID = null
@@ -40,16 +54,6 @@ String localhostname = java.net.InetAddress.getLocalHost().getHostName();
 // Date now = new Date()
 // SimpleDateFormat timestamp = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss")
 // currentDirPath = new File(System.getProperty("user.dir")).getCanonicalPath()
-
-// load the JSON config, if present
-def jsonSlurper = new JsonSlurper()
-def PipelineConfig
-def PipelineConfigFile_obj = new File("${params.configFile}")
-if ( PipelineConfigFile_obj.exists() ) {
-    log.info("Loading configs from ${params.configFile}")
-    String PipelineConfigJSON = PipelineConfigFile_obj.text
-    PipelineConfig = jsonSlurper.parseText(PipelineConfigJSON)
-}
 
 // check for Run ID
 // 0. use CLI passed arg
@@ -111,6 +115,7 @@ log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
 log.info "* Launch time:        ${workflowTimestamp}"
 log.info "* Run ID:             ${runID}"
 log.info "* Samplesheet:        ${samplesheet}"
+log.info "* Targets:            ${params.targetsBed}"
 log.info "* Project dir:        ${workflow.projectDir}"
 log.info "* Launch dir:         ${workflow.launchDir}"
 log.info "* Work dir:           ${workflow.workDir.toUriString()}"
@@ -126,7 +131,7 @@ log.info "* Launch command:\n${workflow.commandLine}\n"
 
 // ~~~~~ DATA INPUT ~~~~~ //
 // targets .bed file
-Channel.fromPath( file(params.targetsBed) ).set{ targets_bed }
+Channel.fromPath( file(params.targetsBed) ).set{ targets_bed } // TODO: why is this here? duplicated..
 Channel.fromPath( file(params.targetsrefFlatBed) ).set{ targets_refFlat_bed }
 
 // reference files
