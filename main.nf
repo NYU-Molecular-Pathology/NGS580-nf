@@ -893,7 +893,9 @@ samples_dd_ra_rc_bam.combine(ref_fasta2)
                             samples_dd_ra_rc_bam_ref5;
                             samples_dd_ra_rc_bam_ref6;
                             samples_dd_ra_rc_bam_ref7;
-                            samples_dd_ra_rc_bam_ref8 }
+                            samples_dd_ra_rc_bam_ref8;
+                            samples_dd_ra_rc_bam_ref9; 
+                            samples_dd_ra_rc_bam_ref10 }
 
 
 samples_dd_ra_rc_bam_ref.combine( dbsnp_ref_vcf3 )
@@ -1416,6 +1418,72 @@ process eval_sample_vcf {
     """
 }
 
+process varscan_snp {
+    // https://docs.gdc.cancer.gov/Data/Bioinformatics_Pipelines/DNA_Seq_Variant_Calling_Pipeline/
+    // https://www.biostars.org/p/93673/
+    publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_snp_output}"
+    
+    input:
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref9
+    
+    output:
+    file("${vcf_snp_output}")
+    
+    script:
+    caller = "VarScan2"
+    prefix = "${sampleID}.${caller}"
+    vcf_snp_output = "${prefix}.snp.vcf"
+    """
+    # VarScan2 with default settings
+    samtools mpileup \
+    --no-BAQ \
+    --positions "${targets_bed_file}" \
+    --fasta-ref "${ref_fasta}" \
+    "${sample_bam}" | \
+    varscan.sh mpileup2snp \
+    --min-coverage 8 \
+    --min-reads2 2 \
+    --min-avg-qual 15 \
+    --min-var-freq 0.01 \
+    --min-freq-for-hom 0.75 \
+    --p-value 0.99 \
+    --strand-filter 1 \
+    --output-vcf > "${vcf_snp_output}"
+    """
+}
+
+process varscan_indel {
+    publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_indel_output}"
+    
+    input:
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref10
+    
+    output:
+    file("${vcf_indel_output}")
+
+    script:
+    caller = "VarScan2"
+    prefix = "${sampleID}.${caller}"
+    samtools_mpileup_output = "${prefix}.mpileup"
+    vcf_indel_output = "${prefix}.indel.vcf"
+    """
+    # VarScan2 with default settings
+    samtools mpileup \
+    --no-BAQ \
+    --positions "${targets_bed_file}" \
+    --fasta-ref "${ref_fasta}" \
+    "${sample_bam}" | \
+    varscan.sh mpileup2indel \
+    --min-coverage 8 \
+    --min-reads2 2 \
+    --min-avg-qual 15 \
+    --min-var-freq 0.01 \
+    --min-freq-for-hom 0.75 \
+    --p-value 0.99 \
+    --strand-filter 1 \
+    --output-vcf > "${vcf_indel_output}"
+    """
+}
 
 //
 // DOWNSTREAM TASKS
