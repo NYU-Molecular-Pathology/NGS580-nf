@@ -23,7 +23,18 @@ if( !ANNOVAR_DB_DIR.exists() ){
 
 // ~~~~~~~~~~ CONFIGURATION ~~~~~~~~~~ //
 // configure pipeline settings
+// overriden by nextflow.config and CLI args
 params.configFile = "config.json"
+params.reportDir = "report"
+params.outputDir = "output"
+def username = params.username // from nextflow.config
+def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
+def outputDirPath = new File(params.outputDir).getCanonicalPath()
+def reportDirPath = new File(params.reportDir).getCanonicalPath()
+String localhostname = java.net.InetAddress.getLocalHost().getHostName();
+// Date now = new Date()
+// SimpleDateFormat timestamp = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss")
+// currentDirPath = new File(System.getProperty("user.dir")).getCanonicalPath()
 
 // load the JSON config, if present
 def jsonSlurper = new JsonSlurper()
@@ -35,28 +46,42 @@ if ( PipelineConfigFile_obj.exists() ) {
     PipelineConfig = jsonSlurper.parseText(PipelineConfigJSON)
 }
 
-// overriden by nextflow.config and CLI args
-params.outputDir = "output"
-params.reportDir = "report"
-// params.targetsBed = "targets.bed"
-params.targetsBed = "${PipelineConfig.targetsBed}"
-// params.targetsrefFlatBed = "targets.refFlat.580.bed"
-params.targetsrefFlatBed = "${PipelineConfig.targetsrefFlatBed}"
-// runID = "${PipelineConfig.runID}"
-params.probesBed = "probes.bed"
-params.samplesheet = null
-params.runID = null
 params.numTargetSplitLines = PipelineConfig.numTargetSplitLines
-
 def numTargetSplitLines = params.numTargetSplitLines.toInteger()
-def username = params.username // from nextflow.config
-def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
-def outputDirPath = new File(params.outputDir).getCanonicalPath()
-def reportDirPath = new File(params.reportDir).getCanonicalPath()
-String localhostname = java.net.InetAddress.getLocalHost().getHostName();
-// Date now = new Date()
-// SimpleDateFormat timestamp = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss")
-// currentDirPath = new File(System.getProperty("user.dir")).getCanonicalPath()
+
+// check for targets.bed file to use
+// 0. use CLI passed arg
+// 1. check for config.json values
+def targetsBedDefault = "targets.bed"
+def targetsBed
+params.targetsBed = null
+if( params.targetsBed == null ){
+    if ( PipelineConfig && PipelineConfig.containsKey("targetsBed") && PipelineConfig.targetsBed != null ) {
+        log.info("Loading targetsBed from ${params.configFile}")
+        targetsBed = "${PipelineConfig.targetsBed}"
+    } else {
+        targetsBed = "${targetsBedDefault}"
+    }
+} else {
+    targetsBed = "${targetsBedDefault}"
+}
+
+// check for targets.refFlat.bed file to use
+// 0. use CLI passed arg
+// 1. check for config.json values
+def targetsRefFlatBedDefault = "targets.refFlat.580.bed" // TODO: change this to "targets.refFlat.bed"
+def targetsRefFlatBed
+params.targetsRefFlatBed = null
+if( params.targetsRefFlatBed == null ){
+    if ( PipelineConfig && PipelineConfig.containsKey("targetsRefFlatBed") && PipelineConfig.targetsRefFlatBed != null ) {
+        log.info("Loading targetsRefFlatBed from ${params.configFile}")
+        targetsRefFlatBed = "${PipelineConfig.targetsRefFlatBed}"
+    } else {
+        targetsRefFlatBed = "${targetsRefFlatBedDefault}"
+    }
+} else {
+    targetsRefFlatBed = "${targetsRefFlatBedDefault}"
+}
 
 // check for Run ID
 // 0. use CLI passed arg
@@ -65,6 +90,7 @@ String localhostname = java.net.InetAddress.getLocalHost().getHostName();
 def projectDir = "${workflow.projectDir}"
 def projectDirname = new File("${projectDir}").getName()
 def runID
+params.runID = null
 if( params.runID == null ){
     if ( PipelineConfig && PipelineConfig.containsKey("runID") && PipelineConfig.runID != null ) {
         log.info("Loading runID from ${params.configFile}")
@@ -83,6 +109,7 @@ if( params.runID == null ){
 def default_samplesheet = "samples.analysis.tsv"
 def default_samplesheet_obj = new File("${default_samplesheet}")
 def samplesheet
+params.samplesheet = null
 if(params.samplesheet == null){
     if ( PipelineConfig && PipelineConfig.containsKey("samplesheet") && PipelineConfig.samplesheet != null ) {
         log.info("Loading samplesheet from ${params.configFile}")
@@ -118,7 +145,7 @@ log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
 log.info "* Launch time:        ${workflowTimestamp}"
 log.info "* Run ID:             ${runID}"
 log.info "* Samplesheet:        ${samplesheet}"
-log.info "* Targets:            ${params.targetsBed}"
+log.info "* Targets:            ${targetsBed}"
 log.info "* Project dir:        ${workflow.projectDir}"
 log.info "* Launch dir:         ${workflow.launchDir}"
 log.info "* Work dir:           ${workflow.workDir.toUriString()}"
@@ -134,11 +161,11 @@ log.info "* Launch command:\n${workflow.commandLine}\n"
 
 // ~~~~~ DATA INPUT ~~~~~ //
 // targets .bed file
-Channel.fromPath( file(params.targetsBed) ).set{ targets_bed } // TODO: why is this here? duplicated..
-Channel.fromPath( file(params.targetsrefFlatBed) ).set{ targets_refFlat_bed }
+Channel.fromPath( file(targetsBed) ).set{ targets_bed } // TODO: why is this here? duplicated..
+Channel.fromPath( file(targetsRefFlatBed) ).set{ targets_refFlat_bed }
 
 // reference files
-Channel.fromPath( file(params.targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8; targets_bed9; targets_bed10; targets_bed11; }
+Channel.fromPath( file(targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8; targets_bed9; targets_bed10; targets_bed11; }
 
 Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12; ref_fasta13 }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12; ref_fai13 }
@@ -1737,7 +1764,7 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
 
 // get the unique chromosomes in the targets bed file
 //  for per-chrom paired variant calling
-Channel.fromPath( params.targetsBed )
+Channel.fromPath( targetsBed )
             .splitCsv(sep: '\t')
             .map{row ->
                 row[0]
@@ -1768,11 +1795,11 @@ samples_dd_ra_rc_bam_pairs_ref_noTargets.combine(dbsnp_ref_vcf2)
     .combine(dbsnp_ref_vcf_idx2)
     .combine(cosmic_ref_vcf2)
     .combine(cosmic_ref_vcf_idx2)
-    .combine( line_chunk_ch2 ) 
+    .combine( line_chunk_ch2 )
     .map { comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict, dbsnp_vcf, dbsnp_vcf_idx, cosmic_vcf, cosmic_vcf_idx, targets_bed ->
         // get number at the end of the file basename to denote the chunk Label
         def chunkLabel = "${targets_bed.name}".findAll(/\d*$/)[0]
-        
+
         // re-arrange output order for downstream processes
         return([ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict, targets_bed, dbsnp_vcf, dbsnp_vcf_idx, cosmic_vcf, cosmic_vcf_idx, chunkLabel ])
     }
@@ -1846,7 +1873,7 @@ process mutect2 {
     tsv_file = "${prefix}.tsv"
     reformat_tsv = "${prefix}.reformat.tsv"
     """
-    
+
 
     # variant calling
     gatk.sh -T MuTect2 \
