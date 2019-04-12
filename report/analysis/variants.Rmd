@@ -11,9 +11,48 @@ annotations <- read.delim(file = annotations_file,
 annotations[["Sample"]] <- factor(x = annotations[["Sample"]], 
                                   levels = sort(unique(as.character(annotations[["Sample"]]), 
                                                        decreasing = TRUE)))
+
+# add '1' column for aggregations
+annotations[["n"]] <- 1
 ```
 
 # Variants
+
+Number of variants per sample:
+
+```{r}
+DT::datatable(data = aggregate(n ~ Sample, data =annotations, FUN = sum),
+              options = list(pageLength = nrow(aggregate(n ~ Sample, data =annotations, FUN = sum))),
+              class = 'cell-border stripe')
+
+```
+
+Number of variants per variant caller:
+
+```{r}
+DT::datatable(data = aggregate(n ~ VariantCaller, data =annotations, FUN = sum),
+              options = list(pageLength = nrow(aggregate(n ~ VariantCaller, data =annotations, FUN = sum))),
+              class = 'cell-border stripe')
+
+```
+
+Number of variants per type:
+
+```{r}
+DT::datatable(data = aggregate(n ~ Func.refGene, data =annotations, FUN = sum),
+              options = list(pageLength = nrow(aggregate(n ~ Func.refGene, data =annotations, FUN = sum))),
+              class = 'cell-border stripe')
+
+```
+
+Number of variants per gene:
+
+```{r}
+DT::datatable(data = aggregate(n ~ Gene.refGene, data =annotations, FUN = sum),
+              options = list(pageLength = 10),
+              class = 'cell-border stripe')
+```
+
 
 ## MuTect2
 
@@ -39,6 +78,8 @@ make_mutect2_plots <- function(df){
             # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
             mutect2_qual <- ggplot(data = df, aes(x=Sample, y=QUAL, fill=Sample)) + 
                 geom_boxplot() + 
+                # cut off x axis at 1000
+                coord_cartesian( ylim = c(0, 1000)) +
                 guides(fill=FALSE) + 
                 coord_flip() + 
                 ggtitle("Quality Scores") + 
