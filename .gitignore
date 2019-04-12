@@ -63,3 +63,8 @@ demux-samplesheet.csv
 samples.pairs.csv
 queue.log
 recorded-runs/*
+.nextflow.log.*
+flowchart.dot.*
+nextflow.html.*
+*.html.*
+trace.txt.*
