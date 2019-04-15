@@ -25,13 +25,8 @@ if( !ANNOVAR_DB_DIR.exists() ){
 // configure pipeline settings
 // overriden by nextflow.config and CLI args
 params.configFile = "config.json"
-params.outputDir = "output"
 params.reportDir = "report"
-params.targetsBed = "targets.bed"
-params.targetsrefFlatBed = "targets.refFlat.580.bed"
-params.probesBed = "probes.bed"
-params.samplesheet = null
-params.runID = null
+params.outputDir = "output"
 def username = params.username // from nextflow.config
 def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
 def outputDirPath = new File(params.outputDir).getCanonicalPath()
@@ -51,6 +46,40 @@ if ( PipelineConfigFile_obj.exists() ) {
     PipelineConfig = jsonSlurper.parseText(PipelineConfigJSON)
 }
 
+// check for targets.bed file to use
+// 0. use CLI passed arg
+// 1. check for config.json values
+def targetsBedDefault = "targets.bed"
+def targetsBed
+params.targetsBed = null
+if( params.targetsBed == null ){
+    if ( PipelineConfig && PipelineConfig.containsKey("targetsBed") && PipelineConfig.targetsBed != null ) {
+        log.info("Loading targetsBed from ${params.configFile}")
+        targetsBed = "${PipelineConfig.targetsBed}"
+    } else {
+        targetsBed = "${targetsBedDefault}"
+    }
+} else {
+    targetsBed = "${targetsBedDefault}"
+}
+
+// check for targets.refFlat.bed file to use
+// 0. use CLI passed arg
+// 1. check for config.json values
+def targetsRefFlatBedDefault = "targets.refFlat.580.bed" // TODO: change this to "targets.refFlat.bed"
+def targetsRefFlatBed
+params.targetsRefFlatBed = null
+if( params.targetsRefFlatBed == null ){
+    if ( PipelineConfig && PipelineConfig.containsKey("targetsRefFlatBed") && PipelineConfig.targetsRefFlatBed != null ) {
+        log.info("Loading targetsRefFlatBed from ${params.configFile}")
+        targetsRefFlatBed = "${PipelineConfig.targetsRefFlatBed}"
+    } else {
+        targetsRefFlatBed = "${targetsRefFlatBedDefault}"
+    }
+} else {
+    targetsRefFlatBed = "${targetsRefFlatBedDefault}"
+}
+
 // check for Run ID
 // 0. use CLI passed arg
 // 1. check for config.json values
@@ -58,6 +87,7 @@ if ( PipelineConfigFile_obj.exists() ) {
 def projectDir = "${workflow.projectDir}"
 def projectDirname = new File("${projectDir}").getName()
 def runID
+params.runID = null
 if( params.runID == null ){
     if ( PipelineConfig && PipelineConfig.containsKey("runID") && PipelineConfig.runID != null ) {
         log.info("Loading runID from ${params.configFile}")
@@ -76,6 +106,7 @@ if( params.runID == null ){
 def default_samplesheet = "samples.analysis.tsv"
 def default_samplesheet_obj = new File("${default_samplesheet}")
 def samplesheet
+params.samplesheet = null
 if(params.samplesheet == null){
     if ( PipelineConfig && PipelineConfig.containsKey("samplesheet") && PipelineConfig.samplesheet != null ) {
         log.info("Loading samplesheet from ${params.configFile}")
@@ -111,6 +142,7 @@ log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
 log.info "* Launch time:        ${workflowTimestamp}"
 log.info "* Run ID:             ${runID}"
 log.info "* Samplesheet:        ${samplesheet}"
+log.info "* Targets:            ${targetsBed}"
 log.info "* Project dir:        ${workflow.projectDir}"
 log.info "* Launch dir:         ${workflow.launchDir}"
 log.info "* Work dir:           ${workflow.workDir.toUriString()}"
@@ -126,11 +158,11 @@ log.info "* Launch command:\n${workflow.commandLine}\n"
 
 // ~~~~~ DATA INPUT ~~~~~ //
 // targets .bed file
-Channel.fromPath( file(params.targetsBed) ).set{ targets_bed }
-Channel.fromPath( file(params.targetsrefFlatBed) ).set{ targets_refFlat_bed }
+Channel.fromPath( file(targetsBed) ).set{ targets_bed } // TODO: why is this here? duplicated..
+Channel.fromPath( file(targetsRefFlatBed) ).set{ targets_refFlat_bed }
 
 // reference files
-Channel.fromPath( file(params.targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8; targets_bed9 }
+Channel.fromPath( file(targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8; targets_bed9 }
 
 Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12; ref_fasta13; ref_fasta14 }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12; ref_fai13; ref_fai14 }
@@ -1741,7 +1773,7 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
 
 // get the unique chromosomes in the targets bed file
 //  for per-chrom paired variant calling
-Channel.fromPath( params.targetsBed )
+Channel.fromPath( targetsBed )
             .splitCsv(sep: '\t')
             .map{row ->
                 row[0]
@@ -2659,7 +2691,7 @@ process cnvkit_extract_trusted_genes {
 
     output:
     set val(tumorID), val(normalID), file("${output_final_cns}") into cnvs_cns
-    set val(comparisonID), val(tumorID), val(normalID), file("${output_final_cns}") into cnvs_cns2
+    set val(comparisonID), val(tumorID), val(normalID), file("${output_final_cns}") into (cnvs_cns2, cnvs_cns3)
 
 
     script:
@@ -2719,7 +2751,25 @@ process update_cnvkit_extract_trusted_genes_collected {
     """
  }
 
+process cnvkit_plotly {
 
+    publishDir "${params.outputDir}/cnv", mode: 'copy'
+
+    input:
+    set val(comparisonID), val(tumorID), val(normalID), file(cns) from cnvs_cns3
+
+    output:
+    file("${output_html}")
+    file("${output_pdf}")
+
+    script:
+    output_html = "${comparisonID}.cnvkit.plotly.html"
+    output_pdf = "${comparisonID}.cnvkit.plotly.pdf"
+    """
+    cnvplot.R "${cns}" "${output_html}" "${output_pdf}"
+
+    """
+}
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
 // collect from all processes to make sure they are finished before starting reports

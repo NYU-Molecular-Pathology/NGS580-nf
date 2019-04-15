@@ -2,5 +2,7 @@
     "samplesheet": "samples.analysis.tsv",
     "runID": null,
     "fastqDirs": [],
-    "demux_samplesheet": "demux-samplesheet.csv"
+    "demux_samplesheet": "demux-samplesheet.csv",
+    "targetsBed": "targets.bed",
+    "targetsRefFlatBed":"targets.refFlat.580.bed"
 }

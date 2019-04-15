@@ -55,6 +55,8 @@ region_coverage <- ggplot(data = interval_coverage_df, aes(x = MeanCoverage)) +
     geom_histogram(bins = 100) +
     ggtitle("Average Coverage per Target Region") + 
     ylab("Number of regions") +
+    # cut off x axis at 1500
+    coord_cartesian( xlim = c(0, 1500)) +
     theme_bw()
 # interval_avg_wide <- dcast(interval_df, Target ~ Sample, value.var = "mean_cvg")
 ```
@@ -66,6 +68,8 @@ Coverage across target intervals.
 ```{r}
 print(region_coverage)
 ```
+
+- Regions of coverage <1500x shown
 
 ## Low Coverage Targets
 

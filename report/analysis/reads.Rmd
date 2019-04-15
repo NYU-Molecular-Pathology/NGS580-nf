@@ -45,7 +45,9 @@ mapping_plot <- ggplot(data = reads_df_long[ reads_df_long[["Type"]] %in% c("Map
 # Reads
 
 ```{r print_reads, results='asis'}
-kable(reads_df, row.names = TRUE)
+DT::datatable(data = reads_df,
+              options = list(pageLength = nrow(reads_df)),
+              class = 'cell-border stripe')
 ```
 
 ```{r mapping_plot}

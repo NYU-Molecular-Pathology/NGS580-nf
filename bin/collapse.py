@@ -32,7 +32,13 @@ def collapse(dicts, collapse_key):
         # {'File2': ['bar-1-2.txt', 'bar-2-2.txt', 'bar-3-2.txt'], 'File1': ['bar-1-1.txt', 'bar-2-1.txt', 'bar-3-1.txt'], 'ID': 'bar'}
     """
     ids = list(set([i[collapse_key] for i in dicts])) # unique values from all dicts for the given key
-    keys = set([k for k in i.keys() for i in dicts]) # all keys in all dicts
+    # keys = set([k for k in i.keys() for i in dicts]) # all keys in all dicts
+    # for some reason this stopped working... ? something to do with Python 3.6??
+    keys = []
+    for d in dicts:
+        for k in d.keys():
+            keys.append(k)
+    keys = list(set(keys))
     collapsed_list = [] # list to hold output dicts
     for i in ids:
         y = {collapse_key: i} # retain value of collapsed field
