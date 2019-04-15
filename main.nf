@@ -2055,6 +2055,13 @@ process vcf_to_tsv_pairs {
         -GF AD -GF DP -GF AF \
         -o "${tsv_file}"
 
+        # .vcf field descriptions:
+        ##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+        ##FORMAT=<ID=AF,Number=1,Type=Float,Description="Allele fraction of the event in the tumor">
+        ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth (reads with MQ=255 or with bad mates are filtered)">
+        ##INFO=<ID=NLOD,Number=1,Type=String,Description="Normal LOD score">
+        ##INFO=<ID=TLOD,Number=1,Type=String,Description="Tumor LOD score">
+
         # reformat and adjust the TSV table for consistency downstream
         # add extra columns to the VCF TSV file for downstream
         reformat-vcf-table.py -c MuTect2 -s "${tumorID}" -i "${tsv_file}" | \
@@ -2091,6 +2098,21 @@ process vcf_to_tsv_pairs {
         -F UNIQ \
         -F SOMATIC \
         -o "${tsv_file}"
+
+        # .vcf field descriptions:
+        ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes, for each ALT allele, in the same order as listed">
+        ##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed">
+        ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+        ##INFO=<ID=CONSVAR,Number=0,Type=Flag,Description="Indicates that the variant is a consensus variant (as opposed to a low frequency variant).">
+        ##INFO=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth; some reads may have been filtered">
+        ##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw Depth">
+        ##INFO=<ID=DP4,Number=4,Type=Integer,Description="Counts for ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
+        ##INFO=<ID=HRUN,Number=1,Type=Integer,Description="Homopolymer length to the right of report indel position">
+        ##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+        ##INFO=<ID=SB,Number=1,Type=Float,Description="Strand Bias">
+        ##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description="Somatic event">
+        ##INFO=<ID=UNIQ,Number=0,Type=Flag,Description="Unique, i.e. not detectable in paired sample">
+        ##INFO=<ID=UQ,Number=1,Type=Integer,Description="Phred-scaled uniq score at this position">
 
         # reformat and adjust the TSV table for consistency downstream
         # add extra columns to the VCF TSV file for downstream
