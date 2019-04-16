@@ -165,9 +165,9 @@ Channel.fromPath( file(targetsRefFlatBed) ).set{ targets_refFlat_bed }
 // reference files
 Channel.fromPath( file(targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8; targets_bed9; targets_bed10 }
 
-Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12; ref_fasta13 }
-Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12; ref_fai13 }
-Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9; ref_dict10; ref_dict11; ref_dict12; ref_dict13 }
+Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12; ref_fasta13; ref_fasta14; ref_fasta15 }
+Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12; ref_fai13; ref_fai14; ref_fasta15 }
+Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9; ref_dict10; ref_dict11; ref_dict12; ref_dict13; ref_dict14; ref_fasta15 }
 
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
@@ -966,7 +966,7 @@ samples_dd_ra_rc_bam.combine(ref_fasta2)
                             samples_dd_ra_rc_bam_ref6;
                             samples_dd_ra_rc_bam_ref7;
                             samples_dd_ra_rc_bam_ref8;
-                            samples_dd_ra_rc_bam_ref9; 
+                            samples_dd_ra_rc_bam_ref9;
                             samples_dd_ra_rc_bam_ref10 }
 
 
@@ -1494,17 +1494,27 @@ process varscan_snp {
     // https://docs.gdc.cancer.gov/Data/Bioinformatics_Pipelines/DNA_Seq_Variant_Calling_Pipeline/
     // https://www.biostars.org/p/93673/
     publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_snp_output}"
+    publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy', pattern: "*${norm_vcf}"
+    publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${multiallelics_stats}"
+    publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${realign_stats}"
     
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref9
     
     output:
     file("${vcf_snp_output}")
+    file("${multiallelics_stats}")
+    file("${realign_stats}")
+    set val(caller), val(type), val(sampleID), file("${norm_vcf}") into varscan_snp_vcfs
     
     script:
     caller = "VarScan2"
-    prefix = "${sampleID}.${caller}"
-    vcf_snp_output = "${prefix}.snp.vcf"
+    type = "snp"
+    prefix = "${sampleID}.${type}.${caller}"
+    vcf_snp_output = "${prefix}.vcf"
+    multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
+    realign_stats = "${prefix}.bcftools.realign.stats.txt"
+    norm_vcf = "${prefix}.norm.vcf"
     """
     # VarScan2 with default settings
     samtools mpileup \
@@ -1521,23 +1531,40 @@ process varscan_snp {
     --p-value 0.99 \
     --strand-filter 1 \
     --output-vcf > "${vcf_snp_output}"
+    
+    # normalize and split vcf entries
+    cat ${vcf_snp_output} | \
+    bcftools norm --multiallelics -both --output-type v - 2>"${multiallelics_stats}" | \
+    bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
+    "${norm_vcf}"
     """
+    
 }
 
 process varscan_indel {
     publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_indel_output}"
+    publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy', pattern: "*${norm_vcf}"
+    publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${multiallelics_stats}"
+    publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${realign_stats}"
     
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref10
     
     output:
     file("${vcf_indel_output}")
+    file("${multiallelics_stats}")
+    file("${realign_stats}")
+    set val(caller), val(type), val(sampleID), file("${norm_vcf}") into varscan_indel_vcfs
 
     script:
     caller = "VarScan2"
-    prefix = "${sampleID}.${caller}"
+    type = "indel"
+    prefix = "${sampleID}.${type}.${caller}"
     samtools_mpileup_output = "${prefix}.mpileup"
-    vcf_indel_output = "${prefix}.indel.vcf"
+    vcf_indel_output = "${prefix}.vcf"
+    multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
+    realign_stats = "${prefix}.bcftools.realign.stats.txt"
+    norm_vcf = "${prefix}.norm.vcf"
     """
     # VarScan2 with default settings
     samtools mpileup \
@@ -1554,10 +1581,148 @@ process varscan_indel {
     --p-value 0.99 \
     --strand-filter 1 \
     --output-vcf > "${vcf_indel_output}"
+    
+    # normalize and split vcf entries
+    cat ${vcf_indel_output} | \
+    bcftools norm --multiallelics -both --output-type v - 2>"${multiallelics_stats}" | \
+    bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
+    "${norm_vcf}"
     """
 }
 
-//
+// set up channel for filtering unpaired vcfs
+varscan_snp_vcfs.mix(varscan_indel_vcfs)
+    .combine(ref_fasta14)
+    .combine(ref_fai14)
+    .combine(ref_dict14)
+    .set { unpaired_vcfs_ref }
+process filter_vcf {
+    // filter .vcf files; currently LoFreq and HaplotypeCaller already have this bundled in their processes but that needs to be changed...
+    publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
+    
+    input:
+    set val(caller), val(type), val(sampleID), file(vcf) file(ref_fasta), file(ref_fai), file(ref_dict) from unpaired_vcfs_ref
+    
+    output:
+    set val(caller), val(type), val(sampleID), file("${filtered_vcf}") into filtered_vcfs // to tsv
+    
+    script:
+    prefix = "${sampleID}.${type}.${caller}"
+    filtered_vcf = "${prefix}.filtered.vcf"
+    if ( caller == "VarScan2" )
+        """
+        # do not report if frequency is less than 1%
+        # automatically filters only PASS variants
+        gatk.sh -T SelectVariants \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
+        -select "AF > 0.01"  \
+        > "${filtered_vcf}"
+        """
+    else
+        error "Invalid caller: ${caller}"
+}
+
+process vcf_to_tsv {
+    // convert .vcf to .tsv; currently LoFreq and HaplotypeCaller already have this bundled in their processes but that needs to be changed...
+    publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
+    publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
+    
+    input:
+    set val(caller), val(type), val(sampleID), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from filtered_vcfs.combine(ref_fasta15).combine(ref_fai15).combine(ref_dict15)
+
+    output:
+    set val(caller), val(type), val(sampleID), file(vcf), file("${reformat_tsv}") into vcf_tsvs // to annotation
+    
+    script:
+    prefix = "${sampleID}.${type}.${caller}"
+    tsv_file = "${prefix}.tsv"
+    reformat_tsv = "${prefix}.reformat.tsv"
+    if ( caller == "VarScan2" )
+        """
+        gatk.sh -T VariantsToTable \
+        -R "${ref_fasta}" \
+        -V "${filtered_vcf}" \
+        -F CHROM \
+        -F POS \
+        -F ID \
+        -F REF \
+        -F ALT \
+        -F QUAL \
+        -F FILTER \
+        -GF AD \
+        -GF RD \
+        -GF FREQ \
+        -GF RBQ \
+        -GF ABQ \
+        -o "${tsv_file}"
+        """
+        // -GF AD -GF DP -GF AF \
+        // # reformat and adjust the TSV table for consistency downstream
+        // # add extra columns to the VCF TSV file for downstream
+        // reformat-vcf-table.py -c LoFreq -s "${sampleID}" -i "${tsv_file}" | \
+        // paste-col.py --header "Sample" -v "${sampleID}"  | \
+        // paste-col.py --header "VariantCaller" -v "${caller}" > \
+        // "${reformat_tsv}"
+        
+        // indel
+        // ##fileformat=VCFv4.1
+        // ##source=VarScan2
+        // ##INFO=<ID=ADP,Number=1,Type=Integer,Description="Average per-sample depth of bases with Phred score >= 15">
+        // ##INFO=<ID=WT,Number=1,Type=Integer,Description="Number of samples called reference (wild-type)">
+        // ##INFO=<ID=HET,Number=1,Type=Integer,Description="Number of samples called heterozygous-variant">
+        // ##INFO=<ID=HOM,Number=1,Type=Integer,Description="Number of samples called homozygous-variant">
+        // ##INFO=<ID=NC,Number=1,Type=Integer,Description="Number of samples not called">
+        // ##FILTER=<ID=str10,Description="Less than 10% or more than 90% of variant supporting reads on one strand">
+        // ##FILTER=<ID=indelError,Description="Likely artifact due to indel reads at this position">
+        // ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        // ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+        // ##FORMAT=<ID=SDP,Number=1,Type=Integer,Description="Raw Read Depth as reported by SAMtools">
+        // ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Quality Read Depth of bases with Phred score >= 15">
+        // ##FORMAT=<ID=RD,Number=1,Type=Integer,Description="Depth of reference-supporting bases (reads1)">
+        // ##FORMAT=<ID=AD,Number=1,Type=Integer,Description="Depth of variant-supporting bases (reads2)">
+        // ##FORMAT=<ID=FREQ,Number=1,Type=String,Description="Variant allele frequency">
+        // ##FORMAT=<ID=PVAL,Number=1,Type=String,Description="P-value from Fisher's Exact Test">
+        // ##FORMAT=<ID=RBQ,Number=1,Type=Integer,Description="Average quality of reference-supporting bases (qual1)">
+        // ##FORMAT=<ID=ABQ,Number=1,Type=Integer,Description="Average quality of variant-supporting bases (qual2)">
+        // ##FORMAT=<ID=RDF,Number=1,Type=Integer,Description="Depth of reference-supporting bases on forward strand (reads1plus)">
+        // ##FORMAT=<ID=RDR,Number=1,Type=Integer,Description="Depth of reference-supporting bases on reverse strand (reads1minus)">
+        // ##FORMAT=<ID=ADF,Number=1,Type=Integer,Description="Depth of variant-supporting bases on forward strand (reads2plus)">
+        // ##FORMAT=<ID=ADR,Number=1,Type=Integer,Description="Depth of variant-supporting bases on reverse strand (reads2minus)">
+        // #CHROM  POS     ID      REF     ALT     QUAL    FILTER  INFO    FORMAT  Sample1
+        // chr1    2985826 .       G       A       .       PASS    ADP=136;WT=0;HET=1;HOM=0;NC=0   GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR    0/1:0:136:136:134:2:1.47%:9.8E-1:62:53:125:9:2:0
+        
+        // snp
+        // ##fileformat=VCFv4.1
+        // ##source=VarScan2
+        // ##INFO=<ID=ADP,Number=1,Type=Integer,Description="Average per-sample depth of bases with Phred score >= 15">
+        // ##INFO=<ID=WT,Number=1,Type=Integer,Description="Number of samples called reference (wild-type)">
+        // ##INFO=<ID=HET,Number=1,Type=Integer,Description="Number of samples called heterozygous-variant">
+        // ##INFO=<ID=HOM,Number=1,Type=Integer,Description="Number of samples called homozygous-variant">
+        // ##INFO=<ID=NC,Number=1,Type=Integer,Description="Number of samples not called">
+        // ##FILTER=<ID=str10,Description="Less than 10% or more than 90% of variant supporting reads on one strand">
+        // ##FILTER=<ID=indelError,Description="Likely artifact due to indel reads at this position">
+        // ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        // ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+        // ##FORMAT=<ID=SDP,Number=1,Type=Integer,Description="Raw Read Depth as reported by SAMtools">
+        // ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Quality Read Depth of bases with Phred score >= 15">
+        // ##FORMAT=<ID=RD,Number=1,Type=Integer,Description="Depth of reference-supporting bases (reads1)">
+        // ##FORMAT=<ID=AD,Number=1,Type=Integer,Description="Depth of variant-supporting bases (reads2)">
+        // ##FORMAT=<ID=FREQ,Number=1,Type=String,Description="Variant allele frequency">
+        // ##FORMAT=<ID=PVAL,Number=1,Type=String,Description="P-value from Fisher's Exact Test">
+        // ##FORMAT=<ID=RBQ,Number=1,Type=Integer,Description="Average quality of reference-supporting bases (qual1)">
+        // ##FORMAT=<ID=ABQ,Number=1,Type=Integer,Description="Average quality of variant-supporting bases (qual2)">
+        // ##FORMAT=<ID=RDF,Number=1,Type=Integer,Description="Depth of reference-supporting bases on forward strand (reads1plus)">
+        // ##FORMAT=<ID=RDR,Number=1,Type=Integer,Description="Depth of reference-supporting bases on reverse strand (reads1minus)">
+        // ##FORMAT=<ID=ADF,Number=1,Type=Integer,Description="Depth of variant-supporting bases on forward strand (reads2plus)">
+        // ##FORMAT=<ID=ADR,Number=1,Type=Integer,Description="Depth of variant-supporting bases on reverse strand (reads2minus)">
+        // #CHROM  POS     ID      REF     ALT     QUAL    FILTER  INFO    FORMAT  Sample1
+        // chr1    2985826 .       G       A       .       PASS    ADP=136;WT=0;HET=1;HOM=0;NC=0   GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR    0/1:0:136:136:134:2:1.47%:9.8E-1:62:53:125:9:2:0
+    else
+        error "Invalid caller: ${caller}"
+}
+
+
 // DOWNSTREAM TASKS
 //
 // DELLY2 SNV STEPS
