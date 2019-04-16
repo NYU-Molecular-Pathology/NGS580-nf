@@ -19,10 +19,17 @@ MirrorURL: http://us.archive.ubuntu.com/ubuntu/
     conda install -y -c bioconda \
     varscan=2.4.3 \
     samtools=1.9
+    
+    # wrapper script for pipeline compatibility
+    echo '#!/bin/bash' > /usr/varscan.sh
+    echo 'java -jar /conda/share/varscan-2.4.3-2/VarScan.jar "$@"' >> /usr/varscan.sh
+    chmod +x /usr/varscan.sh
 
 %test
     varscan --version
     samtools --version
+    which varscan.sh
 
 %environment
     export PATH="/conda/bin:${PATH}"
+    export PATH="/usr:${PATH}"

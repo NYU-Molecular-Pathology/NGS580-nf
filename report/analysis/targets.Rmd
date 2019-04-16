@@ -1,15 +1,55 @@
 ```{r}
 targets_metrics_table <- params$targets_metrics_table
+targets_annotations_file <- params$targets_annotations_file
 ```
 
 ```{r}
 targets_metrics <- read.delim(file = targets_metrics_table, header = TRUE, sep = '\t', check.names = FALSE)
+targets_annotations <- read.delim(file = targets_annotations_file, header = TRUE, sep = '\t', check.names = FALSE)
+targets_annotations[["n"]] <- 1
+targets_annotations_aggr <- aggregate( n ~ Func.refGene, data = targets_annotations, FUN = sum)
+targets_per_gene <- aggregate( n ~ Gene.refGene, data = targets_annotations, FUN = sum)
 ```
 
 # Targets
 
 ```{r, results='asis'}
 kable(as.data.frame(t(targets_metrics)), col.names = 'Info')
+```
+
+## Target Types
+
+```{r}
+target_types_pie <- ggplot(targets_annotations_aggr, aes(x= "", y = n, fill = Func.refGene)) + 
+    geom_bar(stat = "identity", width = 1) + # , color = "white"
+    coord_polar("y", start = 0) +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(), 
+          panel.border = element_blank(), 
+          axis.ticks = element_blank(), 
+          axis.text = element_blank(), 
+          axis.title = element_blank()) +
+    ggtitle("Target Types")
+    # geom_text(aes(y = n, label = Func.refGene), color = "white") # labels do not fit well
+```
+
+```{r, fig.width=6, fig.height=6}
+target_types_pie
+```
+
+```{r}
+DT::datatable(data = targets_annotations_aggr,
+              options = list(pageLength = nrow(targets_annotations_aggr)),
+              class = 'cell-border stripe')
+```
+
+## Targets per Gene
+
+```{r}
+DT::datatable(data = targets_per_gene,
+              options = list(pageLength = 10),
+              class = 'cell-border stripe')
 ```
 
 ```{r}
