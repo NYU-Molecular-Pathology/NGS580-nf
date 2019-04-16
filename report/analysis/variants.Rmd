@@ -56,7 +56,7 @@ DT::datatable(data = aggregate(n ~ Gene.refGene, data =annotations, FUN = sum),
 
 ## MuTect2
 
-Variant calling with GATK MuTect2 [@GATKToolkit]
+Somatic variant calling with GATK MuTect2 [@GATKToolkit], using matched tumor-normal pairs.
 
 ```{r mutect2}
 make_mutect2_plots <- function(df){
@@ -139,6 +139,94 @@ if (length(mutect2_plots) < 1){
     }
 }
 ```
+
+## LoFreq Somatic
+
+Somatic variant calling with LoFreq [@LoFreq], using matched tumor-normal pairs. 
+
+
+```{r}
+# ~~~~~~~ FUNCTIONS ~~~~~~~ #
+make_lofreq_somatic_plots <- function(df){
+    plots <- list()
+    if(is.data.frame(df)){
+        if(nrow(df) > 0){
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            lofreq_counts <- ggplot(data = df, aes(x = Sample)) +
+                geom_bar(stat="count") + 
+                ggtitle("Number of Variants") + 
+                coord_flip() +
+                theme_bw() +
+                theme(panel.grid.minor = element_blank()) 
+            
+            plots[['counts']] <- list(
+                plot = lofreq_counts,
+                subheader = 'Counts'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            lofreq_qual <- ggplot(data = df, aes(x=Sample, y=QUAL, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Quality Scores") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['qual']] <- list(
+                plot = lofreq_qual,
+                subheader = 'Quality Scores'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            lofreq_dp <- ggplot(data = df, aes(x=Sample, y=DP, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Depth of Coverage") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['dp']] <- list(
+                plot = lofreq_dp,
+                subheader = 'Quality Scores'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            lofreq_af <- ggplot(data = df, aes(x=Sample, y=AF, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Allele Frequency") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['af']] <- list(
+                plot = lofreq_af,
+                subheader = 'Allele Frequency'
+            )
+        }
+    }
+    return(plots)
+}
+
+# ~~~~~~~ RUN ~~~~~~~ #
+lofreq_somatic_plots <- make_lofreq_somatic_plots(annotations[annotations[["VariantCaller"]] == 'LoFreqSomatic', ])
+```
+
+```{r, results='asis'}
+# print any results found
+if (length(lofreq_somatic_plots) < 1){
+    cat('\n\n- __No results found__\n\n')
+} else {
+    
+    for(item in lofreq_somatic_plots){
+        subplot<- item[["plot"]]
+        subheader <- item[["subheader"]]
+        
+        cat(sprintf('\n\n### %s\n\n', subheader))
+        print(subplot)
+    }
+}
+```
+
 
 ## GATK HaplotypeCaller
 

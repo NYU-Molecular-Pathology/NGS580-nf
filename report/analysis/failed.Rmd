@@ -12,6 +12,7 @@ Samples that did not complete the full pipeline for the described reasons.
 ```{r, results='asis'}
 if(file.exists(failed_log)){
     failed <- read.delim(file = failed_log, header = TRUE, sep = '\t', check.names = FALSE)
+    save.image(file = 'failed.loaded.Rdata', compress = TRUE)
     if(nrow(failed) > 0){
         DT::datatable(data = failed[names(failed)[!names(failed) %in% "Files"]],
               options = list(pageLength = 5),
@@ -32,6 +33,7 @@ if(file.exists(failed_pairs_log)){
                                sep = '\t', 
                                check.names = FALSE, 
                                stringsAsFactors = FALSE)
+    save.image(file = 'failed.loaded.Rdata', compress = TRUE)
     
     # try to fix header; sometimes it shows up halfway through the table
     if(any(grepl(pattern = "Comparison", x = failed_pairs[,1]))){
@@ -51,7 +53,7 @@ if(file.exists(failed_pairs_log)){
     }
     
     if(nrow(failed_pairs) > 0){
-        DT::datatable(data = failed_pairs[names(failed_pairs)[!names(failed_pairs) %in% "Files"]],
+        DT::datatable(data = failed_pairs[, names(failed_pairs)[!names(failed_pairs) %in% c("Files", "")]],
               options = list(pageLength = 5),
               class = 'cell-border stripe')
     } else {

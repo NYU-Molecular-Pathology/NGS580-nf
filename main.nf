@@ -165,9 +165,9 @@ Channel.fromPath( file(targetsRefFlatBed) ).set{ targets_refFlat_bed }
 // reference files
 Channel.fromPath( file(targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8; targets_bed9; targets_bed10 }
 
-Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12; ref_fasta13; ref_fasta14; ref_fasta15 }
-Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12; ref_fai13; ref_fai14; ref_fasta15 }
-Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9; ref_dict10; ref_dict11; ref_dict12; ref_dict13; ref_dict14; ref_fasta15 }
+Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12; ref_fasta13; ref_fasta14; ref_fasta15; ref_fasta16 }
+Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12; ref_fai13; ref_fai14; ref_fai15; ref_fai16 }
+Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9; ref_dict10; ref_dict11; ref_dict12; ref_dict13; ref_dict14; ref_dict15; ref_dict16 }
 
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
@@ -181,6 +181,8 @@ Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf_idx)
 
 Channel.fromPath( file(params.dbsnp_ref_vcf) ).into{ dbsnp_ref_vcf; dbsnp_ref_vcf2; dbsnp_ref_vcf3; dbsnp_ref_vcf4; dbsnp_ref_vcf5; dbsnp_ref_vcf6; dbsnp_ref_vcf7; dbsnp_ref_vcf8 }
 Channel.fromPath( file(params.dbsnp_ref_vcf_idx) ).into{ dbsnp_ref_vcf_idx; dbsnp_ref_vcf_idx2; dbsnp_ref_vcf_idx3; dbsnp_ref_vcf_idx4; dbsnp_ref_vcf_idx5; dbsnp_ref_vcf_idx6; dbsnp_ref_vcf_idx7; dbsnp_ref_vcf_idx8 }
+Channel.fromPath( file(params.dbsnp_ref_vcf_gz) ).set { dbsnp_ref_vcf_gz }
+Channel.fromPath( file(params.dbsnp_ref_vcf_gz_tbi) ).set { dbsnp_ref_vcf_gz_tbi }
 
 Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref_vcf2 }
 Channel.fromPath( file(params.cosmic_ref_vcf_idx) ).into{ cosmic_ref_vcf_idx; cosmic_ref_vcf_idx2 }
@@ -1302,40 +1304,28 @@ process update_updated_coverage_interval_tables_collected {
 process lofreq {
     // high sensitivity variant calling for low frequency variants
     publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_file}"
-    publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_bgz_file}"
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy', pattern: "*${norm_vcf}"
-    publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${multiallelics_stats}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${realign_stats}"
-    publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
-    publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
 
     input:
-    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx) from samples_dd_ra_rc_bam_ref_dbsnp
+    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref6
 
     output:
-    set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_lofreq_vcf
-    set val(caller), val(sampleID), file("${filtered_vcf}") into samples_lofreq_vcf2
+    set val(caller), val(sampleID), file("${norm_vcf}") into lofreq_norm_vcfs
     file("${vcf_file}")
     file("${norm_vcf}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
-    file("${tsv_file}")
-    file("${reformat_tsv}")
-    file("${filtered_vcf}")
     val(sampleID) into done_lofreq
 
     script:
     caller = "LoFreq"
     prefix = "${sampleID}.${caller}"
     vcf_file = "${prefix}.vcf"
-    vcf_bgz_file = "${prefix}.vcf.bgz"
     norm_vcf = "${prefix}.norm.vcf"
-    filtered_vcf = "${prefix}.filtered.vcf"
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
-    tsv_file = "${prefix}.tsv"
-    reformat_tsv = "${prefix}.reformat.tsv"
     """
     lofreq call-parallel \
     --call-indels \
@@ -1345,19 +1335,41 @@ process lofreq {
     --out "${vcf_file}" \
     "${sample_bam}"
 
-    bgzip -c "${vcf_file}" > "${vcf_bgz_file}"
-
-    bcftools index "${vcf_bgz_file}"
-
     cat ${vcf_file} | \
     bcftools norm --multiallelics -both --output-type v - 2>"${multiallelics_stats}" | \
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
+    """
+    // NOTE: removed these steps; why do we need them?
+    // bgzip -c "${vcf_file}" > "${vcf_bgz_file}"
+    // bcftools index "${vcf_bgz_file}"
+}
 
+process lofreq_filter_reformat {
+    publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
+    publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
+    publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
+
+    input:
+    set val(caller), val(sampleID), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from lofreq_norm_vcfs.combine(ref_fasta14).combine(ref_fai14).combine(ref_dict14)
+
+    output:
+    set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_lofreq_vcf
+    set val(caller), val(sampleID), file("${filtered_vcf}") into samples_lofreq_vcf2
+    file("${tsv_file}")
+    file("${reformat_tsv}")
+    file("${filtered_vcf}")
+
+    script:
+    prefix = "${sampleID}.${caller}"
+    filtered_vcf = "${prefix}.filtered.vcf"
+    tsv_file = "${prefix}.tsv"
+    reformat_tsv = "${prefix}.reformat.tsv"
+    """
     # do not report if frequency is less than 1%
     gatk.sh -T SelectVariants \
     -R "${ref_fasta}" \
-    -V "${norm_vcf}" \
+    -V "${vcf}" \
     -select "AF > 0.01"  \
     > "${filtered_vcf}"
 
@@ -1592,9 +1604,9 @@ process varscan_indel {
 
 // set up channel for filtering unpaired vcfs
 varscan_snp_vcfs.mix(varscan_indel_vcfs)
-    .combine(ref_fasta14)
-    .combine(ref_fai14)
-    .combine(ref_dict14)
+    .combine(ref_fasta16)
+    .combine(ref_fai16)
+    .combine(ref_dict16)
     .set { unpaired_vcfs_ref }
 process filter_vcf {
     // filter .vcf files; currently LoFreq and HaplotypeCaller already have this bundled in their processes but that needs to be changed...
@@ -2021,6 +2033,7 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
                     .combine(ref_fai3)
                     .combine(ref_dict3)
                     .combine(targets_bed4)
+                    .tap { samples_dd_ra_rc_bam_pairs_refFasta } // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) ]
                     .tap {  samples_dd_ra_rc_bam_pairs_ref; // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) ]
                             samples_dd_ra_rc_bam_pairs2;
                             samples_dd_ra_rc_bam_pairs_ref3;
@@ -2104,7 +2117,6 @@ process mutect2 {
     file("${norm_vcf}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
-    val(comparisonID) into mutect2_sampleIDs
     val(comparisonID) into done_mutect2
 
     script:
@@ -2140,25 +2152,119 @@ process mutect2 {
     --out "${vcf_file}"
 
     # normalize and split vcf entries
-    cat ${vcf_file} | \
+    cat "${vcf_file}" | \
     bcftools norm --multiallelics -both --output-type v - 2>"${multiallelics_stats}" | \
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
     """
 }
 
+
+samples_dd_ra_rc_bam_pairs_refFasta.combine(dbsnp_ref_vcf_gz)
+.combine(dbsnp_ref_vcf_gz_tbi)
+.set { samples_dd_ra_rc_bam_pairs_ref_dbsnp }
+// [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf_gz), file(dbsnp_ref_vcf_gz_tbi) ]
+
+process lofreq_somatic {
+    // somatic tumor-normal paired variant calling with LoFreq
+    publishDir "${params.outputDir}/variants/${caller}/norm", mode: 'copy', pattern: "*${final_snvs_vcf_norm}"
+    publishDir "${params.outputDir}/variants/${caller}/norm", mode: 'copy', pattern: "*${final_indels_vcf_norm}"
+    publishDir "${params.outputDir}/variants/${caller}/norm", mode: 'copy', pattern: "*${final_minus_dbsnp_snvs_vcf_norm}"
+    publishDir "${params.outputDir}/variants/${caller}/norm", mode: 'copy', pattern: "*${final_minus_dbsnp_indels_vcf_norm}"
+
+    input:
+    set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf_gz), file(dbsnp_ref_vcf_gz_tbi) from samples_dd_ra_rc_bam_pairs_ref_dbsnp
+
+    output:
+    file("${final_snvs_vcf_gz}")
+    file("${final_indels_vcf_gz}")
+    file("${final_minus_dbsnp_snvs_vcf_gz}")
+    file("${final_minus_dbsnp_indels_vcf_gz}")
+    set val("${caller}"), val(comparisonID), val(tumorID), val(normalID), val("snvs"), file("${final_snvs_vcf_norm}") into vcfs_lofreq_somatic_snvs_vcf_norm
+    set val("${caller}"), val(comparisonID), val(tumorID), val(normalID), val("indels"), file("${final_indels_vcf_norm}") into vcfs_lofreq_somatic_indels_vcf_norm
+    set val("${caller}"), val(comparisonID), val(tumorID), val(normalID), val("snvs-minus-dbsnp"), file("${final_minus_dbsnp_snvs_vcf_norm}") into vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm
+    set val("${caller}"), val(comparisonID), val(tumorID), val(normalID), val("indels-minus-dbsnp"), file("${final_minus_dbsnp_snvs_vcf_norm}") into vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm
+
+    script:
+    caller = "LoFreqSomatic"
+    prefix = "${comparisonID}.${caller}"
+    lofreq_prefix = "${prefix}."
+
+    final_snvs_vcf_gz = "${lofreq_prefix}somatic_final.snvs.vcf.gz"
+    final_indels_vcf_gz = "${lofreq_prefix}somatic_final.indels.vcf.gz"
+    final_minus_dbsnp_snvs_vcf_gz = "${lofreq_prefix}somatic_final_minus-dbsnp.snvs.vcf.gz"
+    final_minus_dbsnp_indels_vcf_gz = "${lofreq_prefix}somatic_final_minus-dbsnp.indels.vcf.gz"
+
+    final_snvs_vcf_norm = "${lofreq_prefix}somatic_final.snvs.norm.vcf"
+    final_indels_vcf_norm = "${lofreq_prefix}somatic_final.indels.norm.vcf"
+    final_minus_dbsnp_snvs_vcf_norm = "${lofreq_prefix}somatic_final_minus-dbsnp.snvs.norm.vcf"
+    final_minus_dbsnp_indels_vcf_norm = "${lofreq_prefix}somatic_final_minus-dbsnp.indels.norm.vcf"
+    """
+    # paired tumor-normal somatic variant calling with LoFreq
+    lofreq somatic \
+    -n "${normalBam}" \
+    -t "${tumorBam}" \
+    -f "${ref_fasta}" \
+    --threads \${NSLOTS:-\${NTHREADS:-1}} \
+    -o "${lofreq_prefix}" \
+    -d "${dbsnp_ref_vcf_gz}" \
+    -l "${targets_bed}"
+
+    # split multi-allelic entries and left normalize
+    zcat ${final_snvs_vcf_gz} | \
+    bcftools norm --multiallelics -both --output-type v - | \
+    bcftools norm --fasta-ref "${ref_fasta}" --output-type v - > \
+    "${final_snvs_vcf_norm}"
+
+    zcat ${final_indels_vcf_gz} | \
+    bcftools norm --multiallelics -both --output-type v - | \
+    bcftools norm --fasta-ref "${ref_fasta}" --output-type v - > \
+    "${final_indels_vcf_norm}"
+
+    zcat ${final_minus_dbsnp_snvs_vcf_gz} | \
+    bcftools norm --multiallelics -both --output-type v - | \
+    bcftools norm --fasta-ref "${ref_fasta}" --output-type v - > \
+    "${final_minus_dbsnp_snvs_vcf_norm}"
+
+    zcat ${final_minus_dbsnp_indels_vcf_gz} | \
+    bcftools norm --multiallelics -both --output-type v - | \
+    bcftools norm --fasta-ref "${ref_fasta}" --output-type v - > \
+    "${final_minus_dbsnp_indels_vcf_norm}"
+    """
+}
+
+// normalize the channels to add chrom and type vals throughout
+vcfs_mutect2.map { caller, comparisonID, tumorID, normalID, chrom, vcf ->
+    def type = "NA"
+    return [ caller, comparisonID, tumorID, normalID, chrom, type, vcf ]
+}.set { vcfs_mutect2_refactor }
+
+vcfs_lofreq_somatic_snvs_vcf_norm.concat(
+    vcfs_lofreq_somatic_indels_vcf_norm,
+    vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm,
+    vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm
+    )
+.map { caller, comparisonID, tumorID, normalID, type, vcf ->
+    def chrom = "NA"
+    return [ caller, comparisonID, tumorID, normalID, chrom, type, vcf ]
+}
+.set { vcfs_lofreq_somatic_refactor }
+
+// get all the paired sample vcfs for downstream processing
+vcfs_mutect2_refactor.concat(vcfs_lofreq_somatic_refactor).set { vcfs_pairs }
+
 process filter_vcf_pairs {
     // filter the .vcf for tumor-normal pairs
     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from vcfs_mutect2.combine(ref_fasta11).combine(ref_fai11).combine(ref_dict11)
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), val(type), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from vcfs_pairs.combine(ref_fasta11).combine(ref_fai11).combine(ref_dict11)
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file("${filtered_vcf}") into filtered_vcf_pairs // to tsv
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), val(type), file("${filtered_vcf}") into filtered_vcf_pairs // to tsv
 
     script:
-    prefix = "${comparisonID}.${chrom}.${caller}"
+    prefix = "${comparisonID}.${chrom}.${caller}.${type}"
     filtered_vcf = "${prefix}.filtered.vcf"
     if( caller == 'MuTect2' )
         """
@@ -2216,6 +2322,15 @@ process filter_vcf_pairs {
         # TUMOR	0/1:1333,17:0.013:7:10:0.588:0|1:2946342_A_G:40125,535:641:689
         # NORMAL	0/0:137,0:0.00:0:0:.:0|1:2946342_A_G:3959,0:53:80
         """
+    else if( caller == 'LoFreqSomatic' )
+        """
+        # do not report if frequency is less than 1%
+        gatk.sh -T SelectVariants \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
+        -select "AF > 0.01"  \
+        > "${filtered_vcf}"
+        """
     else
         error "Invalid caller: ${caller}"
 }
@@ -2225,13 +2340,13 @@ process vcf_to_tsv_pairs {
     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from filtered_vcf_pairs.combine(ref_fasta12).combine(ref_fai12).combine(ref_dict12)
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), val(type), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from filtered_vcf_pairs.combine(ref_fasta12).combine(ref_fai12).combine(ref_dict12)
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(vcf), file("${reformat_tsv}") into vcf_tsv_pairs // to annotation
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), val(type), file(vcf), file("${reformat_tsv}") into vcf_tsv_pairs // to annotation
 
     script:
-    prefix = "${comparisonID}.${chrom}.${caller}"
+    prefix = "${comparisonID}.${chrom}.${caller}.${type}"
     tsv_file = "${prefix}.tsv"
     reformat_tsv = "${prefix}.reformat.tsv"
     if( caller == 'MuTect2' )
@@ -2245,12 +2360,71 @@ process vcf_to_tsv_pairs {
         -GF AD -GF DP -GF AF \
         -o "${tsv_file}"
 
+        # .vcf field descriptions:
+        ##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+        ##FORMAT=<ID=AF,Number=1,Type=Float,Description="Allele fraction of the event in the tumor">
+        ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth (reads with MQ=255 or with bad mates are filtered)">
+        ##INFO=<ID=NLOD,Number=1,Type=String,Description="Normal LOD score">
+        ##INFO=<ID=TLOD,Number=1,Type=String,Description="Tumor LOD score">
+
         # reformat and adjust the TSV table for consistency downstream
         # add extra columns to the VCF TSV file for downstream
         reformat-vcf-table.py -c MuTect2 -s "${tumorID}" -i "${tsv_file}" | \
         paste-col.py --header "Sample" -v "${tumorID}"  | \
         paste-col.py --header "Tumor" -v "${tumorID}"  | \
         paste-col.py --header "Normal" -v "${normalID}"  | \
+        paste-col.py --header "VariantCaller" -v "${caller}" > \
+        "${reformat_tsv}"
+        """
+    else if( caller == 'LoFreqSomatic' )
+        """
+        # convert to tsv format
+        # NOTE: automatically filters for only PASS entries
+        gatk.sh -T VariantsToTable \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
+        -F CHROM \
+        -F POS \
+        -F ID \
+        -F REF \
+        -F ALT \
+        -F QUAL \
+        -F FILTER \
+        -F DP \
+        -F DP4 \
+        -F AF \
+        -F SB \
+        -F UQ \
+        -F CONSVAR \
+        -F AN \
+        -F AC \
+        -F HRUN \
+        -F INDEL \
+        -F UNIQ \
+        -F SOMATIC \
+        -o "${tsv_file}"
+
+        # .vcf field descriptions:
+        ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes, for each ALT allele, in the same order as listed">
+        ##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed">
+        ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+        ##INFO=<ID=CONSVAR,Number=0,Type=Flag,Description="Indicates that the variant is a consensus variant (as opposed to a low frequency variant).">
+        ##INFO=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth; some reads may have been filtered">
+        ##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw Depth">
+        ##INFO=<ID=DP4,Number=4,Type=Integer,Description="Counts for ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
+        ##INFO=<ID=HRUN,Number=1,Type=Integer,Description="Homopolymer length to the right of report indel position">
+        ##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+        ##INFO=<ID=SB,Number=1,Type=Float,Description="Strand Bias">
+        ##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description="Somatic event">
+        ##INFO=<ID=UNIQ,Number=0,Type=Flag,Description="Unique, i.e. not detectable in paired sample">
+        ##INFO=<ID=UQ,Number=1,Type=Integer,Description="Phred-scaled uniq score at this position">
+
+        # reformat and adjust the TSV table for consistency downstream
+        # add extra columns to the VCF TSV file for downstream
+        reformat-vcf-table.py -c LoFreq -s "${tumorID}" -i "${tsv_file}" | \
+        paste-col.py --header "Sample" -v "${tumorID}" | \
+        paste-col.py --header "Tumor" -v "${tumorID}" | \
+        paste-col.py --header "Normal" -v "${normalID}" | \
         paste-col.py --header "VariantCaller" -v "${caller}" > \
         "${reformat_tsv}"
         """
@@ -2319,17 +2493,18 @@ vcf_tsv_pairs.choice( pairs_vcfs_tsvs_good, pairs_vcfs_tsvs_bad ){ items ->
     def tumorID = items[2]
     def normalID = items[3]
     def chrom = items[4]
-    def sample_vcf = items[5]
-    def sample_tsv = items[6]
+    def type = items[5]
+    def sample_vcf = items[6]
+    def sample_tsv = items[7]
     def output = 1 // bad by default
     long count = Files.lines(sample_tsv).count()
     if (count > 1) output = 0 // good if has >1 lines
     return(output)
 }
 
-pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chrom, sample_vcf, sample_tsv ->
+pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chrom, type, sample_vcf, sample_tsv ->
     def reason = "Too few lines in sample_tsv, skipping annotation"
-    def output = [comparisonID, tumorID, normalID, chrom, caller, reason, "${sample_vcf},${sample_tsv}"].join('\t')
+    def output = [comparisonID, tumorID, normalID, chrom, type, caller, reason, "${sample_vcf},${sample_tsv}"].join('\t')
     return(output)
 }.set { pairs_vcfs_tsvs_bad_logs }
 
@@ -2412,7 +2587,7 @@ process annotate_pairs {
     publishDir "${params.outputDir}/annotations/${caller}", mode: 'copy', pattern: "*${annotations_tsv}"
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from pairs_vcfs_tsvs_good.combine(annovar_db_dir2)
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), val(type), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from pairs_vcfs_tsvs_good.combine(annovar_db_dir2)
 
     output:
     file("${annotations_tsv}") into annotations_tables_pairs
@@ -2423,13 +2598,33 @@ process annotate_pairs {
     val(comparisonID) into done_annotate_pairs
 
     script:
-    prefix = "${comparisonID}.${chrom}.${caller}"
+    prefix = "${comparisonID}.${chrom}.${caller}.${type}"
     avinput_file = "${prefix}.avinput"
     avinput_tsv = "${prefix}.avinput.tsv"
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
     annovar_output_vcf = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.vcf"
     annotations_tsv = "${prefix}.annotations.tsv"
     if( caller == 'MuTect2' )
+        """
+        # annotate .vcf
+        table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
+        --buildver "${params.ANNOVAR_BUILD_VERSION}" \
+        --remove \
+        --protocol "${params.ANNOVAR_PROTOCOL}" \
+        --operation "${params.ANNOVAR_OPERATION}" \
+        --nastring . \
+        --vcfinput \
+        --onetranscript \
+        --outfile "${prefix}"
+
+        # get values from .avinput file
+        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
+        cut -f1-5,9-13 ${avinput_file} >>  "${avinput_tsv}"
+
+        # merge the tables together
+        merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tsv}"
+        """
+    else if( caller == "LoFreqSomatic" )
         """
         # annotate .vcf
         table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
@@ -2689,7 +2884,7 @@ process cnvkit {
     publishDir "${params.outputDir}/cnv", mode: 'copy'
 
     input:
-    set val(comparisonID), val(tumorID), file(tumorBam), val(normalID), file(normalBam), file(ref_fasta13), file(ref_fai13), file(ref_dict13), file(targets_refFlat_bed) from samples_bam_ref_targets
+    set val(comparisonID), val(tumorID), file(tumorBam), val(normalID), file(normalBam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_refFlat_bed) from samples_bam_ref_targets
 
     output:
     file("${output_cns}")
@@ -2712,7 +2907,7 @@ process cnvkit {
     cnvkit.py batch "${tumorBam}" \
     --normal "${normalBam}" \
     --targets "${targets_refFlat_bed}" \
-    --fasta "${ref_fasta13}" \
+    --fasta "${ref_fasta}" \
     --output-reference "${normal_reference}" \
     -p \${NSLOTS:-\${NTHREADS:-1}}
 
