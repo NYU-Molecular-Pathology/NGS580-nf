@@ -132,6 +132,7 @@ def samplesheet_output_file = 'samplesheet.tsv'
 def sample_coverage_file = "coverage.samples.tsv"
 def interval_coverage_file = "coverage.intervals.tsv"
 def signatures_weights_file = "signatures.weights.tsv"
+def targets_annotations_file = "targets.annotations.tsv"
 
 // load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
 String filemapJSON = new File("filemap.json").text
@@ -162,7 +163,7 @@ Channel.fromPath( file(targetsBed) ).set{ targets_bed } // TODO: why is this her
 Channel.fromPath( file(targetsRefFlatBed) ).set{ targets_refFlat_bed }
 
 // reference files
-Channel.fromPath( file(targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8; targets_bed9 }
+Channel.fromPath( file(targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8; targets_bed9; targets_bed10 }
 
 Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12; ref_fasta13; ref_fasta14 }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12; ref_fai13; ref_fai14 }
@@ -187,7 +188,7 @@ Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref
 Channel.fromPath( file(params.cosmic_ref_vcf_idx) ).into{ cosmic_ref_vcf_idx; cosmic_ref_vcf_idx2 }
 
 Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
-Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_db_dir2; annovar_db_dir3 }
+Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_db_dir2; annovar_db_dir3; annovar_db_dir4 }
 
 // report and output dir
 Channel.fromPath("${outputDirPath}").into { analysis_output; analysis_output2 }
@@ -334,6 +335,45 @@ process targets_metrics {
 
     printf 'Targets File\tNumber of Targets\tNumber of Merged Targets\tBreadth Of Coverage (Mbp)\tBreadth Of Coverage (bp)\tmd5\n' > "${targets_metrics}"
     printf "\${targets_filename}\t\${num_targets}\t\${num_merged_targets}\t\${targets_coverage_Mbp}\t\${targets_coverage_bp}\t\${targets_md5}\n" >> "${targets_metrics}"
+    """
+}
+
+target_ANNOVAR_BUILD_VERSION = "hg19"
+target_ANNOVAR_PROTOCOL = "refGene"
+target_ANNOVAR_OPERATION = "g"
+process annotate_targets {
+    // annotate the target.bed regions
+    input:
+    set file(targets_bed), file(annovar_db_dir) from targets_bed10.combine(annovar_db_dir4)
+
+    output:
+    file("${output_file}") into annotated_targets
+
+    script:
+    prefix = "targets"
+    interval_tmp = "${prefix}.intervals.tmp"
+    remainder_tsv = "${prefix}.remainder.tsv"
+    avinput_file = "${prefix}.avinput"
+    annovar_output_txt = "${prefix}.${target_ANNOVAR_BUILD_VERSION}_multianno.txt"
+    output_file = "${targets_annotations_file}"
+    """
+    # convert table to ANNOVAR format for annotation; http://annovar.openbioinformatics.org/en/latest/user-guide/input/
+    # add '0' cols for ref and alt
+    cut -f1-3 "${targets_bed}" > "${avinput_file}"
+    sed -e 's|\$|\t0|' -i "${avinput_file}"
+    sed -e 's|\$|\t0|' -i "${avinput_file}"
+
+    # annotate
+    table_annovar.pl "${avinput_file}" "${annovar_db_dir}" \
+    --buildver "${target_ANNOVAR_BUILD_VERSION}" \
+    --remove \
+    --protocol "${target_ANNOVAR_PROTOCOL}" \
+    --operation "${target_ANNOVAR_OPERATION}" \
+    --nastring . \
+    --onetranscript \
+    --outfile "${prefix}"
+    
+    mv "${annovar_output_txt}" "${output_file}"
     """
 }
 
@@ -2400,7 +2440,7 @@ process update_collect_annotation_tables {
     file(table) from collected_annotation_tables
 
     output:
-    file("${output_file}") into all_annotations_file_ch
+    file("${output_file}") into (all_annotations_file_ch, all_annotations_file_ch2)
     val('') into done_update_collect_annotation_tables
 
     script:
@@ -2416,6 +2456,21 @@ process update_collect_annotation_tables {
     """
 }
 
+process split_annotation_table {
+    // create a separate annotation table file for each variant caller
+    publishDir "${params.outputDir}/annotations", mode: 'copy'
+
+    input:
+    file(".annotations.tsv") from all_annotations_file_ch2
+
+    output:
+    file("*")
+
+    script:
+    """
+    split-annotation-table.py ".annotations.tsv"
+    """
+}
 
 // ~~~~ Tumor Burden Analysis ~~~~ //
 samples_dd_ra_rc_bam4.combine(ref_fasta10)
@@ -2847,6 +2902,7 @@ process custom_analysis_report {
     file(targets_metrics_table) from targets_metrics_ch
     file(failed_log) from failed_log_ch
     file(failed_pairs_log) from failed_pairs_log_ch
+    file(targets_annotations_file) from annotated_targets
 
     output:
     file("${html_output}")
@@ -2877,7 +2933,8 @@ process custom_analysis_report {
         dedup_flagstat_table = "${dedup_flagstat_table}",
         targets_metrics_table = "${targets_metrics_table}",
         failed_log = "${failed_log}",
-        failed_pairs_log = "${failed_pairs_log}"
+        failed_pairs_log = "${failed_pairs_log}",
+        targets_annotations_file = "${targets_annotations_file}"
         ),
     output_format = "html_document",
     output_file = "${html_output}")

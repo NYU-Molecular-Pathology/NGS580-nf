@@ -29,6 +29,7 @@ params:
   targets_metrics_table: targets.metrics.tsv
   failed_log: failed.tsv
   failed_pairs_log: failed.pairs.tsv
+  targets_annotations_file: targets.annotations.tsv
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report
