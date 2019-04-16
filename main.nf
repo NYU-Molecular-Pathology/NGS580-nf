@@ -163,24 +163,104 @@ Channel.fromPath( file(targetsBed) ).set{ targets_bed } // TODO: why is this her
 Channel.fromPath( file(targetsRefFlatBed) ).set{ targets_refFlat_bed }
 
 // reference files
-Channel.fromPath( file(targetsBed) ).into { targets_bed; targets_bed2; targets_bed3; targets_bed4; targets_bed5; targets_bed6; targets_bed7; targets_bed8; targets_bed9; targets_bed10 }
+Channel.fromPath( file(targetsBed) ).into { targets_bed;
+    targets_bed2;
+    targets_bed3;
+    targets_bed4;
+    targets_bed5;
+    targets_bed6;
+    targets_bed7;
+    targets_bed8;
+    targets_bed9;
+    targets_bed10 }
 
-Channel.fromPath( file(params.ref_fa) ).into { ref_fasta; ref_fasta2; ref_fasta3; ref_fasta4; ref_fasta5; ref_fasta6; ref_fasta7; ref_fasta8; ref_fasta9; ref_fasta10; ref_fasta11; ref_fasta12; ref_fasta13; ref_fasta14; ref_fasta15; ref_fasta16 }
-Channel.fromPath( file(params.ref_fai) ).into { ref_fai; ref_fai2; ref_fai3; ref_fai4; ref_fai5; ref_fai6; ref_fai7; ref_fai8; ref_fai9; ref_fai10; ref_fai11; ref_fai12; ref_fai13; ref_fai14; ref_fai15; ref_fai16 }
-Channel.fromPath( file(params.ref_dict) ).into { ref_dict; ref_dict2; ref_dict3; ref_dict4; ref_dict5; ref_dict6; ref_dict7; ref_dict8; ref_dict9; ref_dict10; ref_dict11; ref_dict12; ref_dict13; ref_dict14; ref_dict15; ref_dict16 }
+Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
+    ref_fasta2;
+    ref_fasta3;
+    ref_fasta4;
+    ref_fasta5;
+    ref_fasta6;
+    ref_fasta7;
+    ref_fasta8;
+    ref_fasta9;
+    ref_fasta10;
+    ref_fasta11;
+    ref_fasta12;
+    ref_fasta13;
+    ref_fasta14;
+    ref_fasta15;
+    ref_fasta16 }
+Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
+    ref_fai2;
+    ref_fai3;
+    ref_fai4;
+    ref_fai5;
+    ref_fai6;
+    ref_fai7;
+    ref_fai8;
+    ref_fai9;
+    ref_fai10;
+    ref_fai11;
+    ref_fai12;
+    ref_fai13;
+    ref_fai14;
+    ref_fai15;
+    ref_fai16 }
+Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
+    ref_dict2;
+    ref_dict3;
+    ref_dict4;
+    ref_dict5;
+    ref_dict6;
+    ref_dict7;
+    ref_dict8;
+    ref_dict9;
+    ref_dict10;
+    ref_dict11;
+    ref_dict12;
+    ref_dict13;
+    ref_dict14;
+    ref_dict15;
+    ref_dict16 }
 
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
 Channel.fromPath( file(params.ref_fa_bwa_dir) ).set{ ref_fa_bwa_dir }
 
-Channel.fromPath( file(params.gatk_1000G_phase1_indels_hg19_vcf) ).into{ gatk_1000G_phase1_indels_vcf; gatk_1000G_phase1_indels_vcf2; gatk_1000G_phase1_indels_vcf3; gatk_1000G_phase1_indels_vcf4 }
-Channel.fromPath( file(params.gatk_1000G_phase1_indels_hg19_vcf_idx) ).into{ gatk_1000G_phase1_indels_vcf_idx; gatk_1000G_phase1_indels_vcf_idx2; gatk_1000G_phase1_indels_vcf_idx3; gatk_1000G_phase1_indels_vcf_idx4 }
+Channel.fromPath( file(params.gatk_1000G_phase1_indels_hg19_vcf) ).into{ gatk_1000G_phase1_indels_vcf;
+    gatk_1000G_phase1_indels_vcf2;
+    gatk_1000G_phase1_indels_vcf3;
+    gatk_1000G_phase1_indels_vcf4 }
+Channel.fromPath( file(params.gatk_1000G_phase1_indels_hg19_vcf_idx) ).into{ gatk_1000G_phase1_indels_vcf_idx;
+    gatk_1000G_phase1_indels_vcf_idx2;
+    gatk_1000G_phase1_indels_vcf_idx3;
+    gatk_1000G_phase1_indels_vcf_idx4 }
 
-Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf) ).into{ mills_and_1000G_gold_standard_indels_vcf; mills_and_1000G_gold_standard_indels_vcf2; mills_and_1000G_gold_standard_indels_vcf3; mills_and_1000G_gold_standard_indels_vcf4 }
-Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf_idx) ).into{ mills_and_1000G_gold_standard_indels_vcf_idx; mills_and_1000G_gold_standard_indels_vcf_idx2; mills_and_1000G_gold_standard_indels_vcf_idx3; mills_and_1000G_gold_standard_indels_vcf_idx4 }
+Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf) ).into{ mills_and_1000G_gold_standard_indels_vcf;
+    mills_and_1000G_gold_standard_indels_vcf2;
+    mills_and_1000G_gold_standard_indels_vcf3;
+    mills_and_1000G_gold_standard_indels_vcf4 }
+Channel.fromPath( file(params.mills_and_1000G_gold_standard_indels_hg19_vcf_idx) ).into{ mills_and_1000G_gold_standard_indels_vcf_idx;
+    mills_and_1000G_gold_standard_indels_vcf_idx2;
+    mills_and_1000G_gold_standard_indels_vcf_idx3;
+    mills_and_1000G_gold_standard_indels_vcf_idx4 }
 
-Channel.fromPath( file(params.dbsnp_ref_vcf) ).into{ dbsnp_ref_vcf; dbsnp_ref_vcf2; dbsnp_ref_vcf3; dbsnp_ref_vcf4; dbsnp_ref_vcf5; dbsnp_ref_vcf6; dbsnp_ref_vcf7; dbsnp_ref_vcf8 }
-Channel.fromPath( file(params.dbsnp_ref_vcf_idx) ).into{ dbsnp_ref_vcf_idx; dbsnp_ref_vcf_idx2; dbsnp_ref_vcf_idx3; dbsnp_ref_vcf_idx4; dbsnp_ref_vcf_idx5; dbsnp_ref_vcf_idx6; dbsnp_ref_vcf_idx7; dbsnp_ref_vcf_idx8 }
+Channel.fromPath( file(params.dbsnp_ref_vcf) ).into{ dbsnp_ref_vcf;
+    dbsnp_ref_vcf2;
+    dbsnp_ref_vcf3;
+    dbsnp_ref_vcf4;
+    dbsnp_ref_vcf5;
+    dbsnp_ref_vcf6;
+    dbsnp_ref_vcf7;
+    dbsnp_ref_vcf8 }
+Channel.fromPath( file(params.dbsnp_ref_vcf_idx) ).into{ dbsnp_ref_vcf_idx;
+    dbsnp_ref_vcf_idx2;
+    dbsnp_ref_vcf_idx3;
+    dbsnp_ref_vcf_idx4;
+    dbsnp_ref_vcf_idx5;
+    dbsnp_ref_vcf_idx6;
+    dbsnp_ref_vcf_idx7;
+    dbsnp_ref_vcf_idx8 }
 Channel.fromPath( file(params.dbsnp_ref_vcf_gz) ).set { dbsnp_ref_vcf_gz }
 Channel.fromPath( file(params.dbsnp_ref_vcf_gz_tbi) ).set { dbsnp_ref_vcf_gz_tbi }
 
@@ -188,7 +268,10 @@ Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref
 Channel.fromPath( file(params.cosmic_ref_vcf_idx) ).into{ cosmic_ref_vcf_idx; cosmic_ref_vcf_idx2 }
 
 Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
-Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir; annovar_db_dir2; annovar_db_dir3; annovar_db_dir4 }
+Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir;
+    annovar_db_dir2;
+    annovar_db_dir3;
+    annovar_db_dir4 }
 
 // report and output dir
 Channel.fromPath("${outputDirPath}").into { analysis_output; analysis_output2 }
