@@ -2205,7 +2205,7 @@ process update_collect_annotation_tables {
     file(table) from collected_annotation_tables
 
     output:
-    file("${output_file}") into all_annotations_file_ch
+    file("${output_file}") into (all_annotations_file_ch, all_annotations_file_ch2)
     val('') into done_update_collect_annotation_tables
 
     script:
@@ -2221,6 +2221,21 @@ process update_collect_annotation_tables {
     """
 }
 
+process split_annotation_table {
+    // create a separate annotation table file for each variant caller
+    publishDir "${params.outputDir}/annotations", mode: 'copy'
+
+    input:
+    file(".annotations.tsv") from all_annotations_file_ch2
+
+    output:
+    file("*")
+
+    script:
+    """
+    split-annotation-table.py ".annotations.tsv"
+    """
+}
 
 // ~~~~ Tumor Burden Analysis ~~~~ //
 samples_dd_ra_rc_bam4.combine(ref_fasta10)
