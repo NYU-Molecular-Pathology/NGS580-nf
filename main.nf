@@ -455,7 +455,7 @@ process annotate_targets {
     --nastring . \
     --onetranscript \
     --outfile "${prefix}"
-    
+
     mv "${annovar_output_txt}" "${output_file}"
     """
 }
@@ -1486,7 +1486,7 @@ process gatk_hc {
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx) from samples_dd_ra_rc_bam_ref_dbsnp2
 
     output:
-    set val(caller), val(sampleID), file("${filtered_vcf}") into sample_vcf_hc
+    set val(caller), val(sampleID), file("${filtered_vcf}") into sample_vcf_hc // to genomic signatures
     set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into sample_vcf_hc2
     set val(caller), val(sampleID), file("${filtered_vcf}") into sample_vcf_hc3
     file("${vcf_file}")
@@ -1555,36 +1555,6 @@ process gatk_hc {
     """
 }
 
-sample_vcf_hc3.mix(samples_lofreq_vcf2)
-                .combine(dbsnp_ref_vcf4)
-                .combine(dbsnp_ref_vcf_idx4)
-                .combine(ref_fasta4)
-                .combine(ref_fai4)
-                .combine(ref_dict4)
-                .set { samples_filtered_vcfs }
-process eval_sample_vcf {
-    // calcaulte variant metrics
-    publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${eval_file}"
-
-    input:
-    set val(caller), val(sampleID), file(sample_vcf), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx), file(ref_fasta), file(ref_fai), file(ref_dict4) from samples_filtered_vcfs
-
-    output:
-    file("${eval_file}")
-    val("${sampleID}") into done_eval_sample_vcf
-
-    script:
-    prefix = "${sampleID}.${caller}"
-    eval_file = "${prefix}.eval.grp"
-    """
-    gatk.sh -T VariantEval \
-    -R "${ref_fasta}" \
-    -o "${eval_file}" \
-    --dbsnp "${dbsnp_ref_vcf}" \
-    --eval "${sample_vcf}"
-    """
-}
-
 process varscan_snp {
     // https://docs.gdc.cancer.gov/Data/Bioinformatics_Pipelines/DNA_Seq_Variant_Calling_Pipeline/
     // https://www.biostars.org/p/93673/
@@ -1592,16 +1562,16 @@ process varscan_snp {
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy', pattern: "*${norm_vcf}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${multiallelics_stats}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${realign_stats}"
-    
+
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref9
-    
+
     output:
     file("${vcf_snp_output}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
     set val(caller), val(type), val(sampleID), file("${norm_vcf}") into varscan_snp_vcfs
-    
+
     script:
     caller = "VarScan2"
     type = "snp"
@@ -1626,14 +1596,14 @@ process varscan_snp {
     --p-value 0.99 \
     --strand-filter 1 \
     --output-vcf > "${vcf_snp_output}"
-    
+
     # normalize and split vcf entries
     cat ${vcf_snp_output} | \
     bcftools norm --multiallelics -both --output-type v - 2>"${multiallelics_stats}" | \
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
     """
-    
+
 }
 
 process varscan_indel {
@@ -1641,10 +1611,10 @@ process varscan_indel {
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy', pattern: "*${norm_vcf}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${multiallelics_stats}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${realign_stats}"
-    
+
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref10
-    
+
     output:
     file("${vcf_indel_output}")
     file("${multiallelics_stats}")
@@ -1676,7 +1646,7 @@ process varscan_indel {
     --p-value 0.99 \
     --strand-filter 1 \
     --output-vcf > "${vcf_indel_output}"
-    
+
     # normalize and split vcf entries
     cat ${vcf_indel_output} | \
     bcftools norm --multiallelics -both --output-type v - 2>"${multiallelics_stats}" | \
@@ -1694,13 +1664,13 @@ varscan_snp_vcfs.mix(varscan_indel_vcfs)
 process filter_vcf {
     // filter .vcf files; currently LoFreq and HaplotypeCaller already have this bundled in their processes but that needs to be changed...
     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
-    
+
     input:
-    set val(caller), val(type), val(sampleID), file(vcf) file(ref_fasta), file(ref_fai), file(ref_dict) from unpaired_vcfs_ref
-    
+    set val(caller), val(type), val(sampleID), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from unpaired_vcfs_ref
+
     output:
-    set val(caller), val(type), val(sampleID), file("${filtered_vcf}") into filtered_vcfs // to tsv
-    
+    set val(caller), val(type), val(sampleID), file("${filtered_vcf}") into (filtered_vcfs, filtered_vcfs2) // to tsv
+
     script:
     prefix = "${sampleID}.${type}.${caller}"
     filtered_vcf = "${prefix}.filtered.vcf"
@@ -1722,13 +1692,13 @@ process vcf_to_tsv {
     // convert .vcf to .tsv; currently LoFreq and HaplotypeCaller already have this bundled in their processes but that needs to be changed...
     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
-    
+
     input:
     set val(caller), val(type), val(sampleID), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from filtered_vcfs.combine(ref_fasta15).combine(ref_fai15).combine(ref_dict15)
 
     output:
     set val(caller), val(type), val(sampleID), file(vcf), file("${reformat_tsv}") into vcf_tsvs // to annotation
-    
+
     script:
     prefix = "${sampleID}.${type}.${caller}"
     tsv_file = "${prefix}.tsv"
@@ -1737,7 +1707,7 @@ process vcf_to_tsv {
         """
         gatk.sh -T VariantsToTable \
         -R "${ref_fasta}" \
-        -V "${filtered_vcf}" \
+        -V "${vcf}" \
         -F CHROM \
         -F POS \
         -F ID \
@@ -1751,16 +1721,23 @@ process vcf_to_tsv {
         -GF RBQ \
         -GF ABQ \
         -o "${tsv_file}"
+
+        # reformat and adjust the TSV table for consistency downstream
+        # for VarScan, just remove the sample ID from the headers...
+        head -1 "${tsv_file}" | \
+        sed -e 's|${sampleID}.||g' > "${reformat_tsv}.tmp"
+        tail -n +2 "${tsv_file}" >> "${reformat_tsv}.tmp"
+
+        # add extra columns to the VCF TSV file for downstream
+        cat "${reformat_tsv}.tmp" | \
+        paste-col.py --header "Sample" -v "${sampleID}"  | \
+        paste-col.py --header "VariantCaller" -v "${caller}" > \
+        "${reformat_tsv}"
         """
-        // -GF AD -GF DP -GF AF \
         // # reformat and adjust the TSV table for consistency downstream
         // # add extra columns to the VCF TSV file for downstream
         // reformat-vcf-table.py -c LoFreq -s "${sampleID}" -i "${tsv_file}" | \
-        // paste-col.py --header "Sample" -v "${sampleID}"  | \
-        // paste-col.py --header "VariantCaller" -v "${caller}" > \
-        // "${reformat_tsv}"
-        
-        // indel
+
         // ##fileformat=VCFv4.1
         // ##source=VarScan2
         // ##INFO=<ID=ADP,Number=1,Type=Integer,Description="Average per-sample depth of bases with Phred score >= 15">
@@ -1784,37 +1761,45 @@ process vcf_to_tsv {
         // ##FORMAT=<ID=RDR,Number=1,Type=Integer,Description="Depth of reference-supporting bases on reverse strand (reads1minus)">
         // ##FORMAT=<ID=ADF,Number=1,Type=Integer,Description="Depth of variant-supporting bases on forward strand (reads2plus)">
         // ##FORMAT=<ID=ADR,Number=1,Type=Integer,Description="Depth of variant-supporting bases on reverse strand (reads2minus)">
-        // #CHROM  POS     ID      REF     ALT     QUAL    FILTER  INFO    FORMAT  Sample1
-        // chr1    2985826 .       G       A       .       PASS    ADP=136;WT=0;HET=1;HOM=0;NC=0   GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR    0/1:0:136:136:134:2:1.47%:9.8E-1:62:53:125:9:2:0
-        
-        // snp
-        // ##fileformat=VCFv4.1
-        // ##source=VarScan2
-        // ##INFO=<ID=ADP,Number=1,Type=Integer,Description="Average per-sample depth of bases with Phred score >= 15">
-        // ##INFO=<ID=WT,Number=1,Type=Integer,Description="Number of samples called reference (wild-type)">
-        // ##INFO=<ID=HET,Number=1,Type=Integer,Description="Number of samples called heterozygous-variant">
-        // ##INFO=<ID=HOM,Number=1,Type=Integer,Description="Number of samples called homozygous-variant">
-        // ##INFO=<ID=NC,Number=1,Type=Integer,Description="Number of samples not called">
-        // ##FILTER=<ID=str10,Description="Less than 10% or more than 90% of variant supporting reads on one strand">
-        // ##FILTER=<ID=indelError,Description="Likely artifact due to indel reads at this position">
-        // ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-        // ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
-        // ##FORMAT=<ID=SDP,Number=1,Type=Integer,Description="Raw Read Depth as reported by SAMtools">
-        // ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Quality Read Depth of bases with Phred score >= 15">
-        // ##FORMAT=<ID=RD,Number=1,Type=Integer,Description="Depth of reference-supporting bases (reads1)">
-        // ##FORMAT=<ID=AD,Number=1,Type=Integer,Description="Depth of variant-supporting bases (reads2)">
-        // ##FORMAT=<ID=FREQ,Number=1,Type=String,Description="Variant allele frequency">
-        // ##FORMAT=<ID=PVAL,Number=1,Type=String,Description="P-value from Fisher's Exact Test">
-        // ##FORMAT=<ID=RBQ,Number=1,Type=Integer,Description="Average quality of reference-supporting bases (qual1)">
-        // ##FORMAT=<ID=ABQ,Number=1,Type=Integer,Description="Average quality of variant-supporting bases (qual2)">
-        // ##FORMAT=<ID=RDF,Number=1,Type=Integer,Description="Depth of reference-supporting bases on forward strand (reads1plus)">
-        // ##FORMAT=<ID=RDR,Number=1,Type=Integer,Description="Depth of reference-supporting bases on reverse strand (reads1minus)">
-        // ##FORMAT=<ID=ADF,Number=1,Type=Integer,Description="Depth of variant-supporting bases on forward strand (reads2plus)">
-        // ##FORMAT=<ID=ADR,Number=1,Type=Integer,Description="Depth of variant-supporting bases on reverse strand (reads2minus)">
-        // #CHROM  POS     ID      REF     ALT     QUAL    FILTER  INFO    FORMAT  Sample1
-        // chr1    2985826 .       G       A       .       PASS    ADP=136;WT=0;HET=1;HOM=0;NC=0   GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR    0/1:0:136:136:134:2:1.47%:9.8E-1:62:53:125:9:2:0
+
     else
         error "Invalid caller: ${caller}"
+}
+
+sample_vcf_hc3.mix(samples_lofreq_vcf2)
+    .map{ caller, sampleID, vcf ->
+        // refactor to add type for downstream
+        def type = "NA"
+        return([ caller, type, sampleID, vcf ])
+    }
+    .mix(filtered_vcfs2)
+    .combine(dbsnp_ref_vcf4)
+    .combine(dbsnp_ref_vcf_idx4)
+    .combine(ref_fasta4)
+    .combine(ref_fai4)
+    .combine(ref_dict4)
+    .set { samples_filtered_vcfs }
+process eval_sample_vcf {
+    // calcaulte variant metrics
+    publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${eval_file}"
+
+    input:
+    set val(caller), val(type), val(sampleID), file(sample_vcf), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx), file(ref_fasta), file(ref_fai), file(ref_dict4) from samples_filtered_vcfs
+
+    output:
+    file("${eval_file}")
+    val("${sampleID}") into done_eval_sample_vcf
+
+    script:
+    prefix = "${sampleID}.${caller}"
+    eval_file = "${prefix}.eval.grp"
+    """
+    gatk.sh -T VariantEval \
+    -R "${ref_fasta}" \
+    -o "${eval_file}" \
+    --dbsnp "${dbsnp_ref_vcf}" \
+    --eval "${sample_vcf}"
+    """
 }
 
 
@@ -2550,21 +2535,28 @@ samples_vcfs_tsvs_bad = Channel.create()
 pairs_vcfs_tsvs_good = Channel.create()
 pairs_vcfs_tsvs_bad = Channel.create()
 
-samples_lofreq_vcf.concat(sample_vcf_hc2).set { samples_vcfs_tsvs }
+samples_lofreq_vcf.mix(sample_vcf_hc2)
+    .map{ caller, sampleID, vcf, tsv->
+        // refactor to add type for downstream
+        def type = "NA"
+        return([ caller, type, sampleID, vcf, tsv ])
+    }
+.set { samples_vcfs_tsvs }
 
 // filter out samples with empty variant tables
 samples_vcfs_tsvs.choice( samples_vcfs_tsvs_good, samples_vcfs_tsvs_bad ){ items ->
     def caller =  items[0]
-    def sampleID =  items[1]
-    def sample_vcf =  items[2]
-    def sample_tsv =  items[3]
+    def type = items[1]
+    def sampleID =  items[2]
+    def sample_vcf =  items[3]
+    def sample_tsv =  items[4]
     def output = 1 // bad by default
     long count = Files.lines(sample_tsv).count()
     if (count > 1) output = 0 // good if has >1 lines
     return(output)
 }
 
-samples_vcfs_tsvs_bad.map { caller, sampleID, sample_vcf, sample_tsv ->
+samples_vcfs_tsvs_bad.map { caller, type, sampleID, sample_vcf, sample_tsv ->
     def reason = "Too few lines in sample_tsv, skipping annotation"
     def output = [sampleID, caller, reason, "${sample_vcf},${sample_tsv}"].join('\t')
     return(output)
@@ -2596,17 +2588,17 @@ process annotate {
     publishDir "${params.outputDir}/annotations/${caller}", mode: 'copy', pattern: "*${annotations_tsv}"
 
     input:
-    set val(caller), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_vcfs_tsvs_good.combine(annovar_db_dir)
+    set val(caller), val(type), val(sampleID), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from samples_vcfs_tsvs_good.combine(annovar_db_dir)
 
     output:
     file("${annotations_tsv}") into annotations_tables
-    set val(sampleID), val(caller), file("${annotations_tsv}") into annotations_annovar_tables
+    set val(sampleID), val(caller), val(type), file("${annotations_tsv}") into annotations_annovar_tables
     file("${avinput_file}")
     file("${avinput_tsv}")
     val(sampleID) into done_annotate
 
     script:
-    prefix = "${sampleID}.${caller}"
+    prefix = "${sampleID}.${type}.${caller}"
     avinput_file = "${prefix}.avinput"
     avinput_tsv = "${prefix}.avinput.tsv"
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
@@ -2853,7 +2845,7 @@ process callable_loci_table {
 }
 
 // only keep files with at least 1 variant for TMB analysis
-annotations_annovar_tables.filter { sampleID, caller, anno_tsv ->
+annotations_annovar_tables.filter { sampleID, caller, type, anno_tsv ->
     def count = anno_tsv.readLines().size()
     count > 1
 }.set { annotations_annovar_tables_filtered }
@@ -2863,15 +2855,15 @@ process tmb_filter_variants {
     publishDir "${params.outputDir}/tmb/${caller}/variants", mode: 'copy', pattern: "*${output_variants}"
 
     input:
-    set val(sampleID), val(caller), file(anno_tsv) from annotations_annovar_tables_filtered
+    set val(sampleID), val(caller), val(type), file(anno_tsv) from annotations_annovar_tables_filtered
 
     output:
     file("${output_Rdata}")
     file("${output_variants}") into tmb_filtered_variants
-    set val(sampleID), val(caller), file("${output_variants}") into tmb_filtered_variants2
+    set val(sampleID), val(caller), val(type), file("${output_variants}") into tmb_filtered_variants2
 
     script:
-    prefix = "${sampleID}.${caller}"
+    prefix = "${sampleID}.${type}.${caller}"
     output_Rdata = "${prefix}.tmb_filter_variants.Rdata"
     output_variants = "${prefix}.annotations.tmb_filtered.tsv"
     tmpFile = "tmp"
@@ -2890,16 +2882,16 @@ loci_tables2.map{ sampleID, summary_table, callable_txt ->
 }
 // combine against the filtered tmb variants
 .combine(tmb_filtered_variants2)
-.filter{ sampleID_loci, loci_summary_table, callable_loci, sampleID_anno, caller, filtered_annotations ->
+.filter{ sampleID_loci, loci_summary_table, callable_loci, sampleID_anno, caller, type, filtered_annotations ->
     // only keep the matches between channels
     sampleID_anno == sampleID_loci
 }
-.map{ sampleID_loci, loci_summary_table, callable_loci, sampleID_anno, caller, filtered_annotations ->
+.map{ sampleID_loci, loci_summary_table, callable_loci, sampleID_anno, caller, type, filtered_annotations ->
     // read the number of variants from the file
     def num_variants = filtered_annotations.readLines().size() - 1
-    return([sampleID_loci, caller, callable_loci, num_variants])
+    return([sampleID_loci, caller, type, callable_loci, num_variants])
 }
-.filter{ sampleID_loci, caller, callable_loci, num_variants ->
+.filter{ sampleID_loci, caller, type, callable_loci, num_variants ->
     // only keep samples that had callable loci
     callable_loci > 0
 }
@@ -2909,13 +2901,13 @@ process calculate_tmb {
     publishDir "${params.outputDir}/tmb/${caller}/values", mode: 'copy', pattern: "*${output_tmb}"
 
     input:
-    set val(sampleID), val(caller), val(loci), val(variants) from loci_annotations
+    set val(sampleID), val(caller), val(type), val(loci), val(variants) from loci_annotations
 
     output:
     file("${output_tmb}") into tmbs
 
     script:
-    prefix = "${sampleID}.${caller}"
+    prefix = "${sampleID}.${type}.${caller}"
     output_tmb = "${prefix}.tmb.tsv"
     """
     tmb=\$( calc-tmb.py ${variants} ${loci} )
