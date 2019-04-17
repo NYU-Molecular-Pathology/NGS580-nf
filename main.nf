@@ -2675,31 +2675,18 @@ vcf_tsv_pairs.choice( pairs_vcfs_tsvs_good, pairs_vcfs_tsvs_bad ){ items ->
     def comparisonID = items[1]
     def tumorID = items[2]
     def normalID = items[3]
-<<<<<<< HEAD
-    def chrom = items[4]
-    def type = items[5]
-    def sample_vcf = items[6]
-    def sample_tsv = items[7]
-=======
     def chunkLabel = items[4]
     def sample_vcf = items[5]
     def sample_tsv = items[6]
->>>>>>> origin/line-split
     def output = 1 // bad by default
     long count = Files.lines(sample_tsv).count()
     if (count > 1) output = 0 // good if has >1 lines
     return(output)
 }
 
-<<<<<<< HEAD
-pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chrom, type, sample_vcf, sample_tsv ->
-    def reason = "Too few lines in sample_tsv, skipping annotation"
-    def output = [comparisonID, tumorID, normalID, chrom, type, caller, reason, "${sample_vcf},${sample_tsv}"].join('\t')
-=======
 pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chunkLabel, sample_vcf, sample_tsv ->
     def reason = "Too few lines in sample_tsv, skipping annotation"
     def output = [comparisonID, tumorID, normalID, chunkLabel, caller, reason, "${sample_vcf},${sample_tsv}"].join('\t')
->>>>>>> origin/line-split
     return(output)
 }.set { pairs_vcfs_tsvs_bad_logs }
 
@@ -2804,11 +2791,7 @@ process annotate_pairs {
     publishDir "${params.outputDir}/annotations/${caller}", mode: 'copy', pattern: "*${annotations_tsv}"
 
     input:
-<<<<<<< HEAD
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), val(type), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from pairs_vcfs_tsvs_good.combine(annovar_db_dir2)
-=======
     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from pairs_vcfs_tsvs_good.combine(annovar_db_dir2)
->>>>>>> origin/line-split
 
     output:
     file("${annotations_tsv}") into annotations_tables_pairs
@@ -2819,11 +2802,7 @@ process annotate_pairs {
     val(comparisonID) into done_annotate_pairs
 
     script:
-<<<<<<< HEAD
-    prefix = "${comparisonID}.${chrom}.${caller}.${type}"
-=======
     prefix = "${comparisonID}.${chunkLabel}.${caller}"
->>>>>>> origin/line-split
     avinput_file = "${prefix}.avinput"
     avinput_tsv = "${prefix}.avinput.tsv"
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
