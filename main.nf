@@ -1857,6 +1857,7 @@ process vcf_to_tsv {
         error "Invalid caller: ${caller}"
 }
 
+disable_eval_sample_vcf = true
 filtered_vcfs2.combine(dbsnp_ref_vcf4)
     .combine(dbsnp_ref_vcf_idx4)
     .combine(ref_fasta4)
@@ -1865,6 +1866,8 @@ filtered_vcfs2.combine(dbsnp_ref_vcf4)
     .set { samples_filtered_vcfs }
 process eval_sample_vcf {
     // calcaulte variant metrics
+    // do we even use this? It takes forever to run and has no downstream dependencies so just disable it for now.
+    // only really used for MultQC which is also disabled.
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${eval_file}"
 
     input:
@@ -1873,6 +1876,9 @@ process eval_sample_vcf {
     output:
     file("${eval_file}")
     val("${sampleID}") into done_eval_sample_vcf
+    
+    when:
+    disable_eval_sample_vcf != true
 
     script:
     prefix = "${sampleID}.${caller}"
@@ -2438,7 +2444,7 @@ process filter_vcf_pairs {
     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from vcfs_mutect2.combine(ref_fasta17).combine(ref_fai17).combine(ref_dict17)
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from vcfs_pairs.combine(ref_fasta17).combine(ref_fai17).combine(ref_dict17)
 
     output:
     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${filtered_vcf}") into filtered_vcf_pairs // to tsv
