@@ -12,25 +12,10 @@ git clone https://github.com/NYU-Molecular-Pathology/NGS580-nf.git
 cd NGS580-nf
 ```
 
-# Setup
+## Docker/Singularity
 
-## Docker
+See instructions in the `containers` directory for building Docker and Singularity images. At this time, we are only using Singularity images on NYU Big Purple HPC, so those should be considered the 'production' containers while the Docker containers are used more for development and testing purposes.
 
-If you are using the included Docker containers (recommended), run the following commands to build the included containers:
-
-```
-cd containers
-make build-all-Docker
-```
-
-## Conda
-
-Conda environment recipes (equivalent to the included Docker containers) have also been included and can be created with the following commands:
-
-```
-cd conda
-make
-```
 
 ## Reference Data
 
@@ -44,11 +29,11 @@ Note that this will require a version of ANNOVAR (included Docker container is u
 
 # Usage
 
-The pipeline is designed to start from demultiplexed .fastq.gz files, produced by an Illumina sequencer.
+The pipeline is designed to start from demultiplexed `.fastq.gz` files, produced by an Illumina sequencer.
 
 ## Create Config
 
-A config file should first be created using the built-in methods:
+A config file (`config.json`) should first be created using the built-in methods:
 
 ```
 make config RUNID=my_run_ID FASTQDIR=/path/to/fastqs
@@ -59,6 +44,8 @@ or
 ```
 make config RUNID=my_run_ID FASTQDIRS='/path/to/fastqs1 /path/to/fastqs2'
 ```
+
+Once created, the `config.json` file can be updated manually as needed.
 
 ## Create Samplesheet
 
@@ -81,6 +68,16 @@ If you are on NYU's phoenix or Big Purple HPC clusters, you can use the auto-run
 ```
 make run
 ```
+
+This will run the pipeline in the current session. 
+
+In order to run the pipeline in the background as a job on NYU's Big Purple HPC, you should instead use the `submit` recipe:
+
+```
+make submit SUBQ=fn_medium
+```
+
+Where `SUBQ` is the name of the SLURM queue you wish to use. 
 
 Refer to the `Makefile` for more run options.
 
