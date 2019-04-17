@@ -1395,7 +1395,7 @@ process lofreq {
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref6
 
     output:
-    set val(caller), val(sampleID), file("${norm_vcf}") into lofreq_norm_vcfs
+    set val(caller), val(type), val(sampleID), file("${norm_vcf}") into lofreq_norm_vcfs
     file("${vcf_file}")
     file("${norm_vcf}")
     file("${multiallelics_stats}")
@@ -1404,7 +1404,8 @@ process lofreq {
 
     script:
     caller = "LoFreq"
-    prefix = "${sampleID}.${caller}"
+    type = "NA"
+    prefix = "${sampleID}.${caller}.${type}"
     vcf_file = "${prefix}.vcf"
     norm_vcf = "${prefix}.norm.vcf"
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
@@ -1428,86 +1429,88 @@ process lofreq {
     // bcftools index "${vcf_bgz_file}"
 }
 
-process lofreq_filter_reformat {
-    publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
-    publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
-    publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
-
-    input:
-    set val(caller), val(sampleID), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from lofreq_norm_vcfs.combine(ref_fasta14).combine(ref_fai14).combine(ref_dict14)
-
-    output:
-    set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_lofreq_vcf
-    set val(caller), val(sampleID), file("${filtered_vcf}") into samples_lofreq_vcf2
-    file("${tsv_file}")
-    file("${reformat_tsv}")
-    file("${filtered_vcf}")
-
-    script:
-    prefix = "${sampleID}.${caller}"
-    filtered_vcf = "${prefix}.filtered.vcf"
-    tsv_file = "${prefix}.tsv"
-    reformat_tsv = "${prefix}.reformat.tsv"
-    """
-    # do not report if frequency is less than 1%
-    gatk.sh -T SelectVariants \
-    -R "${ref_fasta}" \
-    -V "${vcf}" \
-    -select "AF > 0.01"  \
-    > "${filtered_vcf}"
-
-    gatk.sh -T VariantsToTable \
-    -R "${ref_fasta}" \
-    -V "${filtered_vcf}" \
-    -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER -F DP -F AF -F SB -F INDEL -F CONSVAR -F HRUN \
-    -o "${tsv_file}"
-
-    # reformat and adjust the TSV table for consistency downstream
-    # add extra columns to the VCF TSV file for downstream
-    reformat-vcf-table.py -c LoFreq -s "${sampleID}" -i "${tsv_file}" | \
-    paste-col.py --header "Sample" -v "${sampleID}"  | \
-    paste-col.py --header "VariantCaller" -v "${caller}" > \
-    "${reformat_tsv}"
-    """
-}
+// process lofreq_filter_reformat {
+//     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
+//     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
+//     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
+//
+//     input:
+//     set val(caller), val(type), val(sampleID), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from lofreq_norm_vcfs.combine(ref_fasta14).combine(ref_fai14).combine(ref_dict14)
+//
+//     output:
+//     set val(caller), val(type), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_lofreq_vcf
+//     set val(caller), val(type), val(sampleID), file("${filtered_vcf}") into (samples_lofreq_vcf2, samples_lofreq_vcf3)
+//     file("${tsv_file}")
+//     file("${reformat_tsv}")
+//     file("${filtered_vcf}")
+//
+//     script:
+//     prefix = "${sampleID}.${caller}.${type}"
+//     filtered_vcf = "${prefix}.filtered.vcf"
+//     tsv_file = "${prefix}.tsv"
+//     reformat_tsv = "${prefix}.reformat.tsv"
+//     """
+//     # do not report if frequency is less than 1%
+//     gatk.sh -T SelectVariants \
+//     -R "${ref_fasta}" \
+//     -V "${vcf}" \
+//     -select "AF > 0.01"  \
+//     > "${filtered_vcf}"
+//
+//     gatk.sh -T VariantsToTable \
+//     -R "${ref_fasta}" \
+//     -V "${filtered_vcf}" \
+//     -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER -F DP -F AF -F SB -F INDEL -F CONSVAR -F HRUN \
+//     -o "${tsv_file}"
+//
+//     # reformat and adjust the TSV table for consistency downstream
+//     # add extra columns to the VCF TSV file for downstream
+//     reformat-vcf-table.py -c LoFreq -s "${sampleID}" -i "${tsv_file}" | \
+//     paste-col.py --header "Sample" -v "${sampleID}"  | \
+//     paste-col.py --header "VariantCallerType" -v "${type}"  | \
+//     paste-col.py --header "VariantCaller" -v "${caller}" > \
+//     "${reformat_tsv}"
+//     """
+// }
 
 process gatk_hc {
     // variant calling
     publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_file}"
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy', pattern: "*${norm_vcf}"
-    publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${multiallelics_stats}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${realign_stats}"
-    publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
-    publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
+    // publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
+    // publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
+    // publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
 
 
     input:
     set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx) from samples_dd_ra_rc_bam_ref_dbsnp2
 
     output:
-    set val(caller), val(sampleID), file("${filtered_vcf}") into sample_vcf_hc // to genomic signatures
-    set val(caller), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into sample_vcf_hc2
-    set val(caller), val(sampleID), file("${filtered_vcf}") into sample_vcf_hc3
+    set val(caller), val(type), val(sampleID), file("${norm_vcf}") into sample_vcf_hc
     file("${vcf_file}")
     file("${multiallelics_stats}")
     file("${realign_stats}")
     file("${norm_vcf}")
-    file("${tsv_file}")
-    file("${reformat_tsv}")
-    file("${filtered_vcf}")
     val(sampleID) into done_gatk_hc
+    // set val(caller), val(type), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into sample_vcf_hc2
+    // set val(caller), val(type), val(sampleID), file("${filtered_vcf}") into sample_vcf_hc3
+    // file("${tsv_file}")
+    // file("${reformat_tsv}")
+    // file("${filtered_vcf}")
 
     script:
     caller = "HaplotypeCaller"
-    prefix = "${sampleID}.${caller}"
+    type = "NA"
+    prefix = "${sampleID}.${caller}.${type}"
     vcf_file = "${prefix}.vcf"
     norm_vcf = "${prefix}.norm.vcf"
-    filtered_vcf = "${prefix}.filtered.vcf"
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
-    tsv_file = "${prefix}.tsv"
-    reformat_tsv = "${prefix}.reformat.tsv"
+    // tsv_file = "${prefix}.tsv"
+    // reformat_tsv = "${prefix}.reformat.tsv"
+    // filtered_vcf = "${prefix}.filtered.vcf"
     """
     gatk.sh -T HaplotypeCaller \
     -dt NONE \
@@ -1525,34 +1528,34 @@ process gatk_hc {
     bcftools norm --multiallelics -both --output-type v - 2>"${multiallelics_stats}" | \
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
-
-    # report if
-    # alternate allele freq (allele depth / depth) greater than 0.05 ; 5%
-    # more than 5 variant call supporting reads
-    # quality reads present (reported depth >0)
-    gatk.sh -T SelectVariants \
-    -R "${ref_fasta}" \
-    -V "${norm_vcf}" \
-    --sample_name "${sampleID}" \
-    -select "vc.getGenotype('${sampleID}').getAD().1 / vc.getGenotype('${sampleID}').getDP() > 0.05" \
-    -select "vc.getGenotype('${sampleID}').getAD().1 > 5" \
-    -select "vc.getGenotype('${sampleID}').getDP() > 0" \
-    > "${filtered_vcf}"
-
-    gatk.sh -T VariantsToTable \
-    -R "${ref_fasta}" \
-    -V "${filtered_vcf}" \
-    -F CHROM -F POS -F ID -F REF -F ALT -F FILTER -F QUAL -F AC -F AN \
-    -GF AD -GF DP \
-    -o "${tsv_file}"
-
-    # reformat and adjust the TSV table for consistency downstream
-    # add extra columns to the VCF TSV file for downstream
-    reformat-vcf-table.py -c HaplotypeCaller -s "${sampleID}" -i "${tsv_file}" | \
-    paste-col.py --header "Sample" -v "${sampleID}" | \
-    paste-col.py --header "VariantCaller" -v "${caller}" > \
-    "${reformat_tsv}"
     """
+    // # report if
+    // # alternate allele freq (allele depth / depth) greater than 0.05 ; 5%
+    // # more than 5 variant call supporting reads
+    // # quality reads present (reported depth >0)
+    // gatk.sh -T SelectVariants \
+    // -R "${ref_fasta}" \
+    // -V "${norm_vcf}" \
+    // --sample_name "${sampleID}" \
+    // -select "vc.getGenotype('${sampleID}').getAD().1 / vc.getGenotype('${sampleID}').getDP() > 0.05" \
+    // -select "vc.getGenotype('${sampleID}').getAD().1 > 5" \
+    // -select "vc.getGenotype('${sampleID}').getDP() > 0" \
+    // > "${filtered_vcf}"
+    //
+    // gatk.sh -T VariantsToTable \
+    // -R "${ref_fasta}" \
+    // -V "${filtered_vcf}" \
+    // -F CHROM -F POS -F ID -F REF -F ALT -F FILTER -F QUAL -F AC -F AN \
+    // -GF AD -GF DP \
+    // -o "${tsv_file}"
+    //
+    // # reformat and adjust the TSV table for consistency downstream
+    // # add extra columns to the VCF TSV file for downstream
+    // reformat-vcf-table.py -c HaplotypeCaller -s "${sampleID}" -i "${tsv_file}" | \
+    // paste-col.py --header "Sample" -v "${sampleID}" | \
+    // paste-col.py --header "VariantCallerType" -v "${type}"  | \
+    // paste-col.py --header "VariantCaller" -v "${caller}" > \
+    // "${reformat_tsv}"
 }
 
 process varscan_snp {
@@ -1575,7 +1578,7 @@ process varscan_snp {
     script:
     caller = "VarScan2"
     type = "snp"
-    prefix = "${sampleID}.${type}.${caller}"
+    prefix = "${sampleID}.${caller}.${type}"
     vcf_snp_output = "${prefix}.vcf"
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
@@ -1624,7 +1627,7 @@ process varscan_indel {
     script:
     caller = "VarScan2"
     type = "indel"
-    prefix = "${sampleID}.${type}.${caller}"
+    prefix = "${sampleID}.${caller}.${type}"
     samtools_mpileup_output = "${prefix}.mpileup"
     vcf_indel_output = "${prefix}.vcf"
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
@@ -1656,23 +1659,23 @@ process varscan_indel {
 }
 
 // set up channel for filtering unpaired vcfs
-varscan_snp_vcfs.mix(varscan_indel_vcfs)
+varscan_snp_vcfs.mix(varscan_indel_vcfs, lofreq_norm_vcfs, sample_vcf_hc)
     .combine(ref_fasta16)
     .combine(ref_fai16)
     .combine(ref_dict16)
     .set { unpaired_vcfs_ref }
 process filter_vcf {
-    // filter .vcf files; currently LoFreq and HaplotypeCaller already have this bundled in their processes but that needs to be changed...
+    // filter .vcf files
     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
 
     input:
     set val(caller), val(type), val(sampleID), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from unpaired_vcfs_ref
 
     output:
-    set val(caller), val(type), val(sampleID), file("${filtered_vcf}") into (filtered_vcfs, filtered_vcfs2) // to tsv
+    set val(caller), val(type), val(sampleID), file("${filtered_vcf}") into (filtered_vcfs, filtered_vcfs2, filtered_vcfs3) // to tsv
 
     script:
-    prefix = "${sampleID}.${type}.${caller}"
+    prefix = "${sampleID}.${caller}.${type}"
     filtered_vcf = "${prefix}.filtered.vcf"
     if ( caller == "VarScan2" )
         """
@@ -1681,7 +1684,31 @@ process filter_vcf {
         gatk.sh -T SelectVariants \
         -R "${ref_fasta}" \
         -V "${vcf}" \
+        -select "FREQ > 0.01"  \
+        > "${filtered_vcf}"
+        """
+    else if ( caller == "LoFreq" )
+        """
+        # do not report if frequency is less than 1%
+        gatk.sh -T SelectVariants \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
         -select "AF > 0.01"  \
+        > "${filtered_vcf}"
+        """
+    else if ( caller == "HaplotypeCaller" )
+        """
+        # report if
+        # alternate allele freq (allele depth / depth) greater than 0.05 ; 5%
+        # more than 5 variant call supporting reads
+        # quality reads present (reported depth >0)
+        gatk.sh -T SelectVariants \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
+        --sample_name "${sampleID}" \
+        -select "vc.getGenotype('${sampleID}').getAD().1 / vc.getGenotype('${sampleID}').getDP() > 0.05" \
+        -select "vc.getGenotype('${sampleID}').getAD().1 > 5" \
+        -select "vc.getGenotype('${sampleID}').getDP() > 0" \
         > "${filtered_vcf}"
         """
     else
@@ -1697,10 +1724,10 @@ process vcf_to_tsv {
     set val(caller), val(type), val(sampleID), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from filtered_vcfs.combine(ref_fasta15).combine(ref_fai15).combine(ref_dict15)
 
     output:
-    set val(caller), val(type), val(sampleID), file(vcf), file("${reformat_tsv}") into vcf_tsvs // to annotation
+    set val(caller), val(type), val(sampleID), file(vcf), file("${reformat_tsv}") into (vcf_tsvs, vcf_tsvs2) // to annotation
 
     script:
-    prefix = "${sampleID}.${type}.${caller}"
+    prefix = "${sampleID}.${caller}.${type}"
     tsv_file = "${prefix}.tsv"
     reformat_tsv = "${prefix}.reformat.tsv"
     if ( caller == "VarScan2" )
@@ -1731,6 +1758,7 @@ process vcf_to_tsv {
         # add extra columns to the VCF TSV file for downstream
         cat "${reformat_tsv}.tmp" | \
         paste-col.py --header "Sample" -v "${sampleID}"  | \
+        paste-col.py --header "VariantCallerType" -v "${type}"  | \
         paste-col.py --header "VariantCaller" -v "${caller}" > \
         "${reformat_tsv}"
         """
@@ -1761,19 +1789,65 @@ process vcf_to_tsv {
         // ##FORMAT=<ID=RDR,Number=1,Type=Integer,Description="Depth of reference-supporting bases on reverse strand (reads1minus)">
         // ##FORMAT=<ID=ADF,Number=1,Type=Integer,Description="Depth of variant-supporting bases on forward strand (reads2plus)">
         // ##FORMAT=<ID=ADR,Number=1,Type=Integer,Description="Depth of variant-supporting bases on reverse strand (reads2minus)">
+    else if ( caller == "LoFreq" )
+        """
+        gatk.sh -T VariantsToTable \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
+        -F CHROM \
+        -F POS \
+        -F ID \
+        -F REF \
+        -F ALT \
+        -F QUAL \
+        -F FILTER \
+        -F DP \
+        -F AF \
+        -F SB \
+        -F INDEL \
+        -F CONSVAR \
+        -F HRUN \
+        -o "${tsv_file}"
 
+        # reformat and adjust the TSV table for consistency downstream
+        # add extra columns to the VCF TSV file for downstream
+        reformat-vcf-table.py -c LoFreq -s "${sampleID}" -i "${tsv_file}" | \
+        paste-col.py --header "Sample" -v "${sampleID}"  | \
+        paste-col.py --header "VariantCallerType" -v "${type}"  | \
+        paste-col.py --header "VariantCaller" -v "${caller}" > \
+        "${reformat_tsv}"
+        """
+    else if ( caller == "HaplotypeCaller" )
+        """
+        gatk.sh -T VariantsToTable \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
+        -F CHROM \
+        -F POS \
+        -F ID \
+        -F REF \
+        -F ALT \
+        -F FILTER \
+        -F QUAL \
+        -F AC \
+        -F AN \
+        -GF AD \
+        -GF DP \
+        -o "${tsv_file}"
+
+        # reformat and adjust the TSV table for consistency downstream
+        # add extra columns to the VCF TSV file for downstream
+        reformat-vcf-table.py -c HaplotypeCaller -s "${sampleID}" -i "${tsv_file}" | \
+        paste-col.py --header "Sample" -v "${sampleID}" | \
+        paste-col.py --header "VariantCallerType" -v "${type}"  | \
+        paste-col.py --header "VariantCaller" -v "${caller}" > \
+        "${reformat_tsv}"
+        """
     else
         error "Invalid caller: ${caller}"
 }
 
-sample_vcf_hc3.mix(samples_lofreq_vcf2)
-    .map{ caller, sampleID, vcf ->
-        // refactor to add type for downstream
-        def type = "NA"
-        return([ caller, type, sampleID, vcf ])
-    }
-    .mix(filtered_vcfs2)
-    .combine(dbsnp_ref_vcf4)
+filtered_vcfs2.combine(dbsnp_ref_vcf4)
     .combine(dbsnp_ref_vcf_idx4)
     .combine(ref_fasta4)
     .combine(ref_fai4)
@@ -1843,15 +1917,17 @@ process delly2 {
 
 
 // Genomic Signatures
-sample_vcf_hc_good = Channel.create()
-sample_vcf_hc_bad = Channel.create()
+sample_vcf_sig_good = Channel.create()
+sample_vcf_sig_bad = Channel.create()
 deconstructSigs_variant_min = 55
 
-sample_vcf_hc.choice( sample_vcf_hc_good, sample_vcf_hc_bad ){ items ->
+// filtered_vcfs3.mix(sample_vcf_hc, samples_lofreq_vcf3)
+filtered_vcfs3.choice( sample_vcf_sig_good, sample_vcf_sig_bad ){ items ->
     // make sure there are enough variants in the VCF to proceed!
     def caller = items[0]
-    def sampleID = items[1]
-    def filtered_vcf = items[2]
+    def type = items[1]
+    def sampleID = items[2]
+    def filtered_vcf = items[3]
     def line_count = 0
     def num_variants = 0
     def output = 1 // bad by default
@@ -1877,9 +1953,9 @@ sample_vcf_hc.choice( sample_vcf_hc_good, sample_vcf_hc_bad ){ items ->
     return(output)
 }
 
-sample_vcf_hc_bad.map {  caller, sampleID, filtered_vcf ->
+sample_vcf_sig_bad.map {  caller, type, sampleID, filtered_vcf ->
     def reason = "Fewer than ${deconstructSigs_variant_min} variants in .vcf file, skipping genomic signatures"
-    def output = [sampleID, caller, reason, filtered_vcf].join('\t')
+    def output = [sampleID, caller, type, reason, filtered_vcf].join('\t')
     return(output)
 }.set { sample_vcf_hc_bad_logs }
 
@@ -1889,7 +1965,7 @@ process deconstructSigs_signatures {
     publishDir "${params.outputDir}/signatures/${caller}/pdf", mode: 'copy', pattern: "*.pdf"
 
     input:
-    set val(caller), val(sampleID), file(sample_vcf) from sample_vcf_hc_good
+    set val(caller), val(type), val(sampleID), file(sample_vcf) from sample_vcf_sig_good
 
     output:
     file("${signatures_rds}")
@@ -1897,12 +1973,12 @@ process deconstructSigs_signatures {
     file("${signatures_pieplot_Rds}")
     file("${signatures_plot_pdf}") into signatures_plots
     file("${signatures_pieplot_pdf}") into signatures_pie_plots
-    set val(caller), val(sampleID), file("${signatures_weights_tsv}") into signatures_weights
+    set val(caller), val(type), val(sampleID), file("${signatures_weights_tsv}") into signatures_weights
     set val(sampleID), file("${signatures_rds}"), file("${signatures_plot_Rds}"), file("${signatures_pieplot_Rds}") into sample_signatures
     val(sampleID) into done_deconstructSigs_signatures
 
     script:
-    prefix = "${sampleID}.${caller}"
+    prefix = "${sampleID}.${caller}.${type}"
     signatures_weights_tsv = "${prefix}.signatures.weights.tmp"
     signatures_rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_Rds']}"
     signatures_plot_pdf = "${prefix}.signatures.plot.pdf"
@@ -1918,7 +1994,7 @@ process update_signatures_weights {
     publishDir "${params.outputDir}/signatures/${caller}/weights", mode: 'copy'
 
     input:
-    set val(caller), val(sampleID), file(weights_tsv) from signatures_weights
+    set val(caller), val(type), val(sampleID), file(weights_tsv) from signatures_weights
 
     output:
     file("${output_tsv}") into updated_signatures_weights
@@ -1929,6 +2005,7 @@ process update_signatures_weights {
     """
     cat "${weights_tsv}" | \
     paste-col.py --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "VariantCallerType" -v "${type}"  | \
     paste-col.py --header "VariantCaller" -v "${caller}" > "${output_tsv}"
     """
 }
@@ -2535,16 +2612,12 @@ samples_vcfs_tsvs_bad = Channel.create()
 pairs_vcfs_tsvs_good = Channel.create()
 pairs_vcfs_tsvs_bad = Channel.create()
 
-samples_lofreq_vcf.mix(sample_vcf_hc2)
-    .map{ caller, sampleID, vcf, tsv->
-        // refactor to add type for downstream
-        def type = "NA"
-        return([ caller, type, sampleID, vcf, tsv ])
-    }
-.set { samples_vcfs_tsvs }
+// samples_lofreq_vcf.mix(sample_vcf_hc2)
+//     .mix(vcf_tsvs)
+//     .into { samples_vcfs_tsvs; samples_vcfs_tsvs2 }
 
 // filter out samples with empty variant tables
-samples_vcfs_tsvs.choice( samples_vcfs_tsvs_good, samples_vcfs_tsvs_bad ){ items ->
+vcf_tsvs.choice( samples_vcfs_tsvs_good, samples_vcfs_tsvs_bad ){ items ->
     def caller =  items[0]
     def type = items[1]
     def sampleID =  items[2]
@@ -2585,6 +2658,7 @@ pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chrom, type, 
 
 process annotate {
     // annotate variants
+    tag "${caller}"
     publishDir "${params.outputDir}/annotations/${caller}", mode: 'copy', pattern: "*${annotations_tsv}"
 
     input:
@@ -2598,7 +2672,7 @@ process annotate {
     val(sampleID) into done_annotate
 
     script:
-    prefix = "${sampleID}.${type}.${caller}"
+    prefix = "${sampleID}.${caller}.${type}"
     avinput_file = "${prefix}.avinput"
     avinput_tsv = "${prefix}.avinput.tsv"
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
@@ -2653,12 +2727,33 @@ process annotate {
 
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tsv}"
         """
+    else if( caller == 'VarScan2' )
+        """
+        # convert to ANNOVAR format
+        convert2annovar.pl \
+        -includeinfo \
+        -format vcf4 \
+        "${sample_vcf}" > \
+        "${avinput_file}"
+
+        table_annovar.pl "${avinput_file}" "${annovar_db_dir}" \
+        --buildver "${params.ANNOVAR_BUILD_VERSION}" \
+        --remove \
+        --protocol "${params.ANNOVAR_PROTOCOL}" \
+        --operation "${params.ANNOVAR_OPERATION}" \
+        --nastring . \
+        --onetranscript \
+        --outfile "${prefix}"
+
+        exit 1
+        """
     else
         error "Invalid caller: ${caller}"
 }
 
 process annotate_pairs {
     // annotate variants
+    tag "${caller}"
     publishDir "${params.outputDir}/annotations/${caller}", mode: 'copy', pattern: "*${annotations_tsv}"
 
     input:
@@ -2863,7 +2958,7 @@ process tmb_filter_variants {
     set val(sampleID), val(caller), val(type), file("${output_variants}") into tmb_filtered_variants2
 
     script:
-    prefix = "${sampleID}.${type}.${caller}"
+    prefix = "${sampleID}.${caller}.${type}"
     output_Rdata = "${prefix}.tmb_filter_variants.Rdata"
     output_variants = "${prefix}.annotations.tmb_filtered.tsv"
     tmpFile = "tmp"
@@ -2907,7 +3002,7 @@ process calculate_tmb {
     file("${output_tmb}") into tmbs
 
     script:
-    prefix = "${sampleID}.${type}.${caller}"
+    prefix = "${sampleID}.${caller}.${type}"
     output_tmb = "${prefix}.tmb.tsv"
     """
     tmb=\$( calc-tmb.py ${variants} ${loci} )
