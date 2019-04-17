@@ -2618,6 +2618,7 @@ process vcf_to_tsv_pairs {
         error "Invalid caller: ${caller}"
 }
 
+disable_eval_pair_vcf = true
 samples_mutect3.combine(dbsnp_ref_vcf5)
                 .combine(dbsnp_ref_vcf_idx5)
                 .combine(ref_fasta5)
@@ -2634,6 +2635,9 @@ process eval_pair_vcf {
     output:
     file("${eval_file}")
     val("${comparisonID}") into done_eval_pair_vcf
+    
+    when:
+    disable_eval_pair_vcf != true
 
     script:
     prefix = "${comparisonID}.${chunkLabel}.${caller}"
