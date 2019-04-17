@@ -66,3 +66,8 @@ recorded-runs/*
 .nextflow.log*
 flowchart.dot*
 trace.txt*
+.nextflow.log.*
+flowchart.dot.*
+nextflow.html.*
+*.html.*
+trace.txt.*

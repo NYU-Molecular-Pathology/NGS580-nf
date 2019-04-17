@@ -4,5 +4,6 @@
     "fastqDirs": [],
     "demux_samplesheet": "demux-samplesheet.csv",
     "targetsBed": "targets.bed",
-    "targetsRefFlatBed":"targets.refFlat.580.bed"
+    "targetsrefFlatBed":"targets.refFlat.580.bed",
+    "numTargetSplitLines": 100
 }

@@ -46,6 +46,9 @@ if ( PipelineConfigFile_obj.exists() ) {
     PipelineConfig = jsonSlurper.parseText(PipelineConfigJSON)
 }
 
+params.numTargetSplitLines = PipelineConfig.numTargetSplitLines
+def numTargetSplitLines = params.numTargetSplitLines.toInteger()
+
 // check for targets.bed file to use
 // 0. use CLI passed arg
 // 1. check for config.json values
@@ -172,7 +175,8 @@ Channel.fromPath( file(targetsBed) ).into { targets_bed;
     targets_bed7;
     targets_bed8;
     targets_bed9;
-    targets_bed10 }
+    targets_bed10;
+    targets_bed11 }
 
 Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
     ref_fasta2;
@@ -189,7 +193,9 @@ Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
     ref_fasta13;
     ref_fasta14;
     ref_fasta15;
-    ref_fasta16 }
+    ref_fasta16;
+    ref_fasta17;
+    ref_fasta18 }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai2;
     ref_fai3;
@@ -205,7 +211,9 @@ Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai13;
     ref_fai14;
     ref_fai15;
-    ref_fai16 }
+    ref_fai16;
+    ref_fai17;
+    ref_fai18 }
 Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
     ref_dict2;
     ref_dict3;
@@ -221,7 +229,9 @@ Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
     ref_dict13;
     ref_dict14;
     ref_dict15;
-    ref_dict16 }
+    ref_dict16;
+    ref_dict17;
+    ref_dict18 }
 
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
@@ -336,7 +346,7 @@ Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
 // logging channels
 Channel.from("Sample\tProgram\tNote\tFiles").set { failed_samples }
-Channel.from("Comparison\tTumor\tNormal\tChrom\tProgram\tNote\tFiles").set { failed_pairs }
+Channel.from("Comparison\tTumor\tNormal\tChunk\tProgram\tNote\tFiles").set { failed_pairs }
 
 // ~~~~~ PIPELINE TASKS ~~~~~ //
 // PREPROCESSING
@@ -427,7 +437,7 @@ target_ANNOVAR_OPERATION = "g"
 process annotate_targets {
     // annotate the target.bed regions
     input:
-    set file(targets_bed), file(annovar_db_dir) from targets_bed10.combine(annovar_db_dir4)
+    set file(targets_bed), file(annovar_db_dir) from targets_bed11.combine(annovar_db_dir4)
 
     output:
     file("${output_file}") into annotated_targets
@@ -2177,6 +2187,7 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
                     .combine(ref_fasta3) // add reference genome and targets
                     .combine(ref_fai3)
                     .combine(ref_dict3)
+                    .tap { samples_dd_ra_rc_bam_pairs_ref_noTargets }
                     .combine(targets_bed4)
                     .tap { samples_dd_ra_rc_bam_pairs_refFasta } // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) ]
                     .tap {  samples_dd_ra_rc_bam_pairs_ref; // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) ]
@@ -2199,15 +2210,38 @@ Channel.fromPath( targetsBed )
             .unique()
             .set{ chroms }
 
+// split the .bed file into new files based on desired lines in each file
+process line_chunk {
+    // publishDir "${params.outputDir}/line", mode: 'copy'
+
+    input:
+    file(bedFile) from targets_bed10
+
+    output:
+    file('*') into line_chunk_ch
+
+    script:
+    """
+    split-bed-lines.py "${bedFile}" "${numTargetSplitLines}"
+    """
+}
+line_chunk_ch.flatten().set { line_chunk_ch2 }
+
+
 // add the reference .vcf
-samples_dd_ra_rc_bam_pairs_ref.combine(dbsnp_ref_vcf2)
-                            .combine(dbsnp_ref_vcf_idx2)
-                            .combine(cosmic_ref_vcf2)
-                            .combine(cosmic_ref_vcf_idx2)
-                            .tap { samples_dd_ra_rc_bam_pairs_ref_gatk } // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), dbsnp, cosmic ]
-                            // add the chroms
-                            .combine( chroms ) // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), dbsnp, cosmic, chrom ]
-                            .set { samples_dd_ra_rc_bam_pairs_ref_gatk_chrom }
+samples_dd_ra_rc_bam_pairs_ref_noTargets.combine(dbsnp_ref_vcf2)
+    .combine(dbsnp_ref_vcf_idx2)
+    .combine(cosmic_ref_vcf2)
+    .combine(cosmic_ref_vcf_idx2)
+    .combine( line_chunk_ch2 )
+    .map { comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict, dbsnp_vcf, dbsnp_vcf_idx, cosmic_vcf, cosmic_vcf_idx, targets_bed ->
+        // get number at the end of the file basename to denote the chunk Label
+        def chunkLabel = "${targets_bed.name}".findAll(/\d*$/)[0]
+
+        // re-arrange output order for downstream processes
+        return([ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict, targets_bed, dbsnp_vcf, dbsnp_vcf_idx, cosmic_vcf, cosmic_vcf_idx, chunkLabel ])
+    }
+    .set { samples_dd_ra_rc_bam_pairs_ref_gatk_chrom }
 
 
 // REQUIRES PAIRED SAMPLES BAM FILES
@@ -2253,11 +2287,11 @@ process mutect2 {
 
 
     input:
-    set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx), file(cosmic_ref_vcf), file(cosmic_ref_vcf_idx), val(chrom) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
+    set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file("targets.bed"), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx), file(cosmic_ref_vcf), file(cosmic_ref_vcf_idx), val(chunkLabel) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file("${norm_vcf}") into vcfs_mutect2
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file("${norm_vcf}") into samples_mutect3 // to VariantEval eval_pair_vcf
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${norm_vcf}") into vcfs_mutect2
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${norm_vcf}") into samples_mutect3 // to VariantEval eval_pair_vcf
     file("${vcf_file}")
     file("${norm_vcf}")
     file("${multiallelics_stats}")
@@ -2266,8 +2300,8 @@ process mutect2 {
 
     script:
     caller = "MuTect2"
-    prefix = "${comparisonID}.${chrom}.${caller}"
-    bed_subset = "${prefix}.bed"
+    prefix = "${comparisonID}.${chunkLabel}.${caller}"
+    // bed_subset = "${prefix}.bed"
     vcf_file = "${prefix}.vcf"
     norm_vcf = "${prefix}.norm.vcf"
     filtered_vcf = "${prefix}.filtered.vcf"
@@ -2276,8 +2310,7 @@ process mutect2 {
     tsv_file = "${prefix}.tsv"
     reformat_tsv = "${prefix}.reformat.tsv"
     """
-    # subset the target regions for the given chromosome
-    subset_bed.py "${chrom}" "${targets_bed}" > "${bed_subset}"
+
 
     # variant calling
     gatk.sh -T MuTect2 \
@@ -2290,7 +2323,7 @@ process mutect2 {
     --reference_sequence "${ref_fasta}" \
     --dbsnp "${dbsnp_ref_vcf}" \
     --cosmic "${cosmic_ref_vcf}" \
-    --intervals "${bed_subset}" \
+    --intervals "targets.bed" \
     --interval_padding 10 \
     --input_file:tumor "${tumorBam}" \
     --input_file:normal "${normalBam}" \
@@ -2302,6 +2335,8 @@ process mutect2 {
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
     """
+    // # subset the target regions for the given chromosome
+    // # subset_bed.py "${chunkLabel}" "${targets_bed}" > "${bed_subset}"
 }
 
 
@@ -2403,13 +2438,13 @@ process filter_vcf_pairs {
     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), val(type), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from vcfs_pairs.combine(ref_fasta11).combine(ref_fai11).combine(ref_dict11)
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from vcfs_mutect2.combine(ref_fasta17).combine(ref_fai17).combine(ref_dict17)
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), val(type), file("${filtered_vcf}") into filtered_vcf_pairs // to tsv
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${filtered_vcf}") into filtered_vcf_pairs // to tsv
 
     script:
-    prefix = "${comparisonID}.${chrom}.${caller}.${type}"
+    prefix = "${comparisonID}.${chunkLabel}.${caller}"
     filtered_vcf = "${prefix}.filtered.vcf"
     if( caller == 'MuTect2' )
         """
@@ -2485,13 +2520,13 @@ process vcf_to_tsv_pairs {
     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), val(type), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from filtered_vcf_pairs.combine(ref_fasta12).combine(ref_fai12).combine(ref_dict12)
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from filtered_vcf_pairs.combine(ref_fasta18).combine(ref_fai18).combine(ref_dict18)
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), val(type), file(vcf), file("${reformat_tsv}") into vcf_tsv_pairs // to annotation
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file("${reformat_tsv}") into vcf_tsv_pairs // to annotation
 
     script:
-    prefix = "${comparisonID}.${chrom}.${caller}.${type}"
+    prefix = "${comparisonID}.${chunkLabel}.${caller}"
     tsv_file = "${prefix}.tsv"
     reformat_tsv = "${prefix}.reformat.tsv"
     if( caller == 'MuTect2' )
@@ -2588,14 +2623,14 @@ process eval_pair_vcf {
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${eval_file}"
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), file(pairs_vcf), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx), file(ref_fasta), file(ref_fai), file(ref_dict4) from pairs_filtered_vcfs
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(pairs_vcf), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx), file(ref_fasta), file(ref_fai), file(ref_dict4) from pairs_filtered_vcfs
 
     output:
     file("${eval_file}")
     val("${comparisonID}") into done_eval_pair_vcf
 
     script:
-    prefix = "${comparisonID}.${chrom}.${caller}"
+    prefix = "${comparisonID}.${chunkLabel}.${caller}"
     eval_file = "${prefix}.eval.grp"
     """
     gatk.sh -T VariantEval \
@@ -2640,19 +2675,31 @@ vcf_tsv_pairs.choice( pairs_vcfs_tsvs_good, pairs_vcfs_tsvs_bad ){ items ->
     def comparisonID = items[1]
     def tumorID = items[2]
     def normalID = items[3]
+<<<<<<< HEAD
     def chrom = items[4]
     def type = items[5]
     def sample_vcf = items[6]
     def sample_tsv = items[7]
+=======
+    def chunkLabel = items[4]
+    def sample_vcf = items[5]
+    def sample_tsv = items[6]
+>>>>>>> origin/line-split
     def output = 1 // bad by default
     long count = Files.lines(sample_tsv).count()
     if (count > 1) output = 0 // good if has >1 lines
     return(output)
 }
 
+<<<<<<< HEAD
 pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chrom, type, sample_vcf, sample_tsv ->
     def reason = "Too few lines in sample_tsv, skipping annotation"
     def output = [comparisonID, tumorID, normalID, chrom, type, caller, reason, "${sample_vcf},${sample_tsv}"].join('\t')
+=======
+pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chunkLabel, sample_vcf, sample_tsv ->
+    def reason = "Too few lines in sample_tsv, skipping annotation"
+    def output = [comparisonID, tumorID, normalID, chunkLabel, caller, reason, "${sample_vcf},${sample_tsv}"].join('\t')
+>>>>>>> origin/line-split
     return(output)
 }.set { pairs_vcfs_tsvs_bad_logs }
 
@@ -2757,7 +2804,11 @@ process annotate_pairs {
     publishDir "${params.outputDir}/annotations/${caller}", mode: 'copy', pattern: "*${annotations_tsv}"
 
     input:
+<<<<<<< HEAD
     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chrom), val(type), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from pairs_vcfs_tsvs_good.combine(annovar_db_dir2)
+=======
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from pairs_vcfs_tsvs_good.combine(annovar_db_dir2)
+>>>>>>> origin/line-split
 
     output:
     file("${annotations_tsv}") into annotations_tables_pairs
@@ -2768,7 +2819,11 @@ process annotate_pairs {
     val(comparisonID) into done_annotate_pairs
 
     script:
+<<<<<<< HEAD
     prefix = "${comparisonID}.${chrom}.${caller}.${type}"
+=======
+    prefix = "${comparisonID}.${chunkLabel}.${caller}"
+>>>>>>> origin/line-split
     avinput_file = "${prefix}.avinput"
     avinput_tsv = "${prefix}.avinput.tsv"
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
