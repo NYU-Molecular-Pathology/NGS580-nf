@@ -2679,7 +2679,7 @@ vcf_tsvs.choice( samples_vcfs_tsvs_good, samples_vcfs_tsvs_bad ){ items ->
 
 samples_vcfs_tsvs_bad.map { caller, type, sampleID, sample_vcf, sample_tsv ->
     def reason = "Too few lines in sample_tsv, skipping annotation"
-    def output = [sampleID, caller, reason, "${sample_vcf},${sample_tsv}"].join('\t')
+    def output = [sampleID, caller, type, reason, "${sample_vcf},${sample_tsv}"].join('\t')
     return(output)
 }.set { samples_vcfs_tsvs_bad_logs }
 
