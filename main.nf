@@ -1691,11 +1691,15 @@ process filter_vcf {
         """
         # do not report if frequency is less than 1%
         # automatically filters only PASS variants
-        gatk.sh -T SelectVariants \
-        -R "${ref_fasta}" \
-        -V "${vcf}" \
-        -select "FREQ > 0.01"  \
-        > "${filtered_vcf}"
+        # gatk.sh -T SelectVariants \
+        # -R "${ref_fasta}" \
+        # -V "${vcf}" \
+        # -select "FREQ > 0.01"  \
+        # > "${filtered_vcf}"
+
+        # skip filtering of VarScan2 because it reports the 'FREQ' as a % in the .vcf; "100%", etc.
+        # TODO: come up with a filtering method for this
+        cp "${vcf}" "${filtered_vcf}"
         """
     else if ( caller == "LoFreq" )
         """
@@ -1766,7 +1770,7 @@ process vcf_to_tsv {
         tail -n +2 "${tsv_file}" >> "${reformat_tsv}.tmp"
 
         # add extra columns to the VCF TSV file for downstream
-        cat "${reformat_tsv}.tmp" | \
+        reformat-vcf-table.py -c VarScan2 -s "${sampleID}" -i "${reformat_tsv}.tmp" | \
         paste-col.py --header "Sample" -v "${sampleID}"  | \
         paste-col.py --header "VariantCallerType" -v "${type}"  | \
         paste-col.py --header "VariantCaller" -v "${caller}" > \

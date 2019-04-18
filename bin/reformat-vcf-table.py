@@ -10,6 +10,7 @@ USAGE: reformat-vcf-table.py -c HaplotypeCaller -s "sampleID" -i "sample_tsv" -o
 import csv
 import sys
 import argparse
+import re
 
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE,SIG_DFL)
@@ -136,6 +137,26 @@ def MuTect2(fin, fout):
         row['NORMAL.AD.TOTAL'] = int(row['NORMAL.AD.REF']) + int(row['NORMAL.AD.ALT'])
         writer.writerow(row)
 
+def VarScan2(fin, fout):
+    """
+    Reformat the contents of lines VarScan2 output
+    VarScan2 outputs the variant allele frequency ('FREQ') like this: "100%", "99.1%", "53.42%", etc
+    Need to convert this to decimal float
+    """
+    reader = csv.DictReader(fin, delimiter = '\t')
+    # get old headers
+    fieldnames = reader.fieldnames
+    writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
+    writer.writeheader()
+    for row in reader:
+        # strip the percent sign
+        row['FREQ'] = re.sub('[%]', '', row['FREQ'])
+        # divide by 100
+        row['FREQ'] = float(row['FREQ']) / 100.0
+        # truncate to two decimal places
+        row['FREQ'] = '{:0.2f}'.format(row['FREQ'])
+        writer.writerow(row)
+
 
 def main(**kwargs):
     """
@@ -166,6 +187,10 @@ def main(**kwargs):
         fin.close()
     elif caller == "MuTect2":
         MuTect2(fin, fout)
+        fout.close()
+        fin.close()
+    elif caller == "VarScan2":
+        VarScan2(fin, fout)
         fout.close()
         fin.close()
     else:
