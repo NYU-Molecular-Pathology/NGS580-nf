@@ -1876,7 +1876,7 @@ process eval_sample_vcf {
     output:
     file("${eval_file}")
     val("${sampleID}") into done_eval_sample_vcf
-    
+
     when:
     disable_eval_sample_vcf != true
 
@@ -2420,24 +2420,27 @@ process lofreq_somatic {
 }
 
 // normalize the channels to add chrom and type vals throughout
-vcfs_mutect2.map { caller, comparisonID, tumorID, normalID, chrom, vcf ->
-    def type = "NA"
-    return [ caller, comparisonID, tumorID, normalID, chrom, type, vcf ]
-}.set { vcfs_mutect2_refactor }
+// vcfs_mutect2.map { caller, comparisonID, tumorID, normalID, chrom, vcf ->
+//     def type = "NA"
+//     return [ caller, comparisonID, tumorID, normalID, chrom, type, vcf ]
+// }.set { vcfs_mutect2_refactor }
 
-vcfs_lofreq_somatic_snvs_vcf_norm.concat(
-    vcfs_lofreq_somatic_indels_vcf_norm,
-    vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm,
-    vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm
-    )
-.map { caller, comparisonID, tumorID, normalID, type, vcf ->
-    def chrom = "NA"
-    return [ caller, comparisonID, tumorID, normalID, chrom, type, vcf ]
-}
-.set { vcfs_lofreq_somatic_refactor }
+// vcfs_lofreq_somatic_snvs_vcf_norm.concat(
+//     vcfs_lofreq_somatic_indels_vcf_norm,
+//     vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm,
+//     vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm
+//     )
+// .map { caller, comparisonID, tumorID, normalID, type, vcf ->
+//     def chrom = "NA"
+//     return [ caller, comparisonID, tumorID, normalID, chrom, type, vcf ]
+// }
+// .set { vcfs_lofreq_somatic_refactor }
 
 // get all the paired sample vcfs for downstream processing
-vcfs_mutect2_refactor.concat(vcfs_lofreq_somatic_refactor).set { vcfs_pairs }
+vcfs_mutect2.mix(vcfs_lofreq_somatic_snvs_vcf_norm,
+    vcfs_lofreq_somatic_indels_vcf_norm,
+    vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm,
+    vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm).set { vcfs_pairs }
 
 process filter_vcf_pairs {
     // filter the .vcf for tumor-normal pairs
@@ -2635,7 +2638,7 @@ process eval_pair_vcf {
     output:
     file("${eval_file}")
     val("${comparisonID}") into done_eval_pair_vcf
-    
+
     when:
     disable_eval_pair_vcf != true
 
