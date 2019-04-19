@@ -18,7 +18,9 @@ annotations[["n"]] <- 1
 
 # Variants
 
-Number of variants per sample:
+## Summary Metrics
+
+### Variants per Sample
 
 ```{r}
 DT::datatable(data = aggregate(n ~ Sample, data =annotations, FUN = sum),
@@ -27,7 +29,7 @@ DT::datatable(data = aggregate(n ~ Sample, data =annotations, FUN = sum),
 
 ```
 
-Number of variants per variant caller:
+### Variants per Variant Caller
 
 ```{r}
 DT::datatable(data = aggregate(n ~ VariantCaller, data =annotations, FUN = sum),
@@ -36,7 +38,7 @@ DT::datatable(data = aggregate(n ~ VariantCaller, data =annotations, FUN = sum),
 
 ```
 
-Number of variants per type:
+### Variants per Type
 
 ```{r}
 DT::datatable(data = aggregate(n ~ Func.refGene, data =annotations, FUN = sum),
@@ -45,7 +47,7 @@ DT::datatable(data = aggregate(n ~ Func.refGene, data =annotations, FUN = sum),
 
 ```
 
-Number of variants per gene:
+### Variants per Gene
 
 ```{r}
 DT::datatable(data = aggregate(n ~ Gene.refGene, data =annotations, FUN = sum),

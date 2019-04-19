@@ -17,8 +17,13 @@ library("BSgenome.Hsapiens.UCSC.hg19")
 library("deconstructSigs")
 
 vcf_colnames <- c("CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", sampleID)
-variants <- read.delim(file = vcf_file, header = FALSE, sep = '\t',
-                       comment.char = '#', col.names = vcf_colnames, check.names = FALSE)
+variants <- read.delim(file = vcf_file, 
+                       header = FALSE, 
+                       sep = '\t', 
+                       stringsAsFactors = FALSE,
+                       comment.char = '#', 
+                       col.names = vcf_colnames, 
+                       check.names = FALSE)
 
 save.image(file = 'loaded.Rdata')
 
@@ -34,6 +39,7 @@ if (nrow(variants) < 55) {
     message(sprintf('There are fewer than 55 variants for sample %s', sampleID))
     quit(status = 11)
 }
+
 
 # convert to signatures format
 sigs.input <- mut.to.sigs.input(mut.ref = variants,

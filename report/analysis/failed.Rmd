@@ -11,8 +11,31 @@ Samples that did not complete the full pipeline for the described reasons.
 
 ```{r, results='asis'}
 if(file.exists(failed_log)){
-    failed <- read.delim(file = failed_log, header = TRUE, sep = '\t', check.names = FALSE)
+    failed <- read.delim(file = failed_log, 
+                         header = TRUE, 
+                         sep = '\t', 
+                         check.names = FALSE, 
+                         stringsAsFactors = FALSE)
     save.image(file = 'failed.loaded.Rdata', compress = TRUE)
+    
+    # try to fix header; sometimes it shows up halfway through the table
+    if(any(grepl(pattern = "Program", x = failed[,2]))){
+        # find row that has the headers
+        colnames_rownum <- which(failed[,2] == "Program")[1]
+        new_colnames <- as.character(failed[colnames_rownum,])
+        old_colnames <- names(failed)
+        names(old_colnames) <- new_colnames
+
+        # remove the row that has headers
+        failed <- failed[-colnames_rownum, ]
+        names(failed) <- new_colnames
+
+        # add old row back
+        failed <- rbind(old_colnames, failed)
+
+    }
+    
+    
     if(nrow(failed) > 0){
         DT::datatable(data = failed[names(failed)[!names(failed) %in% "Files"]],
               options = list(pageLength = 5),

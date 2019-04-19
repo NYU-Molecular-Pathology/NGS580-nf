@@ -345,7 +345,7 @@ Channel.fromPath( file(samplesheet) )
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
 // logging channels
-Channel.from("Sample\tProgram\tNote\tFiles").set { failed_samples }
+Channel.from("Sample\tProgram\tType\tNote\tFiles").set { failed_samples }
 Channel.from("Comparison\tTumor\tNormal\tChunk\tProgram\tNote\tFiles").set { failed_pairs }
 
 // ~~~~~ PIPELINE TASKS ~~~~~ //
@@ -1979,13 +1979,24 @@ sample_vcf_sig_bad.map {  caller, type, sampleID, filtered_vcf ->
     return(output)
 }.set { sample_vcf_hc_bad_logs }
 
+// dont make signatures for indels
+sample_vcf_sig_good.filter { items ->
+    def caller = items[0]
+    def type = items[1]
+    def sampleID = items[2]
+    def vcf = items[3]
+
+    type != 'indel'
+}.set { sample_vcf_sig_good_filtered }
+
 process deconstructSigs_signatures {
     // search for mutation signatures
+    tag "${caller}.${type}"
     publishDir "${params.outputDir}/signatures/${caller}/Rds", mode: 'copy', pattern: "*.Rds"
     publishDir "${params.outputDir}/signatures/${caller}/pdf", mode: 'copy', pattern: "*.pdf"
 
     input:
-    set val(caller), val(type), val(sampleID), file(sample_vcf) from sample_vcf_sig_good
+    set val(caller), val(type), val(sampleID), file(sample_vcf) from sample_vcf_sig_good_filtered
 
     output:
     file("${signatures_rds}")
@@ -1993,6 +2004,8 @@ process deconstructSigs_signatures {
     file("${signatures_pieplot_Rds}")
     file("${signatures_plot_pdf}") into signatures_plots
     file("${signatures_pieplot_pdf}") into signatures_pie_plots
+    set val("${caller}"), val("${type}"), file("${signatures_plot_pdf}") into signatures_plots_caller
+    set val("${caller}"), val("${type}"), file("${signatures_pieplot_pdf}") into signatures_pieplots_caller
     set val(caller), val(type), val(sampleID), file("${signatures_weights_tsv}") into signatures_weights
     set val(sampleID), file("${signatures_rds}"), file("${signatures_plot_Rds}"), file("${signatures_pieplot_Rds}") into sample_signatures
     val(sampleID) into done_deconstructSigs_signatures
@@ -2020,7 +2033,7 @@ process update_signatures_weights {
     file("${output_tsv}") into updated_signatures_weights
 
     script:
-    prefix = "${sampleID}.${caller}"
+    prefix = "${sampleID}.${caller}.${type}"
     output_tsv = "${prefix}.signatures.weights.tsv"
     """
     cat "${weights_tsv}" | \
@@ -2053,18 +2066,23 @@ process update_update_signatures_weights_collected {
     "${output_file}"
     """
 }
+
 // need to re-format the channel for combination with reporting channels
 sample_signatures.map { sampleID, signatures_rds, signatures_plot_Rds, signatures_pieplot_Rds ->
     return([ sampleID, [ signatures_rds, signatures_plot_Rds, signatures_pieplot_Rds ] ])
 }
 .set { sample_signatures_reformated }
 
+// group all plots by variant caller and type for merging
+signatures_plots_caller.groupTuple(by: [0,1]).set{ signatures_plots_caller_grouped }
 process merge_signatures_plots {
     // combine all signatures plots into a single PDF
-    publishDir "${params.outputDir}", mode: 'copy'
+    tag "${prefix}"
+    publishDir "${params.outputDir}/signatures", mode: 'copy'
 
     input:
-    file(input_files:'*') from signatures_plots.toList()
+    set val(caller), val(type), file(input_files:'*') from signatures_plots_caller_grouped
+    // file(input_files:'*') from signatures_plots.toList()
 
     output:
     file("${output_file}")
@@ -2074,19 +2092,23 @@ process merge_signatures_plots {
     input_files.size() > 0
 
     script:
-    output_file="signatures.pdf"
+    prefix = "${caller}.${type}"
+    output_file="signatures.${prefix}.pdf"
     """
     gs -dBATCH -dNOPAUSE -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile="${output_file}" ${input_files}
     """
 }
 
-
+// group all plots by variant caller and type for merging
+signatures_pieplots_caller.groupTuple(by: [0,1]).set{ signatures_pieplots_caller_grouped }
 process merge_signatures_pie_plots {
     // combine all signatures plots into a single PDF
+    tag "${prefix}"
     publishDir "${params.outputDir}", mode: 'copy'
 
     input:
-    file(input_files:'*') from signatures_pie_plots.toList()
+    set val(caller), val(type), file(input_files:'*') from signatures_pieplots_caller_grouped
+    // file(input_files:'*') from signatures_pie_plots.toList()
 
     output:
     file("${output_file}")
@@ -2096,7 +2118,8 @@ process merge_signatures_pie_plots {
     input_files.size() > 0
 
     script:
-    output_file="signatures.pie.pdf"
+    prefix = "${caller}.${type}"
+    output_file="signatures.pie.${prefix}.pdf"
     """
     gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile="${output_file}" ${input_files}
     """
