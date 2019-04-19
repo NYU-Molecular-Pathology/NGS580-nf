@@ -1593,7 +1593,11 @@ process varscan_snp {
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
     norm_vcf = "${prefix}.norm.vcf"
+    vcf_sample_list = "vcf-sample-list.txt"
     """
+    # make vcf-sample-list
+    echo "${sampleID}" > "${vcf_sample_list}"
+    
     # VarScan2 with default settings
     samtools mpileup \
     --no-BAQ \
@@ -1608,6 +1612,7 @@ process varscan_snp {
     --min-freq-for-hom 0.75 \
     --p-value 0.99 \
     --strand-filter 1 \
+    --vcf-sample-list "${vcf_sample_list}" \
     --output-vcf > "${vcf_snp_output}"
 
     # normalize and split vcf entries
@@ -1643,7 +1648,11 @@ process varscan_indel {
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
     norm_vcf = "${prefix}.norm.vcf"
+    vcf_sample_list = "vcf-sample-list.txt"
     """
+    # make vcf-sample-list
+    echo "${sampleID}" > "${vcf_sample_list}"
+    
     # VarScan2 with default settings
     samtools mpileup \
     --no-BAQ \
@@ -1658,6 +1667,7 @@ process varscan_indel {
     --min-freq-for-hom 0.75 \
     --p-value 0.99 \
     --strand-filter 1 \
+    --vcf-sample-list "${vcf_sample_list}" \
     --output-vcf > "${vcf_indel_output}"
 
     # normalize and split vcf entries
@@ -1676,6 +1686,7 @@ varscan_snp_vcfs.mix(varscan_indel_vcfs, lofreq_norm_vcfs, sample_vcf_hc)
     .set { unpaired_vcfs_ref }
 process filter_vcf {
     // filter .vcf files
+    tag "${caller}.${type}"
     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
 
     input:
@@ -1730,7 +1741,9 @@ process filter_vcf {
 }
 
 process vcf_to_tsv {
-    // convert .vcf to .tsv; currently LoFreq and HaplotypeCaller already have this bundled in their processes but that needs to be changed...
+    // convert .vcf to .tsv
+    // TODO: pass .idx file as input here...
+    tag "${caller}.${type}"
     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
 
@@ -1746,6 +1759,7 @@ process vcf_to_tsv {
     reformat_tsv = "${prefix}.reformat.tsv"
     if ( caller == "VarScan2" )
         """
+        # NOTE: The output columns here need to correspond to the columns used in 'reformat-vcf-table.py' !!
         gatk.sh -T VariantsToTable \
         -R "${ref_fasta}" \
         -V "${vcf}" \
@@ -1756,6 +1770,7 @@ process vcf_to_tsv {
         -F ALT \
         -F QUAL \
         -F FILTER \
+        -GF DP \
         -GF AD \
         -GF RD \
         -GF FREQ \
@@ -1764,22 +1779,12 @@ process vcf_to_tsv {
         -o "${tsv_file}"
 
         # reformat and adjust the TSV table for consistency downstream
-        # for VarScan, just remove the sample ID from the headers...
-        head -1 "${tsv_file}" | \
-        sed -e 's|${sampleID}.||g' > "${reformat_tsv}.tmp"
-        tail -n +2 "${tsv_file}" >> "${reformat_tsv}.tmp"
-
-        # add extra columns to the VCF TSV file for downstream
-        reformat-vcf-table.py -c VarScan2 -s "${sampleID}" -i "${reformat_tsv}.tmp" | \
+        reformat-vcf-table.py -c VarScan2 -s "${sampleID}" -i "${tsv_file}" | \
         paste-col.py --header "Sample" -v "${sampleID}"  | \
         paste-col.py --header "VariantCallerType" -v "${type}"  | \
         paste-col.py --header "VariantCaller" -v "${caller}" > \
         "${reformat_tsv}"
         """
-        // # reformat and adjust the TSV table for consistency downstream
-        // # add extra columns to the VCF TSV file for downstream
-        // reformat-vcf-table.py -c LoFreq -s "${sampleID}" -i "${tsv_file}" | \
-
         // ##fileformat=VCFv4.1
         // ##source=VarScan2
         // ##INFO=<ID=ADP,Number=1,Type=Integer,Description="Average per-sample depth of bases with Phred score >= 15">
@@ -1803,6 +1808,8 @@ process vcf_to_tsv {
         // ##FORMAT=<ID=RDR,Number=1,Type=Integer,Description="Depth of reference-supporting bases on reverse strand (reads1minus)">
         // ##FORMAT=<ID=ADF,Number=1,Type=Integer,Description="Depth of variant-supporting bases on forward strand (reads2plus)">
         // ##FORMAT=<ID=ADR,Number=1,Type=Integer,Description="Depth of variant-supporting bases on reverse strand (reads2minus)">
+        // #CHROM  POS     ID      REF     ALT     QUAL    FILTER  INFO    FORMAT  Sample1
+        // chr1    3102792 .       C       T       .       PASS    ADP=158;WT=0;HET=1;HOM=0;NC=0   GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR    0/1:0:158:158:156:2:1.27%:9.8E-1:57:56:150:6:2:0
     else if ( caller == "LoFreq" )
         """
         gatk.sh -T VariantsToTable \
@@ -1872,6 +1879,7 @@ process eval_sample_vcf {
     // calcaulte variant metrics
     // do we even use this? It takes forever to run and has no downstream dependencies so just disable it for now.
     // only really used for MultQC which is also disabled.
+    tag "${caller}.${type}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${eval_file}"
 
     input:
@@ -1885,7 +1893,7 @@ process eval_sample_vcf {
     disable_eval_sample_vcf != true
 
     script:
-    prefix = "${sampleID}.${caller}"
+    prefix = "${sampleID}.${caller}.${type}"
     eval_file = "${prefix}.eval.grp"
     """
     gatk.sh -T VariantEval \
@@ -2024,6 +2032,7 @@ process deconstructSigs_signatures {
 }
 
 process update_signatures_weights {
+    tag "${caller}.${type}"
     publishDir "${params.outputDir}/signatures/${caller}/weights", mode: 'copy'
 
     input:
@@ -2077,7 +2086,7 @@ sample_signatures.map { sampleID, signatures_rds, signatures_plot_Rds, signature
 signatures_plots_caller.groupTuple(by: [0,1]).set{ signatures_plots_caller_grouped }
 process merge_signatures_plots {
     // combine all signatures plots into a single PDF
-    tag "${prefix}"
+    tag "${caller}.${type}"
     publishDir "${params.outputDir}/signatures", mode: 'copy'
 
     input:
@@ -2103,8 +2112,8 @@ process merge_signatures_plots {
 signatures_pieplots_caller.groupTuple(by: [0,1]).set{ signatures_pieplots_caller_grouped }
 process merge_signatures_pie_plots {
     // combine all signatures plots into a single PDF
-    tag "${prefix}"
-    publishDir "${params.outputDir}", mode: 'copy'
+    tag "${caller}.${type}"
+    publishDir "${params.outputDir}/signatures", mode: 'copy'
 
     input:
     set val(caller), val(type), file(input_files:'*') from signatures_pieplots_caller_grouped
@@ -2471,6 +2480,7 @@ vcfs_mutect2.mix(vcfs_lofreq_somatic_snvs_vcf_norm,
 
 process filter_vcf_pairs {
     // filter the .vcf for tumor-normal pairs
+    tag "${caller}.${chunkLabel}"
     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
 
     input:
@@ -2552,6 +2562,7 @@ process filter_vcf_pairs {
 }
 
 process vcf_to_tsv_pairs {
+    tag "${caller}.${chunkLabel}"
     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
 
@@ -2657,6 +2668,7 @@ samples_mutect3.combine(dbsnp_ref_vcf5)
                 .set { pairs_filtered_vcfs }
 process eval_pair_vcf {
     // variant quality metrics
+    tag "${caller}.${chunkLabel}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${eval_file}"
 
     input:
@@ -2732,7 +2744,7 @@ pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chunkLabel, s
 
 process annotate {
     // annotate variants
-    tag "${caller}"
+    tag "${caller}.${type}"
     publishDir "${params.outputDir}/annotations/${caller}", mode: 'copy', pattern: "*${annotations_tsv}"
 
     input:
@@ -2818,8 +2830,11 @@ process annotate {
         --nastring . \
         --onetranscript \
         --outfile "${prefix}"
-
-        exit 1
+        
+        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
+        cut -f1-10 ${avinput_file} >>  "${avinput_tsv}"
+        
+        merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tsv}"
         """
     else
         error "Invalid caller: ${caller}"
@@ -2827,7 +2842,7 @@ process annotate {
 
 process annotate_pairs {
     // annotate variants
-    tag "${caller}"
+    tag "${caller}.${chunkLabel}"
     publishDir "${params.outputDir}/annotations/${caller}", mode: 'copy', pattern: "*${annotations_tsv}"
 
     input:
@@ -3020,6 +3035,7 @@ annotations_annovar_tables.filter { sampleID, caller, type, anno_tsv ->
 }.set { annotations_annovar_tables_filtered }
 
 process tmb_filter_variants {
+    tag "${caller}.${type}"
     publishDir "${params.outputDir}/tmb/${caller}/Rdata", mode: 'copy', pattern: "*${output_Rdata}"
     publishDir "${params.outputDir}/tmb/${caller}/variants", mode: 'copy', pattern: "*${output_variants}"
 
@@ -3067,6 +3083,7 @@ loci_tables2.map{ sampleID, summary_table, callable_txt ->
 .set { loci_annotations }
 
 process calculate_tmb {
+    tag "${caller}.${type}"
     publishDir "${params.outputDir}/tmb/${caller}/values", mode: 'copy', pattern: "*${output_tmb}"
 
     input:

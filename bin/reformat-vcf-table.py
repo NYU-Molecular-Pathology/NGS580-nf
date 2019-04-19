@@ -137,24 +137,78 @@ def MuTect2(fin, fout):
         row['NORMAL.AD.TOTAL'] = int(row['NORMAL.AD.REF']) + int(row['NORMAL.AD.ALT'])
         writer.writerow(row)
 
-def VarScan2(fin, fout):
+def VarScan2(fin, fout, sampleID):
     """
     Reformat the contents of lines VarScan2 output
     VarScan2 outputs the variant allele frequency ('FREQ') like this: "100%", "99.1%", "53.42%", etc
     Need to convert this to decimal float
+
+    Many of the table headers in VarScan2 output have the SampleID prepended to them
+
+    NOTE: Make sure this corresponds to the columns output in the vcf_to_tsv pipeline step by GATK VariantsToTable
     """
     reader = csv.DictReader(fin, delimiter = '\t')
+
     # get old headers
-    fieldnames = reader.fieldnames
-    writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
+    # ['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'Sample1.AD', 'Sample1.RD', 'Sample1.FREQ', 'Sample1.RBQ', 'Sample1.ABQ']
+    old_fieldnames = reader.fieldnames
+
+    # get the headers that dont have sample ID embedded in them
+    # ['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER']
+    new_fieldnames = [ n for n in old_fieldnames if sampleID not in n ]
+    # add the missing field names
+    new_fieldnames.append('DP')
+    new_fieldnames.append('AD')
+    new_fieldnames.append('RD')
+    new_fieldnames.append('FREQ')
+    new_fieldnames.append('RBQ')
+    new_fieldnames.append('ABQ')
+    new_fieldnames.append('QUAL.REF')
+    new_fieldnames.append('QUAL.ALT')
+    new_fieldnames.append('AD.ALT')
+    new_fieldnames.append('AD.REF')
+
+    old_DP = "{0}.DP".format(sampleID)
+    old_AD = "{0}.AD".format(sampleID)
+    old_RD = "{0}.RD".format(sampleID)
+    old_FREQ = "{0}.FREQ".format(sampleID)
+    old_RBQ = "{0}.RBQ".format(sampleID)
+    old_ABQ = "{0}.ABQ".format(sampleID)
+
+    writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = new_fieldnames)
     writer.writeheader()
     for row in reader:
+        # convert the old row columns to the new header keys
+        # fix the FREQ value
         # strip the percent sign
-        row['FREQ'] = re.sub('[%]', '', row['FREQ'])
+        row['FREQ'] = re.sub('[%]', '', row[old_FREQ])
         # divide by 100
         row['FREQ'] = float(row['FREQ']) / 100.0
         # truncate to two decimal places
         row['FREQ'] = '{:0.2f}'.format(row['FREQ'])
+
+        # fill in the missing required columns
+        row['DP'] = row[old_DP]
+        row['AD'] = row[old_AD]
+        row['RD'] = row[old_RD]
+        row['RBQ'] = row[old_RBQ]
+        row['ABQ'] = row[old_ABQ]
+
+        row['QUAL'] = row['ABQ']
+        row['QUAL.ALT'] = row['ABQ']
+        row['QUAL.REF'] = row['RBQ']
+
+        row['AD.ALT'] = row['AD']
+        row['AD.REF'] = row['RD']
+
+        # get rid of the columns with old bad headers
+        row.pop(old_DP)
+        row.pop(old_AD)
+        row.pop(old_RD)
+        row.pop(old_RBQ)
+        row.pop(old_ABQ)
+        row.pop(old_FREQ)
+
         writer.writerow(row)
 
 
@@ -190,7 +244,7 @@ def main(**kwargs):
         fout.close()
         fin.close()
     elif caller == "VarScan2":
-        VarScan2(fin, fout)
+        VarScan2(fin, fout, sampleID)
         fout.close()
         fin.close()
     else:

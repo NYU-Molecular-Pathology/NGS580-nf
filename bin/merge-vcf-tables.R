@@ -56,9 +56,20 @@ save.image('args.Rdata')
 message(">>> Loading variant tables to be merged")
 
 annovar <- read.ANNOVAR.vcf_txt(file = annovar_txt_file)
-vcf_table <- read.delim(file = vcf_tsv_file, header = TRUE, sep = '\t', stringsAsFactors = FALSE, colClasses = "character")
-avinput <- read.delim(file = avinput_file, header = TRUE, sep = '\t', stringsAsFactors = FALSE, colClasses = "character")
+save.image('loaded.Rdata')
 
+vcf_table <- read.delim(file = vcf_tsv_file, 
+                        header = TRUE, 
+                        sep = '\t', 
+                        stringsAsFactors = FALSE, 
+                        colClasses = "character")
+save.image('loaded.Rdata')
+
+avinput <- read.delim(file = avinput_file, 
+                      header = TRUE, 
+                      sep = '\t', 
+                      stringsAsFactors = FALSE, 
+                      colClasses = "character")
 save.image('loaded.Rdata')
 
 message(sprintf(">>> annovar: Number of rows: %s", nrow(annovar)))

@@ -7,6 +7,8 @@ annotations <- read.delim(file = annotations_file,
                           check.names = FALSE, 
                           na.strings = c('.'))
 
+save.image(file="variants.loaded.Rdata",compress = TRUE)
+
 # sort the Sample levels
 annotations[["Sample"]] <- factor(x = annotations[["Sample"]], 
                                   levels = sort(unique(as.character(annotations[["Sample"]]), 
@@ -65,7 +67,25 @@ make_mutect2_plots <- function(df){
     plots <- list()
     if(is.data.frame(df)){
         if(nrow(df) > 0){
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            # ~~~~~~~~~~ VARIANT TYPES PIE CHART ~~~~~~~~~~~~~~~ # 
+            variant_types_pie <- ggplot(aggregate( n ~ Func.refGene, data = df, FUN = sum), 
+                                       aes(x= "", y = n, fill = Func.refGene)) + 
+                geom_bar(stat = "identity", width = 1) + # , color = "white"
+                coord_polar("y", start = 0) +
+                theme_bw() +
+                theme(panel.grid.minor = element_blank(), 
+                      panel.grid.major = element_blank(), 
+                      panel.border = element_blank(), 
+                      axis.ticks = element_blank(), 
+                      axis.text = element_blank(), 
+                      axis.title = element_blank()) +
+                ggtitle("Target Types")
+            
+            plots[['types']] <- list(
+                plot = variant_types_pie,
+                subheader = 'Variant Types'
+            )
+            # ~~~~~~~~~~~ VARIANT COUNT BARPLOT ~~~~~~~~~~~~~~ # 
             mutect2_counts <- ggplot(data = df, aes(x = Sample)) +
                 geom_bar(stat="count") + 
                 ggtitle("Number of Variants") + 
@@ -77,7 +97,7 @@ make_mutect2_plots <- function(df){
                 plot = mutect2_counts,
                 subheader = 'Counts'
             )
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            # ~~~~~~~~~~~ QUALITY SCORE BOXPLOT ~~~~~~~~~~~~~~ # 
             mutect2_qual <- ggplot(data = df, aes(x=Sample, y=QUAL, fill=Sample)) + 
                 geom_boxplot() + 
                 # cut off x axis at 1000
@@ -92,7 +112,7 @@ make_mutect2_plots <- function(df){
                 plot = mutect2_qual,
                 subheader = 'Quality Scores'
             )
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            # ~~~~~~~~~~~ VARIANT DEPTH BOXPLOT ~~~~~~~~~~~~~~ # 
             mutect2_dp <- ggplot(data = df, aes(x=Sample, y=TUMOR.AD.TOTAL, fill=Sample)) + 
                 geom_boxplot() + 
                 guides(fill=FALSE) + 
@@ -105,7 +125,7 @@ make_mutect2_plots <- function(df){
                 plot = mutect2_dp,
                 subheader = 'Tumor Depth of Coverage'
             )
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            # ~~~~~~~~~~ VARIANT FREQUENCY BOXPLOT ~~~~~~~~~~~~~~~ # 
             mutect2_af <- ggplot(data = df, aes(x=Sample, y=TUMOR.AF, fill=Sample)) + 
                 geom_boxplot() + 
                 guides(fill=FALSE) + 
@@ -153,7 +173,25 @@ make_lofreq_somatic_plots <- function(df){
     plots <- list()
     if(is.data.frame(df)){
         if(nrow(df) > 0){
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            # ~~~~~~~~~~ VARIANT TYPES PIE CHART ~~~~~~~~~~~~~~~ # 
+            variant_types_pie <- ggplot(aggregate( n ~ Func.refGene, data = df, FUN = sum), 
+                                       aes(x= "", y = n, fill = Func.refGene)) + 
+                geom_bar(stat = "identity", width = 1) + # , color = "white"
+                coord_polar("y", start = 0) +
+                theme_bw() +
+                theme(panel.grid.minor = element_blank(), 
+                      panel.grid.major = element_blank(), 
+                      panel.border = element_blank(), 
+                      axis.ticks = element_blank(), 
+                      axis.text = element_blank(), 
+                      axis.title = element_blank()) +
+                ggtitle("Target Types")
+            
+            plots[['types']] <- list(
+                plot = variant_types_pie,
+                subheader = 'Variant Types'
+            )
+            # ~~~~~~~~~~~ VARIANT COUNT BARPLOT ~~~~~~~~~~~~~~ # 
             lofreq_counts <- ggplot(data = df, aes(x = Sample)) +
                 geom_bar(stat="count") + 
                 ggtitle("Number of Variants") + 
@@ -232,7 +270,7 @@ if (length(lofreq_somatic_plots) < 1){
 
 ## GATK HaplotypeCaller
 
-Variant calling with GATK HaplotypeCaller [@GATKToolkit]
+Variant calling with GATK HaplotypeCaller [@GATKToolkit].
 
 ```{r haplotypecaller}
 # ~~~~~~~ FUNCTIONS ~~~~~~~ #
@@ -240,7 +278,25 @@ make_haplotypecaller_plots <- function(df){
     plots <- list()
     if(is.data.frame(df)){
         if(nrow(df) > 0){
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            # ~~~~~~~~~~ VARIANT TYPES PIE CHART ~~~~~~~~~~~~~~~ # 
+            variant_types_pie <- ggplot(aggregate( n ~ Func.refGene, data = df, FUN = sum), 
+                                       aes(x= "", y = n, fill = Func.refGene)) + 
+                geom_bar(stat = "identity", width = 1) + # , color = "white"
+                coord_polar("y", start = 0) +
+                theme_bw() +
+                theme(panel.grid.minor = element_blank(), 
+                      panel.grid.major = element_blank(), 
+                      panel.border = element_blank(), 
+                      axis.ticks = element_blank(), 
+                      axis.text = element_blank(), 
+                      axis.title = element_blank()) +
+                ggtitle("Target Types")
+            
+            plots[['types']] <- list(
+                plot = variant_types_pie,
+                subheader = 'Variant Types'
+            )
+            # ~~~~~~~~~~~~ VARIANT COUNT BARPLOT ~~~~~~~~~~~~~ # 
             haplotypecaller_counts <- ggplot(data = df, aes(x = Sample)) +
                 geom_bar(stat="count") + 
                 ggtitle("Number of Variants") + 
@@ -317,7 +373,7 @@ if (length(haplotypecaller_plots) < 1){
 
 ## LoFreq
 
-Variant calling results from the LoFreq program [@LoFreq]
+Variant calling results from the LoFreq program [@LoFreq].
 
 ```{r lofreq}
 # ~~~~~~~ FUNCTIONS ~~~~~~~ #
@@ -325,7 +381,25 @@ make_lofreq_plots <- function(df){
     plots <- list()
     if(is.data.frame(df)){
         if(nrow(df) > 0){
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            # ~~~~~~~~~~ VARIANT TYPES PIE CHART ~~~~~~~~~~~~~~~ # 
+            variant_types_pie <- ggplot(aggregate( n ~ Func.refGene, data = df, FUN = sum), 
+                                       aes(x= "", y = n, fill = Func.refGene)) + 
+                geom_bar(stat = "identity", width = 1) + # , color = "white"
+                coord_polar("y", start = 0) +
+                theme_bw() +
+                theme(panel.grid.minor = element_blank(), 
+                      panel.grid.major = element_blank(), 
+                      panel.border = element_blank(), 
+                      axis.ticks = element_blank(), 
+                      axis.text = element_blank(), 
+                      axis.title = element_blank()) +
+                ggtitle("Target Types")
+            
+            plots[['types']] <- list(
+                plot = variant_types_pie,
+                subheader = 'Variant Types'
+            )
+            # ~~~~~~~~~~ VARIANT COUNT BARPLOT ~~~~~~~~~~~~~~~ # 
             lofreq_counts <- ggplot(data = df, aes(x = Sample)) +
                 geom_bar(stat="count") + 
                 ggtitle("Number of Variants") + 
@@ -361,7 +435,7 @@ make_lofreq_plots <- function(df){
             
             plots[['dp']] <- list(
                 plot = lofreq_dp,
-                subheader = 'Quality Scores'
+                subheader = 'Depth of Coverage'
             )
             # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
             lofreq_af <- ggplot(data = df, aes(x=Sample, y=AF, fill=Sample)) + 
@@ -392,6 +466,256 @@ if (length(lofreq_plots) < 1){
 } else {
     
     for(item in lofreq_plots){
+        subplot<- item[["plot"]]
+        subheader <- item[["subheader"]]
+        
+        cat(sprintf('\n\n### %s\n\n', subheader))
+        print(subplot)
+    }
+}
+```
+
+## VarScan2 SNP
+
+Variant calling with VarScan2 [@VarScan2] (SNP's).
+
+```{r varscan_snp}
+# ~~~~~~~ FUNCTIONS ~~~~~~~ #
+make_varscan2_plots <- function(df){
+    plots <- list()
+    if(is.data.frame(df)){
+        if(nrow(df) > 0){
+            
+            # ~~~~~~~~~~ VARIANT TYPES PIE CHART ~~~~~~~~~~~~~~~ # 
+            variant_types_pie <- ggplot(aggregate( n ~ Func.refGene, data = df, FUN = sum), 
+                                       aes(x= "", y = n, fill = Func.refGene)) + 
+                geom_bar(stat = "identity", width = 1) + # , color = "white"
+                coord_polar("y", start = 0) +
+                theme_bw() +
+                theme(panel.grid.minor = element_blank(), 
+                      panel.grid.major = element_blank(), 
+                      panel.border = element_blank(), 
+                      axis.ticks = element_blank(), 
+                      axis.text = element_blank(), 
+                      axis.title = element_blank()) +
+                ggtitle("Target Types")
+            
+            plots[['types']] <- list(
+                plot = variant_types_pie,
+                subheader = 'Variant Types'
+            )
+            # ~~~~~~~~~~ VARIANT COUNT BARPLOT ~~~~~~~~~~~~~~~ # 
+            counts_barplot <- ggplot(data = df, aes(x = Sample)) +
+                geom_bar(stat="count") + 
+                ggtitle("Number of Variants") + 
+                coord_flip() +
+                theme_bw() +
+                theme(panel.grid.minor = element_blank()) 
+            
+            plots[['counts']] <- list(
+                plot = counts_barplot,
+                subheader = 'Counts'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            qual_boxplot1 <- ggplot(data = df, aes(x=Sample, y=ABQ, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Variant Base Quality Scores") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['qual1']] <- list(
+                plot = qual_boxplot1,
+                subheader = 'Average quality of variant-supporting bases'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            qual_boxplot2 <- ggplot(data = df, aes(x=Sample, y=RBQ, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Reference Base Quality Scores") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['qual2']] <- list(
+                plot = qual_boxplot2,
+                subheader = 'Average quality of reference-supporting bases'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            depth_boxplot <- ggplot(data = df, aes(x=Sample, y=DP, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Depth of Coverage") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['dp']] <- list(
+                plot = depth_boxplot,
+                subheader = 'Depth of Coverage'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            frequency_boxplot <- ggplot(data = df, aes(x=Sample, y=FREQ, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Allele Frequency") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['af']] <- list(
+                plot = frequency_boxplot,
+                subheader = 'Allele Frequency'
+            )
+        }
+    }
+    return(plots)
+}
+
+# ~~~~~~~ RUN ~~~~~~~ #
+varscan2_snp_plots <- make_varscan2_plots(annotations[which(annotations[["VariantCaller"]] == 'VarScan2' & annotations[["VariantCallerType"]] == "snp" ), ])
+
+
+```
+
+```{r, results='asis'}
+# print any results found
+if (length(varscan2_snp_plots) < 1){
+    cat('\n\n- __No results found__\n\n')
+} else {
+    
+    for(item in varscan2_snp_plots){
+        subplot<- item[["plot"]]
+        subheader <- item[["subheader"]]
+        
+        cat(sprintf('\n\n### %s\n\n', subheader))
+        print(subplot)
+    }
+}
+```
+
+## VarScan2 Indel
+
+Variant calling with VarScan2 [@VarScan2] (indels).
+
+```{r varscan_indel}
+# ~~~~~~~ FUNCTIONS ~~~~~~~ #
+make_varscan2_indel_plots <- function(df){
+    plots <- list()
+    if(is.data.frame(df)){
+        if(nrow(df) > 0){
+            
+            # ~~~~~~~~~~ VARIANT TYPES PIE CHART ~~~~~~~~~~~~~~~ # 
+            variant_types_pie <- ggplot(aggregate( n ~ Func.refGene, data = df, FUN = sum), 
+                                       aes(x= "", y = n, fill = Func.refGene)) + 
+                geom_bar(stat = "identity", width = 1) + # , color = "white"
+                coord_polar("y", start = 0) +
+                # code for putting text labels on pie plot:
+                # geom_text(aes(y = n, label = Func.refGene), color = "white") +
+                # library("ggrepel")
+                # geom_text_repel(aes(y = n, label = Func.refGene),
+                #                 # color = "white",
+                #                 show.legend = FALSE, 
+                #                 # segment.alpha = 0, 
+                #                 min.segment.length = 0,
+                #                 force = 5) +
+                # TODO: need to tweak this code so that it looks alright
+                theme_bw() +
+                theme(panel.grid.minor = element_blank(), 
+                      panel.grid.major = element_blank(), 
+                      panel.border = element_blank(), 
+                      axis.ticks = element_blank(), 
+                      axis.text = element_blank(), 
+                      axis.title = element_blank()) +
+                ggtitle("Target Types")
+            
+            plots[['types']] <- list(
+                plot = variant_types_pie,
+                subheader = 'Variant Types'
+            )
+            
+            # ~~~~~~~~~~ VARIANT COUNT BARPLOT ~~~~~~~~~~~~~~~ # 
+            counts_barplot <- ggplot(data = df, aes(x = Sample)) +
+                geom_bar(stat="count") + 
+                ggtitle("Number of Variants") + 
+                coord_flip() +
+                theme_bw() +
+                theme(panel.grid.minor = element_blank()) 
+            
+            plots[['counts']] <- list(
+                plot = counts_barplot,
+                subheader = 'Counts'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            qual_boxplot1 <- ggplot(data = df, aes(x=Sample, y=ABQ, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Variant Base Quality Scores") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['qual1']] <- list(
+                plot = qual_boxplot1,
+                subheader = 'Average quality of variant-supporting bases'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            qual_boxplot2 <- ggplot(data = df, aes(x=Sample, y=RBQ, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Reference Base Quality Scores") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['qual2']] <- list(
+                plot = qual_boxplot2,
+                subheader = 'Average quality of reference-supporting bases'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            depth_boxplot <- ggplot(data = df, aes(x=Sample, y=DP, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Depth of Coverage") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['dp']] <- list(
+                plot = depth_boxplot,
+                subheader = 'Depth of Coverage'
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ # 
+            frequency_boxplot <- ggplot(data = df, aes(x=Sample, y=FREQ, fill=Sample)) + 
+                geom_boxplot() + 
+                guides(fill=FALSE) + 
+                coord_flip() + 
+                ggtitle("Allele Frequency") + 
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[['af']] <- list(
+                plot = frequency_boxplot,
+                subheader = 'Allele Frequency'
+            )
+        }
+    }
+    return(plots)
+}
+
+# ~~~~~~~ RUN ~~~~~~~ #
+varscan2_indel_plots <- make_varscan2_indel_plots(annotations[which(annotations[["VariantCaller"]] == 'VarScan2' & annotations[["VariantCallerType"]] == "indel" ), ])
+df <- annotations[which(annotations[["VariantCaller"]] == 'VarScan2' & annotations[["VariantCallerType"]] == "indel" ), ]
+```
+
+```{r, results='asis'}
+# print any results found
+if (length(varscan2_indel_plots) < 1){
+    cat('\n\n- __No results found__\n\n')
+} else {
+    
+    for(item in varscan2_indel_plots){
         subplot<- item[["plot"]]
         subheader <- item[["subheader"]]
         
