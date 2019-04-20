@@ -2,7 +2,7 @@
 args <- commandArgs(T)
 
 sampleID <- args[1] # for labeling
-tsv_file <- args[2] # input file
+vcf_file <- args[2] # input file
 signatures_output_file <- args[3] # output data file .Rds
 signatures_plot_pdf <- args[4] # output main plot file .pdf
 signatures_plot_Rds <- args[5] # output main plot file .Rds
@@ -10,16 +10,19 @@ signatures_pie_plot_pdf <- args[6] # output pie plot file .pdf
 signatures_pie_plot_Rds <- args[7] # output pie plot file .Rds
 weights_tsv <- args[8]
 
-message(sprintf("tsv_file: %s", tsv_file))
+message(sprintf("vcf_file: %s", vcf_file))
 message(sprintf("sampleID: %s", sampleID))
 
 library("BSgenome.Hsapiens.UCSC.hg19")
 library("deconstructSigs")
 
-variants <- read.delim(file = tsv_file, 
-                       header = TRUE, 
+vcf_colnames <- c("CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", sampleID)
+variants <- read.delim(file = vcf_file, 
+                       header = FALSE, 
                        sep = '\t', 
                        stringsAsFactors = FALSE,
+                       comment.char = '#', 
+                       col.names = vcf_colnames, 
                        check.names = FALSE)
 
 save.image(file = 'loaded.Rdata')

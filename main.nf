@@ -1597,7 +1597,7 @@ process varscan_snp {
     """
     # make vcf-sample-list
     echo "${sampleID}" > "${vcf_sample_list}"
-    
+
     # VarScan2 with default settings
     samtools mpileup \
     --no-BAQ \
@@ -1652,7 +1652,7 @@ process varscan_indel {
     """
     # make vcf-sample-list
     echo "${sampleID}" > "${vcf_sample_list}"
-    
+
     # VarScan2 with default settings
     samtools mpileup \
     --no-BAQ \
@@ -1752,6 +1752,8 @@ process vcf_to_tsv {
 
     output:
     set val(caller), val(type), val(sampleID), file(vcf), file("${reformat_tsv}") into (vcf_tsvs, vcf_tsvs2) // to annotation
+    set val(caller), val(type), val(sampleID), file("${reformat_tsv}") into vcf_tsvs3
+
 
     script:
     prefix = "${sampleID}.${caller}.${type}"
@@ -1945,57 +1947,69 @@ process delly2 {
 
 
 // Genomic Signatures
-sample_vcf_sig_good = Channel.create()
-sample_vcf_sig_bad = Channel.create()
+
+process signatures_variant_filter {
+    // need to apply some filter criteria to the variant tables before using them to generate signatures
+    tag "${caller}.${type}"
+    input:
+    set val(caller), val(type), val(sampleID), file(tsv) from vcf_tsvs3
+
+    output:
+    set val(caller), val(type), val(sampleID), file("${output_file}") into filtered_signatures_tsvs
+
+    script:
+    prefix = "${sampleID}.${caller}.${type}"
+    output_file = "${prefix}.filtered.tsv"
+    if ( caller == "VarScan2" )
+        """
+        signatures-variant-filter.py -c VarScan2 -i "${tsv}" -o "${output_file}"
+        """
+    else if ( caller == "HaplotypeCaller" )
+        """
+        signatures-variant-filter.py -c HaplotypeCaller -i "${tsv}" -o "${output_file}"
+        """
+    else if ( caller == "LoFreq" )
+        """
+        signatures-variant-filter.py -c LoFreq -i "${tsv}" -o "${output_file}"
+        """
+    else
+        error "Invalid caller: ${caller}"
+}
+
+sample_sig_good = Channel.create()
+sample_sig_bad = Channel.create()
 deconstructSigs_variant_min = 55
 
 // filtered_vcfs3.mix(sample_vcf_hc, samples_lofreq_vcf3)
-filtered_vcfs3.choice( sample_vcf_sig_good, sample_vcf_sig_bad ){ items ->
+filtered_signatures_tsvs.choice( sample_sig_good, sample_sig_bad ){ items ->
     // make sure there are enough variants in the VCF to proceed!
     def caller = items[0]
     def type = items[1]
     def sampleID = items[2]
-    def filtered_vcf = items[3]
-    def line_count = 0
-    def num_variants = 0
-    def output = 1 // bad by default
-    def enough_variants = false // bad by default
-
-    // count number of variants in the vcf file
-    filtered_vcf.withReader { reader ->
-        while (line = reader.readLine()) {
-            if (!line.startsWith("#")) num_variants++
-            if (num_variants > deconstructSigs_variant_min) {
-                enough_variants = true
-                break
-                }
-            line_count++
-        }
+    def tsv = items[3]
+    def output_ch = 1 // sample_sig_bad
+    long count = Files.lines(tsv).count()
+    if ( count > deconstructSigs_variant_min ) {
+        output_ch = 0 // sample_sig_good
     }
-
-    if ( enough_variants==false ) {
-        output = 1
-    } else if ( enough_variants==true ) {
-        output = 0
-    }
-    return(output)
+    return(output_ch)
 }
 
-sample_vcf_sig_bad.map {  caller, type, sampleID, filtered_vcf ->
+sample_sig_bad.map {  caller, type, sampleID, filtered_vcf ->
     def reason = "Fewer than ${deconstructSigs_variant_min} variants in .vcf file, skipping genomic signatures"
     def output = [sampleID, caller, type, reason, filtered_vcf].join('\t')
     return(output)
-}.set { sample_vcf_hc_bad_logs }
+}.set { sample_sig_bad_logs }
 
 // dont make signatures for indels
-sample_vcf_sig_good.filter { items ->
+sample_sig_good.filter { items ->
     def caller = items[0]
     def type = items[1]
     def sampleID = items[2]
     def vcf = items[3]
 
     type != 'indel'
-}.set { sample_vcf_sig_good_filtered }
+}.set { sample_sig_good_filtered }
 
 process deconstructSigs_signatures {
     // search for mutation signatures
@@ -2004,7 +2018,7 @@ process deconstructSigs_signatures {
     publishDir "${params.outputDir}/signatures/${caller}/pdf", mode: 'copy', pattern: "*.pdf"
 
     input:
-    set val(caller), val(type), val(sampleID), file(sample_vcf) from sample_vcf_sig_good_filtered
+    set val(caller), val(type), val(sampleID), file(sample_vcf) from sample_sig_good_filtered
 
     output:
     file("${signatures_rds}")
@@ -2027,7 +2041,15 @@ process deconstructSigs_signatures {
     signatures_pieplot_pdf = "${prefix}.signatures.pieplot.pdf"
     signatures_pieplot_Rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_pieplot_Rds']}"
     """
-    deconstructSigs_make_signatures.R "${sampleID}" "${sample_vcf}" "${signatures_rds}" "${signatures_plot_pdf}" "${signatures_plot_Rds}" "${signatures_pieplot_pdf}" "${signatures_pieplot_Rds}" "${signatures_weights_tsv}"
+    deconstructSigs_make_signatures.R \
+    "${sampleID}" \
+    "${sample_vcf}" \
+    "${signatures_rds}" \
+    "${signatures_plot_pdf}" \
+    "${signatures_plot_Rds}" \
+    "${signatures_pieplot_pdf}" \
+    "${signatures_pieplot_Rds}" \
+    "${signatures_weights_tsv}"
     """
 }
 
@@ -2830,10 +2852,10 @@ process annotate {
         --nastring . \
         --onetranscript \
         --outfile "${prefix}"
-        
+
         printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
         cut -f1-10 ${avinput_file} >>  "${avinput_tsv}"
-        
+
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tsv}"
         """
     else
@@ -3370,7 +3392,7 @@ done_copy_samplesheet.concat(
 
 
 // collect failed log messages
-failed_samples.concat(samples_vcfs_tsvs_bad_logs, sample_vcf_hc_bad_logs)
+failed_samples.concat(samples_vcfs_tsvs_bad_logs, sample_sig_bad_logs)
     .collectFile(name: "failed.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set { failed_log_ch }
 failed_pairs.concat(pairs_vcfs_tsvs_bad_logs)
