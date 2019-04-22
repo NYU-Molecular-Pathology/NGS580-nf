@@ -6,7 +6,7 @@ MAINTAINER Stephen M. Kelly
 # ~~~~~ BASIC SETUP ~~~~~ #
 RUN apt-get update && \
 apt-get install -y wget \
-bzip2 
+bzip2
 
 # ~~~~~ MINICONDA ~~~~~ #
 RUN wget https://repo.continuum.io/miniconda/Miniconda3-4.4.10-Linux-x86_64.sh && \
@@ -17,7 +17,8 @@ ENV PATH="/conda/bin:${PATH}"
 # ~~~~~ VARSCAN ~~~~~ #
 RUN conda install -y -c bioconda \
 varscan=2.4.3 \
-samtools=1.9
+samtools=1.9 \
+bcftools=1.3 
 
 # wrapper script for pipeline compatibility
 RUN echo '#!/bin/bash' > /usr/varscan.sh
