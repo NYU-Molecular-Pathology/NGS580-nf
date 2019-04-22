@@ -145,6 +145,10 @@ def VarScan2(fin, fout, sampleID):
 
     Many of the table headers in VarScan2 output have the SampleID prepended to them
 
+    - need to rename the FREQ columns from "Sample1.FREQ" to "FREQ"
+    - change FREQ value from character string to float; 99.91% -> 0.99
+    - need to add AF column, set to value of FREQ
+
     NOTE: Make sure this corresponds to the columns output in the vcf_to_tsv pipeline step by GATK VariantsToTable
     """
     reader = csv.DictReader(fin, delimiter = '\t')
@@ -161,6 +165,7 @@ def VarScan2(fin, fout, sampleID):
     new_fieldnames.append('AD')
     new_fieldnames.append('RD')
     new_fieldnames.append('FREQ')
+    new_fieldnames.append('AF')
     new_fieldnames.append('RBQ')
     new_fieldnames.append('ABQ')
     new_fieldnames.append('QUAL.REF')
@@ -186,6 +191,7 @@ def VarScan2(fin, fout, sampleID):
         row['FREQ'] = float(row['FREQ']) / 100.0
         # truncate to two decimal places
         row['FREQ'] = '{:0.2f}'.format(row['FREQ'])
+        row['AF'] = row['FREQ']
 
         # fill in the missing required columns
         row['DP'] = row[old_DP]
