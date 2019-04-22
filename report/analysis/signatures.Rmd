@@ -1,0 +1,104 @@
+# Mutational Signautures [FOR RESEARCH USE ONLY]
+
+```{r load_signatures}
+# loads variant information from 'all_annotations.tsv' file
+signatures_weights_file <- params$signatures_weights_file
+signatures_weights <- read.delim(file = signatures_weights_file, header = TRUE, sep = '\t')
+
+# sort the Sample levels
+signatures_weights[["Sample"]] <- factor(x = signatures_weights[["Sample"]],
+                                  levels = sort(unique(as.character(signatures_weights[["Sample"]]),
+                                                       decreasing = TRUE)))
+
+# get the names of the columns that do not start with "Signature."
+non_signature_cols <- names(signatures_weights)[! grepl(pattern = 'Signature.', x = names(signatures_weights))]
+
+make_signatures_plots <- function(df, non_signature_cols = non_signature_cols){
+    plots <- list()
+    if(is.data.frame(df)){
+        if(nrow(df) > 0){
+            # function to make the plot
+            signatures_long <- reshape2::melt(df,
+                                              id.vars=non_signature_cols,
+                                              variable.name="Signature",
+                                              value.name="Weight")
+            signatures_boxplot <- ggplot(data = signatures_long, 
+                                         aes(x=Signature, y=Weight, fill = Signature)) +
+                geom_boxplot() +
+                guides(fill=FALSE) +
+                coord_flip() +
+                ggtitle("Genomic Mutation Signatures") +
+                theme_bw() +
+                theme(panel.grid.minor = element_blank())
+            
+            plots[["boxplot"]] <- signatures_boxplot
+        }
+    }
+    return(plots)
+}
+
+save.image(file="signatures.loaded.Rdata",compress = TRUE)
+```
+
+## GATK HaplotypeCaller
+
+```{r}
+haplotypecaller_plots <- make_signatures_plots(signatures_weights[signatures_weights[["VariantCaller"]] == 'HaplotypeCaller', ])
+```
+
+```{r, results='asis'}
+# print any results found
+if (length(haplotypecaller_plots) < 1){
+    cat('\n\n- __No results found__\n\n')
+} else {
+    for(plot in haplotypecaller_plots){
+        print(plot)
+    }
+}
+```
+
+## LoFreq
+
+```{r}
+lofreq_plots <- make_signatures_plots(signatures_weights[signatures_weights[["VariantCaller"]] == 'LoFreq', ])
+```
+
+```{r, results='asis'}
+# print any results found
+if (length(lofreq_plots) < 1){
+    cat('\n\n- __No results found__\n\n')
+} else {
+    for(plot in lofreq_plots){
+        print(plot)
+    }
+}
+```
+
+## VarScan2 SNP
+
+```{r}
+varscan2_snp_plots <- make_signatures_plots(signatures_weights[which(signatures_weights[["VariantCaller"]] == 'VarScan2' & signatures_weights[["VariantCallerType"]] == "snp" ), ])
+```
+
+
+```{r, results='asis'}
+# print any results found
+if (length(varscan2_snp_plots) < 1){
+    cat('\n\n- __No results found__\n\n')
+} else {
+    for(plot in varscan2_snp_plots){
+        print(plot)
+    }
+}
+```
+
+
+```{r}
+# save environment to file
+save.image(file="signatures.Rdata", compress = TRUE)
+# remove large objects that are no longer needed for report
+rm(varscan2_snp_plots)
+rm(lofreq_plots)
+rm(haplotypecaller_plots)
+
+```

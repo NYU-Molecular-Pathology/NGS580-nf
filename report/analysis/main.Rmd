@@ -16,7 +16,7 @@ output:
     toc: yes
 bibliography: citations.bib
 params:
-  child: !r c("targets.Rmd", "samples.Rmd", "failed.Rmd","reads.Rmd", "coverage.samples.Rmd", "coverage.intervals.Rmd", "variants.Rmd")
+  child: !r c("targets.Rmd", "samples.Rmd", "failed.Rmd","reads.Rmd", "coverage.samples.Rmd", "coverage.intervals.Rmd", "variants.Rmd", "signatures.Rmd")
   input_dir: input
   annotations_file: annotations.tsv
   samplesheet_file: samplesheet.tsv
@@ -30,6 +30,7 @@ params:
   failed_log: failed.tsv
   failed_pairs_log: failed.pairs.tsv
   targets_annotations_file: targets.annotations.tsv
+  signatures_weights_file: signatures.weights.tsv
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report

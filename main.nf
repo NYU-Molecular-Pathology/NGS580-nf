@@ -2083,7 +2083,7 @@ process update_update_signatures_weights_collected {
     file(table) from updated_signatures_weights_collected
 
     output:
-    file("${output_file}")
+    file("${output_file}") into all_signatures_weights
 
     script:
     output_file = "${signatures_weights_file}"
@@ -3417,6 +3417,7 @@ process custom_analysis_report {
     file(failed_log) from failed_log_ch
     file(failed_pairs_log) from failed_pairs_log_ch
     file(targets_annotations_file) from annotated_targets
+    file(signatures_weights) from all_signatures_weights
 
     output:
     file("${html_output}")
@@ -3448,7 +3449,8 @@ process custom_analysis_report {
         targets_metrics_table = "${targets_metrics_table}",
         failed_log = "${failed_log}",
         failed_pairs_log = "${failed_pairs_log}",
-        targets_annotations_file = "${targets_annotations_file}"
+        targets_annotations_file = "${targets_annotations_file}",
+        signatures_weights_file = "${signatures_weights}"
         ),
     output_format = "html_document",
     output_file = "${html_output}")

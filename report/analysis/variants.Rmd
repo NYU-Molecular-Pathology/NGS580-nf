@@ -729,4 +729,13 @@ if (length(varscan2_indel_plots) < 1){
 ```{r}
 # save environment to file
 save.image(file="variants.Rdata",compress = TRUE)
+# remove large objects that are no longer needed for report
+rm(varscan2_snp_plots)
+rm(varscan2_indel_plots)
+rm(lofreq_plots)
+rm(haplotypecaller_plots)
+rm(mutect2_plots)
+rm(lofreq_somatic_plots)
+rm(annotations)
+
 ```
