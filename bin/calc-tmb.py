@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Calcalate the tumor mutation burden in variants/Megabase
+Wrapper around float division for the pipeline
 """
 import sys
 args = sys.argv

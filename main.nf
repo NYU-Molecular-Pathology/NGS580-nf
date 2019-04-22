@@ -3054,31 +3054,29 @@ process callable_loci_table {
 annotations_annovar_tables.filter { sampleID, caller, type, anno_tsv ->
     def count = anno_tsv.readLines().size()
     count > 1
+}.filter { sampleID, caller, type, anno_tsv ->
+    // dont use indels
+    type != "indel"
 }.set { annotations_annovar_tables_filtered }
 
 process tmb_filter_variants {
     tag "${caller}.${type}"
-    publishDir "${params.outputDir}/tmb/${caller}/Rdata", mode: 'copy', pattern: "*${output_Rdata}"
-    publishDir "${params.outputDir}/tmb/${caller}/variants", mode: 'copy', pattern: "*${output_variants}"
+    publishDir "${params.outputDir}/tmb/${caller}/annotations", mode: 'copy', pattern: "*${output_variants}"
 
     input:
     set val(sampleID), val(caller), val(type), file(anno_tsv) from annotations_annovar_tables_filtered
 
     output:
-    file("${output_Rdata}")
-    file("${output_variants}") into tmb_filtered_variants
     set val(sampleID), val(caller), val(type), file("${output_variants}") into tmb_filtered_variants2
 
     script:
     prefix = "${sampleID}.${caller}.${type}"
-    output_Rdata = "${prefix}.tmb_filter_variants.Rdata"
-    output_variants = "${prefix}.annotations.tmb_filtered.tsv"
-    tmpFile = "tmp"
+    output_variants = "${prefix}.annotations.tmb.filtered.tsv"
     """
-    tmb-variant-filter.R "${output_Rdata}" "${tmpFile}" "${anno_tsv}"
-    cat "${tmpFile}" | \
+    tmb-variant-filter.py -c "${caller}" -i "${anno_tsv}" | \
     paste-col.py --header "Sample" -v "${sampleID}" | \
-    paste-col.py --header "Caller" -v "${caller}" > "${output_variants}"
+    paste-col.py --header "VariantCallerType" -v "${type}" | \
+    paste-col.py --header "VariantCaller" -v "${caller}" > "${output_variants}"
     """
 }
 
@@ -3119,8 +3117,8 @@ process calculate_tmb {
     output_tmb = "${prefix}.tmb.tsv"
     """
     tmb=\$( calc-tmb.py ${variants} ${loci} )
-    printf 'SampleID\tCaller\tnBases\tnVariants\tTMB\n' > "${output_tmb}"
-    printf "${sampleID}\t${caller}\t${loci}\t${variants}\t\${tmb}\n" >> "${output_tmb}"
+    printf 'SampleID\tVariantCaller\tVariantCallerType\tnBases\tnVariants\tTMB\n' > "${output_tmb}"
+    printf "${sampleID}\t${caller}\t${type}\t${loci}\t${variants}\t\${tmb}\n" >> "${output_tmb}"
     """
 }
 tmbs.collectFile(name: 'tmb.tsv', keepHeader: true, storeDir: "${params.outputDir}")
