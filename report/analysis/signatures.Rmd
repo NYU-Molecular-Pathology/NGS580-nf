@@ -1,4 +1,6 @@
-# Mutational Signautures [FOR RESEARCH USE ONLY]
+# Mutational Signatures [FOR RESEARCH USE ONLY]
+
+Aggregate genomic mutational signature weights for all samples in the run.
 
 ```{r load_signatures}
 # loads variant information from 'all_annotations.tsv' file
@@ -92,6 +94,30 @@ if (length(varscan2_snp_plots) < 1){
 }
 ```
 
+## Signature Descriptions
+
+```{r}
+signatures_cosmic <- data.frame()
+tryCatch(
+    {
+    signatures_cosmic <- read.delim(file = params$signatures_cosmic_tsv, header = TRUE, sep = '\t', check.names = FALSE)
+    },
+    error=function(cond) {
+    return(NA)
+        }
+)
+
+```
+
+```{r, results='asis'}
+if(nrow(signatures_cosmic) > 1){
+    datatable(signatures_cosmic, rownames = FALSE, options = list(pageLength = 5))
+} else {
+    cat('\n\n- Could not load COSMIC reference descriptions')
+}
+```
+
+Source: https://cancer.sanger.ac.uk/cosmic/signatures (accessed on Feb 15, 2019)
 
 ```{r}
 # save environment to file
