@@ -8,6 +8,11 @@ targets_metrics <- read.delim(file = targets_metrics_table, header = TRUE, sep =
 targets_annotations <- read.delim(file = targets_annotations_file, header = TRUE, sep = '\t', check.names = FALSE)
 targets_annotations[["n"]] <- 1
 targets_annotations_aggr <- aggregate( n ~ Func.refGene, data = targets_annotations, FUN = sum)
+
+# sort the factor levels
+targets_annotations_aggr[["Func.refGene"]] <- factor(x = targets_annotations_aggr[["Func.refGene"]], 
+                                  levels = as.character(targets_annotations_aggr[order(targets_annotations_aggr[["n"]], decreasing = TRUE), "Func.refGene"]))
+
 targets_per_gene <- aggregate( n ~ Gene.refGene, data = targets_annotations, FUN = sum)
 ```
 
@@ -20,9 +25,16 @@ kable(as.data.frame(t(targets_metrics)), col.names = 'Info')
 ## Target Types
 
 ```{r}
+# library(digest)
+# get the labels for the target types
+gene_func <- levels(targets_annotations_aggr[["Func.refGene"]])
+# get the colors for the target types
+gene_func_cols <- get_geneFunc_colors(gene_func)
+
 target_types_pie <- ggplot(targets_annotations_aggr, aes(x= "", y = n, fill = Func.refGene)) + 
     geom_bar(stat = "identity", width = 1) + # , color = "white"
     coord_polar("y", start = 0) +
+    # coord_flip() + 
     theme_bw() +
     theme(panel.grid.minor = element_blank(), 
           panel.grid.major = element_blank(), 
@@ -30,8 +42,10 @@ target_types_pie <- ggplot(targets_annotations_aggr, aes(x= "", y = n, fill = Fu
           axis.ticks = element_blank(), 
           axis.text = element_blank(), 
           axis.title = element_blank()) +
-    ggtitle("Target Types")
-    # geom_text(aes(y = n, label = Func.refGene), color = "white") # labels do not fit well
+    ggtitle("Target Types") +
+    scale_fill_manual(values = gene_func_cols)
+    
+# geom_text(aes(y = n, label = Func.refGene), color = "white") # labels do not fit well
 ```
 
 ```{r, fig.width=6, fig.height=6}

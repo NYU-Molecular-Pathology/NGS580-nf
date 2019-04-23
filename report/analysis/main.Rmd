@@ -31,6 +31,7 @@ params:
   failed_pairs_log: failed.pairs.tsv
   targets_annotations_file: targets.annotations.tsv
   signatures_weights_file: signatures.weights.tsv
+  signatures_cosmic_tsv: signatures.cosmic.tsv
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report
@@ -41,12 +42,57 @@ library("knitr")
 library("ggplot2")
 library("reshape2")
 library("DT")
+library("digest")
+
 # ~~~~~~~ CONFIGS ~~~~~~~ #
 pwd <- getwd()
 child <- params$child
 start_child <- c("overview.Rmd")
 end_child <- c("sysinfo.Rmd")
 child_docs <- c(start_child, child, end_child)
+
+# ~~~~~~~ FUNCTIONS ~~~~~~~ #
+str2rgb <- function(x){
+    # converts a character string to a RBG hex value to use in plotting
+    # get md5 hash of the character string
+    md5 <- digest(x, algo="md5", serialize=F)
+    # use the first 6 digits of the hash as hex values to correspond to RGB
+    # convert hex codes to int
+    red <- strtoi(sprintf("0x%s", substr(md5, start = 1, stop = 2)))
+    green <- strtoi(sprintf("0x%s", substr(md5, start = 3, stop = 4)))
+    blue <- strtoi(sprintf("0x%s", substr(md5, start = 5, stop = 6)))
+    # convert int values to single RGB hex value
+    return(rgb(red, green, blue, maxColorValue = 255))
+}
+
+# pallete of colors to use for target type plots
+base_gene_func_pallete <- c(
+    "downstream" = "#999999",
+    "exonic" = "#E69F00",
+    "intergenic" = "#56B4E9",
+    "intronic" = "#009E73",
+    "ncRNA_exonic" = "#F0E442",
+    "ncRNA_intronic" = "#0072B2",
+    "splicing" = "#D55E00",
+    "upstream" = "#CC79A7"
+  )
+
+get_geneFunc_colors <- function(gene_funcs, base_pallete = base_gene_func_pallete){
+    # gets the color values to use in gene function plots
+    # returns named character vector of functions and their colors
+    gene_func_cols <- character()
+    for(n in gene_func){
+        if(n %in% names(base_pallete)){
+            # get the color if its already in the base pallete
+            gene_func_cols[[n]] <- base_pallete[n]
+        } else {
+            # generate a color based on the string hash value
+            gene_func_cols[[n]] <- str2rgb(n)
+        }
+    }
+    return(gene_func_cols)
+}
+
 
 # save environment to file
 save.image(file = 'loaded.Rdata', compress = TRUE)

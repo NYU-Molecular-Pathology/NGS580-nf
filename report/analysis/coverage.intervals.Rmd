@@ -104,4 +104,7 @@ print(interval_samples_barplot)
 ```{r}
 # save environment to file
 save.image(file="coverage.intervals.Rdata",compress = TRUE)
+# delete some items from the environment which are too large to propagate further
+rm(interval_samples_boxplot)
+rm(region_coverage)
 ```
