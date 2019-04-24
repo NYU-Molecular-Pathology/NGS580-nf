@@ -737,5 +737,6 @@ rm(haplotypecaller_plots)
 rm(mutect2_plots)
 rm(lofreq_somatic_plots)
 rm(annotations)
-
+rm(subplot)
+rm(item)
 ```

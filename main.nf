@@ -136,6 +136,7 @@ def sample_coverage_file = "coverage.samples.tsv"
 def interval_coverage_file = "coverage.intervals.tsv"
 def signatures_weights_file = "signatures.weights.tsv"
 def targets_annotations_file = "targets.annotations.tsv"
+def tmb_file = "tmb.tsv"
 
 // load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
 String filemapJSON = new File("filemap.json").text
@@ -1946,217 +1947,6 @@ process delly2 {
 }
 
 
-// Genomic Signatures
-
-process signatures_variant_filter {
-    // need to apply some filter criteria to the variant tables before using them to generate signatures
-    tag "${caller}.${type}"
-    input:
-    set val(caller), val(type), val(sampleID), file(tsv) from vcf_tsvs3
-
-    output:
-    set val(caller), val(type), val(sampleID), file("${output_file}") into filtered_signatures_tsvs
-
-    script:
-    prefix = "${sampleID}.${caller}.${type}"
-    output_file = "${prefix}.filtered.tsv"
-    if ( caller == "VarScan2" )
-        """
-        signatures-variant-filter.py -c VarScan2 -i "${tsv}" -o "${output_file}"
-        """
-    else if ( caller == "HaplotypeCaller" )
-        """
-        signatures-variant-filter.py -c HaplotypeCaller -i "${tsv}" -o "${output_file}"
-        """
-    else if ( caller == "LoFreq" )
-        """
-        signatures-variant-filter.py -c LoFreq -i "${tsv}" -o "${output_file}"
-        """
-    else
-        error "Invalid caller: ${caller}"
-}
-
-sample_sig_good = Channel.create()
-sample_sig_bad = Channel.create()
-deconstructSigs_variant_min = 55
-
-// filtered_vcfs3.mix(sample_vcf_hc, samples_lofreq_vcf3)
-filtered_signatures_tsvs.choice( sample_sig_good, sample_sig_bad ){ items ->
-    // make sure there are enough variants in the VCF to proceed!
-    def caller = items[0]
-    def type = items[1]
-    def sampleID = items[2]
-    def tsv = items[3]
-    def output_ch = 1 // sample_sig_bad
-    long count = Files.lines(tsv).count()
-    if ( count > deconstructSigs_variant_min ) {
-        output_ch = 0 // sample_sig_good
-    }
-    return(output_ch)
-}
-
-sample_sig_bad.map {  caller, type, sampleID, filtered_vcf ->
-    def reason = "Fewer than ${deconstructSigs_variant_min} variants in .vcf file, skipping genomic signatures"
-    def output = [sampleID, caller, type, reason, filtered_vcf].join('\t')
-    return(output)
-}.set { sample_sig_bad_logs }
-
-// dont make signatures for indels
-sample_sig_good.filter { items ->
-    def caller = items[0]
-    def type = items[1]
-    def sampleID = items[2]
-    def vcf = items[3]
-
-    type != 'indel'
-}.set { sample_sig_good_filtered }
-
-process deconstructSigs_signatures {
-    // search for mutation signatures
-    tag "${caller}.${type}"
-    publishDir "${params.outputDir}/signatures/${caller}/Rds", mode: 'copy', pattern: "*.Rds"
-    publishDir "${params.outputDir}/signatures/${caller}/pdf", mode: 'copy', pattern: "*.pdf"
-
-    input:
-    set val(caller), val(type), val(sampleID), file(sample_vcf) from sample_sig_good_filtered
-
-    output:
-    file("${signatures_rds}")
-    file("${signatures_plot_Rds}")
-    file("${signatures_pieplot_Rds}")
-    file("${signatures_plot_pdf}") into signatures_plots
-    file("${signatures_pieplot_pdf}") into signatures_pie_plots
-    set val("${caller}"), val("${type}"), file("${signatures_plot_pdf}") into signatures_plots_caller
-    set val("${caller}"), val("${type}"), file("${signatures_pieplot_pdf}") into signatures_pieplots_caller
-    set val(caller), val(type), val(sampleID), file("${signatures_weights_tsv}") into signatures_weights
-    set val(sampleID), file("${signatures_rds}"), file("${signatures_plot_Rds}"), file("${signatures_pieplot_Rds}") into sample_signatures
-    val(sampleID) into done_deconstructSigs_signatures
-
-    script:
-    prefix = "${sampleID}.${caller}.${type}"
-    signatures_weights_tsv = "${prefix}.signatures.weights.tmp"
-    signatures_rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_Rds']}"
-    signatures_plot_pdf = "${prefix}.signatures.plot.pdf"
-    signatures_plot_Rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_plot_Rds']}"
-    signatures_pieplot_pdf = "${prefix}.signatures.pieplot.pdf"
-    signatures_pieplot_Rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_pieplot_Rds']}"
-    """
-    deconstructSigs_make_signatures.R \
-    "${sampleID}" \
-    "${sample_vcf}" \
-    "${signatures_rds}" \
-    "${signatures_plot_pdf}" \
-    "${signatures_plot_Rds}" \
-    "${signatures_pieplot_pdf}" \
-    "${signatures_pieplot_Rds}" \
-    "${signatures_weights_tsv}"
-    """
-}
-
-process update_signatures_weights {
-    tag "${caller}.${type}"
-    publishDir "${params.outputDir}/signatures/${caller}/weights", mode: 'copy'
-
-    input:
-    set val(caller), val(type), val(sampleID), file(weights_tsv) from signatures_weights
-
-    output:
-    file("${output_tsv}") into updated_signatures_weights
-
-    script:
-    prefix = "${sampleID}.${caller}.${type}"
-    output_tsv = "${prefix}.signatures.weights.tsv"
-    """
-    cat "${weights_tsv}" | \
-    paste-col.py --header "Sample" -v "${sampleID}"  | \
-    paste-col.py --header "VariantCallerType" -v "${type}"  | \
-    paste-col.py --header "VariantCaller" -v "${caller}" > "${output_tsv}"
-    """
-}
-updated_signatures_weights.collectFile(name: ".${signatures_weights_file}", keepHeader: true).set { updated_signatures_weights_collected }
-
-process update_update_signatures_weights_collected {
-    // add labels to the table to output
-    publishDir "${params.outputDir}", mode: 'copy'
-
-    input:
-    file(table) from updated_signatures_weights_collected
-
-    output:
-    file("${output_file}") into all_signatures_weights
-
-    script:
-    output_file = "${signatures_weights_file}"
-    """
-    paste-col.py -i "${table}" --header "Run" -v "${runID}" | \
-    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
-    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
-    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
-    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
-    paste-col.py --header "System" -v "${localhostname}" > \
-    "${output_file}"
-    """
-}
-
-// need to re-format the channel for combination with reporting channels
-sample_signatures.map { sampleID, signatures_rds, signatures_plot_Rds, signatures_pieplot_Rds ->
-    return([ sampleID, [ signatures_rds, signatures_plot_Rds, signatures_pieplot_Rds ] ])
-}
-.set { sample_signatures_reformated }
-
-// group all plots by variant caller and type for merging
-signatures_plots_caller.groupTuple(by: [0,1]).set{ signatures_plots_caller_grouped }
-process merge_signatures_plots {
-    // combine all signatures plots into a single PDF
-    tag "${caller}.${type}"
-    publishDir "${params.outputDir}/signatures", mode: 'copy'
-
-    input:
-    set val(caller), val(type), file(input_files:'*') from signatures_plots_caller_grouped
-    // file(input_files:'*') from signatures_plots.toList()
-
-    output:
-    file("${output_file}")
-    val("${output_file}") into done_merge_signatures_plots
-
-    when:
-    input_files.size() > 0
-
-    script:
-    prefix = "${caller}.${type}"
-    output_file="signatures.${prefix}.pdf"
-    """
-    gs -dBATCH -dNOPAUSE -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile="${output_file}" ${input_files}
-    """
-}
-
-// group all plots by variant caller and type for merging
-signatures_pieplots_caller.groupTuple(by: [0,1]).set{ signatures_pieplots_caller_grouped }
-process merge_signatures_pie_plots {
-    // combine all signatures plots into a single PDF
-    tag "${caller}.${type}"
-    publishDir "${params.outputDir}/signatures", mode: 'copy'
-
-    input:
-    set val(caller), val(type), file(input_files:'*') from signatures_pieplots_caller_grouped
-    // file(input_files:'*') from signatures_pie_plots.toList()
-
-    output:
-    file("${output_file}")
-    val(output_file) into done_merge_signatures_pie_plots
-
-    when:
-    input_files.size() > 0
-
-    script:
-    prefix = "${caller}.${type}"
-    output_file="signatures.pie.${prefix}.pdf"
-    """
-    gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile="${output_file}" ${input_files}
-    """
-}
-
-
 // // REQUIRES ANNOTATIONS FOR DBSNP FILTERING
 // process vaf_distribution_plot {
 //     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
@@ -2775,6 +2565,7 @@ process annotate {
     output:
     file("${annotations_tsv}") into annotations_tables
     set val(sampleID), val(caller), val(type), file("${annotations_tsv}") into annotations_annovar_tables
+    set val(caller), val(type), val(sampleID), file("${annotations_tsv}") into annotations_annovar_tables2
     file("${avinput_file}")
     file("${avinput_tsv}")
     val(sampleID) into done_annotate
@@ -3121,7 +2912,241 @@ process calculate_tmb {
     printf "${sampleID}\t${caller}\t${type}\t${loci}\t${variants}\t\${tmb}\n" >> "${output_tmb}"
     """
 }
-tmbs.collectFile(name: 'tmb.tsv', keepHeader: true, storeDir: "${params.outputDir}")
+tmbs.collectFile(name: "${tmb_file}", keepHeader: true, storeDir: "${params.outputDir}").set { tmbs_collected }
+
+
+
+
+
+
+
+
+// Genomic Signatures
+
+process signatures_variant_filter {
+    // need to apply some filter criteria to the variant tables before using them to generate signatures
+    tag "${caller}.${type}"
+    publishDir "${params.outputDir}/signatures/${caller}/annotations", mode: 'copy', pattern: "*${output_file}"
+
+    input:
+    set val(caller), val(type), val(sampleID), file(tsv) from annotations_annovar_tables2
+
+    output:
+    set val(caller), val(type), val(sampleID), file("${output_file}") into filtered_signatures_tsvs
+
+    script:
+    prefix = "${sampleID}.${caller}.${type}"
+    output_file = "${prefix}.filtered.tsv"
+    if ( caller == "VarScan2" )
+        """
+        signatures-variant-filter.py -c VarScan2 -i "${tsv}" -o "${output_file}"
+        """
+    else if ( caller == "HaplotypeCaller" )
+        """
+        signatures-variant-filter.py -c HaplotypeCaller -i "${tsv}" -o "${output_file}"
+        """
+    else if ( caller == "LoFreq" )
+        """
+        signatures-variant-filter.py -c LoFreq -i "${tsv}" -o "${output_file}"
+        """
+    else
+        error "Invalid caller: ${caller}"
+}
+
+// set up channels for filtering
+sample_sig_good = Channel.create()
+sample_sig_bad = Channel.create()
+// minimum number of entries required to run signatures
+deconstructSigs_variant_min = 55
+
+// filtered_vcfs3.mix(sample_vcf_hc, samples_lofreq_vcf3)
+filtered_signatures_tsvs.choice( sample_sig_good, sample_sig_bad ){ items ->
+    // make sure there are enough variants in the VCF to proceed!
+    def caller = items[0]
+    def type = items[1]
+    def sampleID = items[2]
+    def tsv = items[3]
+    def output_ch = 1 // sample_sig_bad
+    long count = Files.lines(tsv).count()
+    if ( count > deconstructSigs_variant_min ) {
+        output_ch = 0 // sample_sig_good
+    }
+    return(output_ch)
+}
+
+sample_sig_bad.map {  caller, type, sampleID, filtered_vcf ->
+    def reason = "Fewer than ${deconstructSigs_variant_min} variants in .tsv file, skipping genomic signatures"
+    def output = [sampleID, caller, type, reason, filtered_vcf].join('\t')
+    return(output)
+}.set { sample_sig_bad_logs }
+
+// dont make signatures for indels
+sample_sig_good.filter { items ->
+    def caller = items[0]
+    def type = items[1]
+    def sampleID = items[2]
+    def tsv = items[3]
+
+    type != 'indel'
+}.set { sample_sig_good_filtered }
+
+process deconstructSigs_signatures {
+    // search for mutation signatures
+    tag "${caller}.${type}"
+    publishDir "${params.outputDir}/signatures/${caller}/Rds", mode: 'copy', pattern: "*.Rds"
+    publishDir "${params.outputDir}/signatures/${caller}/pdf", mode: 'copy', pattern: "*.pdf"
+
+    input:
+    set val(caller), val(type), val(sampleID), file(sample_vcf) from sample_sig_good_filtered
+
+    output:
+    file("${signatures_rds}")
+    file("${signatures_plot_Rds}")
+    file("${signatures_pieplot_Rds}")
+    file("${signatures_plot_pdf}") into signatures_plots
+    file("${signatures_pieplot_pdf}") into signatures_pie_plots
+    set val("${caller}"), val("${type}"), file("${signatures_plot_pdf}") into signatures_plots_caller
+    set val("${caller}"), val("${type}"), file("${signatures_pieplot_pdf}") into signatures_pieplots_caller
+    set val(caller), val(type), val(sampleID), file("${signatures_weights_tsv}") into signatures_weights
+    set val(sampleID), file("${signatures_rds}"), file("${signatures_plot_Rds}"), file("${signatures_pieplot_Rds}") into sample_signatures
+    val(sampleID) into done_deconstructSigs_signatures
+
+    script:
+    prefix = "${sampleID}.${caller}.${type}"
+    signatures_weights_tsv = "${prefix}.signatures.weights.tmp"
+    signatures_rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_Rds']}"
+    signatures_plot_pdf = "${prefix}.signatures.plot.pdf"
+    signatures_plot_Rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_plot_Rds']}"
+    signatures_pieplot_pdf = "${prefix}.signatures.pieplot.pdf"
+    signatures_pieplot_Rds = "${prefix}.${filemap['deconstructSigs']['suffix']['signatures_pieplot_Rds']}"
+    """
+    deconstructSigs_make_signatures.R \
+    "${sampleID}" \
+    "${sample_vcf}" \
+    "${signatures_rds}" \
+    "${signatures_plot_pdf}" \
+    "${signatures_plot_Rds}" \
+    "${signatures_pieplot_pdf}" \
+    "${signatures_pieplot_Rds}" \
+    "${signatures_weights_tsv}"
+    """
+}
+
+process update_signatures_weights {
+    tag "${caller}.${type}"
+    publishDir "${params.outputDir}/signatures/${caller}/weights", mode: 'copy'
+
+    input:
+    set val(caller), val(type), val(sampleID), file(weights_tsv) from signatures_weights
+
+    output:
+    file("${output_tsv}") into updated_signatures_weights
+
+    script:
+    prefix = "${sampleID}.${caller}.${type}"
+    output_tsv = "${prefix}.signatures.weights.tsv"
+    """
+    cat "${weights_tsv}" | \
+    paste-col.py --header "Sample" -v "${sampleID}"  | \
+    paste-col.py --header "VariantCallerType" -v "${type}"  | \
+    paste-col.py --header "VariantCaller" -v "${caller}" > "${output_tsv}"
+    """
+}
+updated_signatures_weights.collectFile(name: ".${signatures_weights_file}", keepHeader: true).set { updated_signatures_weights_collected }
+
+process update_update_signatures_weights_collected {
+    // add labels to the table to output
+    publishDir "${params.outputDir}", mode: 'copy'
+
+    input:
+    file(table) from updated_signatures_weights_collected
+
+    output:
+    file("${output_file}") into all_signatures_weights
+
+    script:
+    output_file = "${signatures_weights_file}"
+    """
+    paste-col.py -i "${table}" --header "Run" -v "${runID}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+}
+
+// need to re-format the channel for combination with reporting channels
+sample_signatures.map { sampleID, signatures_rds, signatures_plot_Rds, signatures_pieplot_Rds ->
+    return([ sampleID, [ signatures_rds, signatures_plot_Rds, signatures_pieplot_Rds ] ])
+}
+.set { sample_signatures_reformated }
+
+// group all plots by variant caller and type for merging
+signatures_plots_caller.groupTuple(by: [0,1]).set{ signatures_plots_caller_grouped }
+process merge_signatures_plots {
+    // combine all signatures plots into a single PDF
+    tag "${caller}.${type}"
+    publishDir "${params.outputDir}/signatures", mode: 'copy'
+
+    input:
+    set val(caller), val(type), file(input_files:'*') from signatures_plots_caller_grouped
+    // file(input_files:'*') from signatures_plots.toList()
+
+    output:
+    file("${output_file}")
+    val("${output_file}") into done_merge_signatures_plots
+
+    when:
+    input_files.size() > 0
+
+    script:
+    prefix = "${caller}.${type}"
+    output_file="signatures.${prefix}.pdf"
+    """
+    gs -dBATCH -dNOPAUSE -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile="${output_file}" ${input_files}
+    """
+}
+
+// group all plots by variant caller and type for merging
+signatures_pieplots_caller.groupTuple(by: [0,1]).set{ signatures_pieplots_caller_grouped }
+process merge_signatures_pie_plots {
+    // combine all signatures plots into a single PDF
+    tag "${caller}.${type}"
+    publishDir "${params.outputDir}/signatures", mode: 'copy'
+
+    input:
+    set val(caller), val(type), file(input_files:'*') from signatures_pieplots_caller_grouped
+    // file(input_files:'*') from signatures_pie_plots.toList()
+
+    output:
+    file("${output_file}")
+    val(output_file) into done_merge_signatures_pie_plots
+
+    when:
+    input_files.size() > 0
+
+    script:
+    prefix = "${caller}.${type}"
+    output_file="signatures.pie.${prefix}.pdf"
+    """
+    gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile="${output_file}" ${input_files}
+    """
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // SETUP CHANNELS FOR PAIRED TUMOR-NORMAL STEPS FOR CNV analysis
@@ -3418,6 +3443,7 @@ process custom_analysis_report {
     file(failed_pairs_log) from failed_pairs_log_ch
     file(targets_annotations_file) from annotated_targets
     file(signatures_weights) from all_signatures_weights
+    file(tmb_file) from tmbs_collected
 
     output:
     file("${html_output}")

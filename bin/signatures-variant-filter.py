@@ -17,59 +17,60 @@ signal(SIGPIPE,SIG_DFL)
 """
 https://stackoverflow.com/questions/14207708/ioerror-errno-32-broken-pipe-python
 """
-def HaplotypeCaller(fin, fout):
+
+depth_min = 500
+frequency_min = 0.05
+
+def filter_row(row):
     """
-    Filter a LoFreq vcf .tsv table for usage with genomic signatures
+    Return True or False if the row passes all the filter criteria
 
     Criteria for variant inclusion in output:
     VAF >5%
     coverage > 200X.
+    """
+    depth = float(row['DP'])
+    frequency = float(row['AF'])
+
+    depth_pass = depth > depth_min
+    frequency_pass = frequency > frequency_min
+    return(all([ depth_pass, frequency_pass ]))
+
+def HaplotypeCaller(fin, fout):
+    """
+    Filter a LoFreq vcf .tsv table for usage with genomic signatures
     """
     reader = csv.DictReader(fin, delimiter = '\t')
     fieldnames = reader.fieldnames
     writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
     writer.writeheader()
     for row in reader:
-        depth = float(row['DP'])
-        frequency = float(row['AF'])
-        if depth > 200 and frequency > 0.05:
+        if filter_row(row):
             writer.writerow(row)
 
 def LoFreq(fin, fout):
     """
     Filter a LoFreq vcf .tsv table for usage with genomic signatures
-
-    Criteria for variant inclusion in output:
-    VAF >5%
-    coverage > 200X.
     """
     reader = csv.DictReader(fin, delimiter = '\t')
     fieldnames = reader.fieldnames
     writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
     writer.writeheader()
     for row in reader:
-        depth = int(row['DP'])
-        frequency = float(row['AF'])
-        if depth > 200 and frequency > 0.05:
+        if filter_row(row):
             writer.writerow(row)
 
 
 def VarScan2(fin, fout):
     """
     Filter a VarScan2 vcf .tsv table for usage with genomic signatures
-
-    Criteria for variant inclusion in output:
-    VAF >5%
-    coverage > 200X.
     """
     reader = csv.DictReader(fin, delimiter = '\t')
     fieldnames = reader.fieldnames
     writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
     writer.writeheader()
     for row in reader:
-        depth = int(row['DP'])
-        frequency = float(row['FREQ'])
-        if depth > 200 and frequency > 0.05:
+        if filter_row(row):
             writer.writerow(row)
 
 def main(**kwargs):
@@ -110,9 +111,6 @@ def main(**kwargs):
         print("ERROR: caller not recognized: {0}".format(caller))
         sys.exit(1)
 
-
-
-
 def parse():
     """
     Parses script args
@@ -124,8 +122,6 @@ def parse():
     args = parser.parse_args()
 
     main(**vars(args))
-
-
 
 if __name__ == '__main__':
     parse()

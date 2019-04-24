@@ -1,0 +1,23 @@
+# Tumor Mutational Burden [FOR RESEARCH USE ONLY]
+
+The number of filtered variants are divided by the number of Megabases of callable loci in each sample to determine a tumor mutational burden (TMB) estimate.
+
+- Note: TMB values will be innaccurate for samples with extremely low number of bases ('nBases').
+
+```{r load_tmb}
+# loads variant information from 'all_annotations.tsv' file
+tmb_file <- params$tmb_file
+tmb <- read.delim(file = tmb_file, header = TRUE, sep = '\t')
+
+# sort by TMB value
+tmb <- tmb[order(tmb[["TMB"]], decreasing = TRUE), ]
+rownames(tmb) <- NULL
+```
+
+```{r}
+DT::datatable(tmb, rownames = FALSE, options = list(pageLength = 25))
+```
+
+```{r}
+save.image(file="tmb.Rdata", compress = TRUE)
+```
