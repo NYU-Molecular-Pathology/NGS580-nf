@@ -1,4 +1,10 @@
 ```{r load_reads}
+# minimum number of reads required (millions)
+min_reads_cutoff <- 10
+
+# minimum number of reads for NTC control sample
+min_reads_ntc <- 30000
+
 # BWA original flagstat values
 flagstat_df <- read.delim(file = params$flagstat_table, header = TRUE, sep = '\t') 
 flagstat_df[["MappedReads"]] <- flagstat_df[["SequencedPairedReads"]]
@@ -27,9 +33,6 @@ reads_df_long[["Reads"]] <- as.numeric(reads_df_long[["Reads"]]) / 1e6
 # sort Type factor levels
 reads_df_long[["Type"]] <- factor(x = reads_df_long[["Type"]], levels = sort(unique(as.character(reads_df_long[["Type"]]), decreasing = TRUE)))
 
-# minimum number of reads required (millions)
-min_reads_cutoff <- 10
-
 mapping_plot <- ggplot(data = reads_df_long[ reads_df_long[["Type"]] %in% c("MappedReads", "DeduplicatedReads") , ], 
        aes(x = Sample, y = Reads, fill = Type)) + 
     geom_bar(stat="identity", position = "dodge") +
@@ -42,7 +45,9 @@ mapping_plot <- ggplot(data = reads_df_long[ reads_df_long[["Type"]] %in% c("Map
     
 ```
 
-# Reads
+# Sequencing Reads
+
+Genomic sequencing read alignment and deduplication results. Reads are aligned with BWA [@BWAMEM] and deduplicated with Sambamba [@Sambamba]. Unique deduplicated reads are used for downstream analysis.
 
 ```{r print_reads, results='asis'}
 DT::datatable(data = reads_df,
@@ -50,11 +55,13 @@ DT::datatable(data = reads_df,
               class = 'cell-border stripe')
 ```
 
+- No Template Control sample (NTC) must have fewer than `r as.character(min_reads_ntc)` reads for sequencing run to qualify for NGS580 analysis. Large amounts of reads in this sample suggest potential contamination. 
+
 ```{r mapping_plot}
 mapping_plot
 ```
 
-- Each sample must have at least `r min_reads_cutoff` million deduplicated reads to qualify for NGS580 panel analysis.
+- Each sample must have at least `r min_reads_cutoff` million deduplicated reads to qualify for NGS580 panel analysis (red line on plot).
 
 ```{r}
 save.image(file="reads.Rdata", compress = TRUE)

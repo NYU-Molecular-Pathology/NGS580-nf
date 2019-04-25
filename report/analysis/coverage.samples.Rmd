@@ -64,15 +64,15 @@ for(cov_mode in modes){
 
 # Sample Coverage
 
-Depth of coverage for each sample; total depth, mean depth, and percentage of bases at cutoff thresholds.
+Depth of coverage for each sample; total depth, mean depth, and percentage of bases at cutoff thresholds, detected with GATK [@GATKToolkit].
 
-Coverage types:
+Coverage is analyzed under different parameters:
 
-- `bed`: coverage at target intervals
+- `bed`: coverage at target intervals, showing on-target sequencing performance
 
-- `padxxx`: coverage at target interval regions with extra bp padding, for detection of off-target sequencing
+- `padxxx`: coverage at target interval regions with extra base pair padding on each side, for detection of off-target sequencing
 
-- `genome`: coverage across reference genome, for detection of off-target sequencing
+- `genome`: coverage across reference genome, for detection of off-target genome-wide background sequencing
 
 ```{r print_sample_coverage_plots, results='asis'}
 if(length(coverage_plots) < 1){

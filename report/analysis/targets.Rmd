@@ -18,11 +18,15 @@ targets_per_gene <- aggregate( n ~ Gene.refGene, data = targets_annotations, FUN
 
 # Targets
 
+Metrics describing the genomic target intervals used for sequencing and analysis, using BedTools [@Bedtools].
+
 ```{r, results='asis'}
 kable(as.data.frame(t(targets_metrics)), col.names = 'Info')
 ```
 
 ## Target Types
+
+Target interval breakdown by genomic region type, as annotated with ANNOVAR [@ANNOVAR]
 
 ```{r}
 # library(digest)

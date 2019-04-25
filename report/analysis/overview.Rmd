@@ -9,6 +9,10 @@ overview <- read.delim(file = meta_file, header = TRUE, sep = '\t', check.names 
 
 # Overview
 
+NGS580 is a targeted exome sequencing analysis panel & pipeline. 
+
+Analysis pipeline metadata:
+
 ```{r, results='asis'}
 kable(as.data.frame(t(overview)), col.names = 'Info')
 ```

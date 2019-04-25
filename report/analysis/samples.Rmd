@@ -12,6 +12,8 @@ rownames(samples) <- NULL
 
 # Samples
 
+Samples included in the analysis
+
 ```{r print_samples, results='asis'}
 kable(samples[c("Sample", "Normal")], row.names = TRUE)
 ```
