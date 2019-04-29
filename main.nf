@@ -46,8 +46,15 @@ if ( PipelineConfigFile_obj.exists() ) {
     PipelineConfig = jsonSlurper.parseText(PipelineConfigJSON)
 }
 
+def numTargetSplitLinesDefault = 100
+def numTargetSplitLines
 params.numTargetSplitLines = PipelineConfig.numTargetSplitLines
-def numTargetSplitLines = params.numTargetSplitLines.toInteger()
+if ( params.numTargetSplitLines == null ){
+    numTargetSplitLines = numTargetSplitLinesDefault
+} else {
+    numTargetSplitLines = params.numTargetSplitLines.toInteger()
+}
+
 
 // check for targets.bed file to use
 // 0. use CLI passed arg
