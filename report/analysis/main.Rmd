@@ -33,6 +33,7 @@ params:
   signatures_weights_file: signatures.weights.tsv
   signatures_cosmic_tsv: signatures.cosmic.tsv
   tmb_file: tmb.tsv
+  git_json_file: git.json
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report
@@ -44,6 +45,7 @@ library("ggplot2")
 library("reshape2")
 library("DT")
 library("digest")
+library("jsonlite")
 
 # ~~~~~~~ CONFIGS ~~~~~~~ #
 pwd <- getwd()

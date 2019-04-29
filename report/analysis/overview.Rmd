@@ -1,6 +1,7 @@
 ```{r}
 # loads overview analysis metrics from meta.tsv file
 meta_file <- params$meta_file
+git_json_file <- params$git_json_file
 ```
 
 ```{r}

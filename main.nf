@@ -144,7 +144,7 @@ def interval_coverage_file = "coverage.intervals.tsv"
 def signatures_weights_file = "signatures.weights.tsv"
 def targets_annotations_file = "targets.annotations.tsv"
 def tmb_file = "tmb.tsv"
-
+def git_json = "git.json"
 // load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
 String filemapJSON = new File("filemap.json").text
 def filemap = jsonSlurper.parseText(filemapJSON)
@@ -358,6 +358,19 @@ Channel.from("Comparison\tTumor\tNormal\tChunk\tProgram\tNote\tFiles").set { fai
 
 // ~~~~~ PIPELINE TASKS ~~~~~ //
 // PREPROCESSING
+process git {
+    // get repo information
+    publishDir "${params.outputDir}", mode: 'copy'
+    output:
+    file("${output_file}") into git_json_ch
+
+    script:
+    output_file = "${git_json}"
+    """
+    git.py --dir "${workflow.projectDir}" -o "${output_file}"
+    """
+}
+
 process copy_samplesheet {
     // make a copy of the samplesheet in the output directory
     // this ensures the output sheet has the correct name
@@ -3451,6 +3464,7 @@ process custom_analysis_report {
     file(targets_annotations_file) from annotated_targets
     file(signatures_weights) from all_signatures_weights
     file(tmb_file) from tmbs_collected
+    file(git_json) from git_json_ch
 
     output:
     file("${html_output}")
@@ -3483,7 +3497,8 @@ process custom_analysis_report {
         failed_log = "${failed_log}",
         failed_pairs_log = "${failed_pairs_log}",
         targets_annotations_file = "${targets_annotations_file}",
-        signatures_weights_file = "${signatures_weights}"
+        signatures_weights_file = "${signatures_weights}",
+        git_json_file = "${git_json}"
         ),
     output_format = "html_document",
     output_file = "${html_output}")
