@@ -6,6 +6,7 @@ git_json_file <- params$git_json_file
 
 ```{r}
 overview <- read.delim(file = meta_file, header = TRUE, sep = '\t', check.names = FALSE)
+git <- fromJSON(git_json_file)
 ```
 
 # Overview
@@ -16,6 +17,7 @@ Analysis pipeline metadata:
 
 ```{r, results='asis'}
 kable(as.data.frame(t(overview)), col.names = 'Info')
+kable(t(as.data.frame(git)), col.names = 'Pipeline Info')
 ```
 
 ```{r}

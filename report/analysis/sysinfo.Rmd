@@ -1,4 +1,7 @@
 # System Information 
+
+This report was generated with R [@RLang], `knitr` [@knitrManual; @knitrBook; @knitrCollection], `rmarkdown` [@RMarkdown], `ggplot2` [@ggplot2], `reshape2` [@reshape2], and `DT` packages.
+
 ```{r print_sysinfo}
 # {.tabset .tabset-pills} 
 # 
