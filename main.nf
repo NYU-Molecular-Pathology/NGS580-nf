@@ -131,6 +131,24 @@ if(params.samplesheet == null){
     samplesheet = params.samplesheet
 }
 
+
+// Check for HapMapBam and HapMapBai
+def HapMapBam
+def HapMapBai
+if ( PipelineConfig && PipelineConfig.containsKey("HapMapBam") && PipelineConfig.HapMapBam != null && new File("${PipelineConfig.HapMapBam}").exists() ) {
+    log.info("Loading HapMapBam from ${params.configFile}")
+    HapMapBam = PipelineConfig.HapMapBam
+} else {
+    log.info("HapMapBam not loaded")
+}
+if ( PipelineConfig && PipelineConfig.containsKey("HapMapBai") && PipelineConfig.HapMapBai != null && new File("${PipelineConfig.HapMapBai}").exists() ) {
+    log.info("Loading HapMapBai from ${params.configFile}")
+    HapMapBai = PipelineConfig.HapMapBai
+} else {
+    log.info("HapMapBai not loaded")
+}
+// if ( HapMapBam && HapMapBai ) println "YESSSSS" else println "NOOOO"
+
 // Enable or disable some pipeline steps here TODO: better config management for this
 disable_multiqc = true // for faster testing of the rest of the pipeline
 disable_msisensor = true // breaks on very small demo datasets
@@ -349,6 +367,20 @@ Channel.fromPath( file(samplesheet) )
         }
         .unique()
         .into { sampleIDs; sampleIDs2 }
+
+// find all the HapMap samples
+sampleIDs2.filter {
+    def is_hapmap = "${it}".toLowerCase().contains("hapmap")
+    return(is_hapmap)
+}.set { hapmap_sample_ids }
+
+// ref HapMap Pool bam and bai
+Channel.from([ [file("${HapMapBam}"), file("${HapMapBai}")] ]).filter { items ->
+    def bam = items[0]
+    def bai = items[1]
+    // only run these steps if params were set and files exist
+    HapMapBam && HapMapBai && bam.exists() && bai.exists()
+    }.set { hapmap_pool_ch }
 
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
@@ -1047,7 +1079,7 @@ process gatk_PrintReads {
     set val(sampleID), file(table1), file(ra_bam_file), file(ra_bai_file), file(ref_fasta), file(ref_fai), file(ref_dict) from recalibrated_bases_table1_ref
 
     output:
-    set val(sampleID), file("${ra_rc_bam_file}"), file("${ra_rc_bai_file}") into samples_dd_ra_rc_bam, samples_dd_ra_rc_bam2, samples_dd_ra_rc_bam3, samples_dd_ra_rc_bam4
+    set val(sampleID), file("${ra_rc_bam_file}"), file("${ra_rc_bai_file}") into samples_dd_ra_rc_bam, samples_dd_ra_rc_bam2, samples_dd_ra_rc_bam3, samples_dd_ra_rc_bam4, samples_dd_ra_rc_bam5
     val(sampleID) into done_gatk_PrintReads
 
     script:
@@ -2008,7 +2040,34 @@ process delly2 {
 // }
 
 
+
+
+
+
+
 // SETUP CHANNELS FOR PAIRED TUMOR-NORMAL STEPS
+
+// ~~~~~~~ HAPMAP POOL ANALYSIS ~~~~~~~ //
+// get the HapMap sample .bam files into a separate channel
+samples_dd_ra_rc_bam5.combine(hapmap_sample_ids).filter { items ->
+    def sampleID = items[0]
+    def bam = items[1]
+    def bai = items[2]
+    def HapMapID = items[3]
+    sampleID == HapMapID
+}.combine(hapmap_pool_ch)
+.map { sampleID, bam, bai, HapMapID, HapMapPoolBam, HapMapPoolBai ->
+    def HapMapPoolID = "HapMap-Pool"
+    def comparisonID = "${sampleID}_${HapMapPoolID}"
+    // comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai
+    return([ comparisonID, sampleID, bam, bai, HapMapPoolID, HapMapPoolBam, HapMapPoolBai ])
+}
+.set { hapmap_samples_pool }
+// .subscribe { println "[hapmap_pool_ch]  ${it}" }
+
+
+
+
 // samples_dd_ra_rc_bam2 // set val(sampleID), file("${sampleID}.dd.ra.rc.bam"), file("${sampleID}.dd.ra.rc.bam.bai")
 // samples_pairs // [ tumorID, normalID ]
 // get all the combinations of samples & pairs
@@ -2057,6 +2116,7 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
                         def comparisonID = "${tumorID}_${normalID}"
                         return [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai ]
                     }
+                    .mix(hapmap_samples_pool)
                     .tap { samples_dd_ra_rc_bam_pairs } // make a channel for just this set of data
                     .combine(ref_fasta3) // add reference genome and targets
                     .combine(ref_fai3)
@@ -3384,6 +3444,10 @@ process cnvkit_plotly {
 
     """
 }
+
+
+
+
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
 // collect from all processes to make sure they are finished before starting reports
