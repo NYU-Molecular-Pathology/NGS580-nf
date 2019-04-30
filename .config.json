@@ -5,5 +5,8 @@
     "demux_samplesheet": "demux-samplesheet.csv",
     "targetsBed": "targets.bed",
     "targetsrefFlatBed":"targets.refFlat.580.bed",
-    "numTargetSplitLines": 100
+    "numTargetSplitLines": 100,
+    "HapMapBam": "/gpfs/scratch/kellys04/molecpathlab/ref/HapMap-Pool/HapMap-pool.bam",
+    "HapMapBai": "/gpfs/scratch/kellys04/molecpathlab/ref/HapMap-Pool/HapMap-pool.bam.bai",
+    "HapMapBamMd5": "8ec0a749f46fb7259524e4aa8d50f44f"
 }

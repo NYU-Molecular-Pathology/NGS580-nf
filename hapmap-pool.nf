@@ -1,17 +1,14 @@
-params.runID = "HapMap-Pool"
 params.samplesheet = "samples.hapmap.tsv"
 params.outputDir = "output-hapmap-pool"
 params.outputBamName = "HapMap-pool"
 
 def samplesheet = params.samplesheet
-def runID = params.runID
 def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
 def outputDirPath = new File(params.outputDir).getCanonicalPath()
 
 // ~~~~~ START WORKFLOW ~~~~~ //
 log.info "~~~~~~~ NGS580 HapMap Pool Pipeline ~~~~~~~"
 log.info "* Launch time:        ${workflowTimestamp}"
-log.info "* Run ID:             ${runID}"
 log.info "* Samplesheet:        ${samplesheet}"
 log.info "* Project dir:        ${workflow.projectDir}"
 log.info "* Launch dir:         ${workflow.launchDir}"
@@ -42,11 +39,15 @@ process bam_merge {
     input:
     file("*") from samples_bams.collect()
 
+    output:
+    file("${output_bam}")
+    file("${output_bai}")
+
     script:
     output_bam = "${params.outputBamName}.bam"
     output_bai = "${output_bam}.bai"
     """
-    samtools merge - *.bam | samtools sort --threads=\${NSLOTS:-\${NTHREADS:-1}} > "${output_bam}" 
+    samtools merge - *.bam | samtools sort --threads=\${NSLOTS:-\${NTHREADS:-1}} > "${output_bam}"
     samtools index "${output_bam}"
     """
 }
