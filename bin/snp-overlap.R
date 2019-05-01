@@ -1,17 +1,24 @@
 #!/usr/bin/env Rscript
+# Script for overlapping homozygous SNPs from two annotation tables
 library("ggplot2")
 args <- commandArgs(TRUE)
 tumor_tsv <- args[1]
 normal_tsv <- args[2]
+output_table <- args[3]
+output_plot <- args[4]
 
 tumor_df <- read.delim(tumor_tsv, header = T, sep = "\t", na.strings = '.')
 normal_df <- read.delim(normal_tsv, header = T, sep = "\t", na.strings = '.')
 
-tumor_df[['VariantID']] <- sprintf("%s%s%s%s",tumor_df[['CHROM']],tumor_df[['POS']],tumor_df[['REF']],tumor_df[['ALT']])
-normal_df[['VariantID']] <- sprintf("%s%s%s%s",normal_df[['CHROM']],normal_df[['POS']],normal_df[['REF']],normal_df[['ALT']])
+# add a unique identifier to each variant
+tumor_df[['VariantID']] <- sprintf("%s:%s:%s>%s",tumor_df[['CHROM']],tumor_df[['POS']],tumor_df[['REF']],tumor_df[['ALT']])
+normal_df[['VariantID']] <- sprintf("%s:%s:%s>%s",normal_df[['CHROM']],normal_df[['POS']],normal_df[['REF']],normal_df[['ALT']])
 
-mincov <- 200 #DP
-minvaf <- 0.98 #FREQ
+# QC cutoff values to filter with
+#DP; depth of coverage
+mincov <- 200
+#FREQ; variant allele frequency
+minvaf <- 0.98
 
 tumor_df <- tumor_df[which(tumor_df[['DP']] > mincov), ]
 tumor_df <- tumor_df[which(tumor_df[['FREQ']] > minvaf), ]
@@ -20,7 +27,7 @@ normal_df <- normal_df[which(normal_df[['DP']] > mincov), ]
 normal_df <- normal_df[which(normal_df[['FREQ']] > minvaf), ]
 
 ## Functions to get elements from Venndiagram object in R
-Intersect <- function (x) {  
+Intersect <- function (x) {
   # Multiple set version of intersect
   # x is a list
   if (length(x) == 1) {
@@ -32,7 +39,7 @@ Intersect <- function (x) {
   }
 }
 
-Union <- function (x) {  
+Union <- function (x) {
   # Multiple set version of union
   # x is a list
   if (length(x) == 1) {
@@ -45,7 +52,7 @@ Union <- function (x) {
 }
 
 Setdiff <- function (x, y) {
-  # Remove the union of the y's from the common x's. 
+  # Remove the union of the y's from the common x's.
   # x and y are lists of characters.
   xx <- Intersect(x)
   yy <- Union(y)
@@ -70,7 +77,7 @@ for( i in seq(length(combs)) ){
   print(class(elements[[i]]))
   df <- as.data.frame(elements[[i]])
   df[["comb"]] <- paste(combs[[i]], collapse = '.')
-  
+
   if(nrow(overlap_df) < 1){
     overlap_df <- df
   } else {
@@ -81,6 +88,9 @@ names(overlap_df)[1] <- "VariantID"
 # add dummy variable for plotting
 overlap_df[['all']] <- '.'
 
-ggplot(data = overlap_df, aes(x = all, fill = comb)) + geom_bar(position="stack")
-save.image("data.Rdata")
+pdf(file = output_plot)
+ggplot(data = overlap_df, aes(x = all, fill = comb)) +
+    geom_bar(position="stack")
+dev.off()
 
+save.image("data.Rdata")

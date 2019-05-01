@@ -338,7 +338,9 @@ Channel.fromPath( file(samplesheet) )
         .filter { item ->
             item[1] != 'NA' // unpaired samples
         }
-        .into { samples_pairs; samples_pairs2 }
+        .into { samples_pairs;
+        samples_pairs2;
+        samples_pairs3 }
 
 // read sample IDs from analysis sheet
 Channel.fromPath( file(samplesheet) )
@@ -2585,7 +2587,7 @@ process annotate {
     output:
     file("${annotations_tsv}") into annotations_tables
     set val(sampleID), val(caller), val(type), file("${annotations_tsv}") into annotations_annovar_tables
-    set val(caller), val(type), val(sampleID), file("${annotations_tsv}") into annotations_annovar_tables2
+    set val(caller), val(type), val(sampleID), file("${annotations_tsv}") into (annotations_annovar_tables2, annotations_annovar_tables3, annotations_annovar_tables4)
     file("${avinput_file}")
     file("${avinput_tsv}")
     val(sampleID) into done_annotate
@@ -3384,6 +3386,86 @@ process cnvkit_plotly {
 
     """
 }
+
+
+
+
+// ~~~~~~~ QC: Homozygous SNP Comparison ~~~~~~ //
+// compare the homozygous SNP's between sample pairs across unpaired variant calling
+// overlap the two to make sure that the same are found in both
+
+// [ caller, type, sampleID, annotations_tsv, tumorID, normalID ]
+// combine against sample pairs to get tumor-normal pairs
+annotations_annovar_tables3.combine(samples_pairs3)
+    // filter for samples that match tumor ID
+    .filter { items ->
+        def caller = items[0]
+        def type = items[1]
+        def sampleID = items[2]
+        def sample_tsv = items[3]
+        def tumorID = items[4]
+        def normalID = items[5]
+
+        sampleID == tumorID
+    }
+    // rearrange
+    .map { caller, type, sampleID, sample_tsv, tumorID, normalID ->
+        def tumor_tsv = sample_tsv
+        return [ caller, type, tumorID, tumor_tsv, normalID ]
+    }
+    // combine back against annotation tables to get normal annotation table
+    .combine(annotations_annovar_tables4)
+    // filter for only the ones that match the exact normal sample
+    .filter { items ->
+        def caller = items[0]
+        def type = items[1]
+        def tumorID = items[2]
+        def tumor_tsv = items[3]
+        def normalID = items[4]
+        def sample_caller = items[5]
+        def sample_type = items[6]
+        def sampleID = items[7]
+        def sample_tsv = items[8]
+
+        def ID_match = normalID == sampleID
+        def type_match = type == sample_type
+        def caller_match = caller == sample_caller
+        def all_matches = [ ID_match, type_match, caller_match ]
+        for ( match in all_matches ){
+            if ( match == false ){
+                return false
+            }
+        }
+        return true
+    }
+    .map { caller, type, tumorID, tumor_tsv, normalID, sample_caller, sample_type, sampleID, sample_tsv ->
+        def normal_tsv = sample_tsv
+        def comparisonID = "${tumorID}_${normalID}"
+        return [ caller, type, comparisonID, tumorID, tumor_tsv, normalID, normal_tsv ]
+    }
+    .set { annotations_tables_paired }
+    // .subscribe { println "[annotations_annovar_tables4]: ${it}" }
+
+process overlap_snps {
+    publishDir "${params.outputDir}/snp_overlap/${caller}", mode: 'copy'
+    input:
+    set val(caller), val(type), val(comparisonID), val(tumorID), file(tumor_tsv), val(normalID), file(normal_tsv) from annotations_tables_paired
+
+    script:
+    prefix = "${comparisonID}.${type}.${caller}"
+    output_table = "${prefix}.snp.overlap.tsv"
+    output_plot = "${prefix}.snp.overlap.pdf"
+    """
+    snp-overlap.R "${tumor_tsv}" "${normal_tsv}" "${output_table}" "${output_plot}"
+    """
+}
+
+
+
+
+
+
+
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
 // collect from all processes to make sure they are finished before starting reports
