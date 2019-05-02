@@ -1,0 +1,128 @@
+# QC: Homozygous SNP Overlap
+
+Overlap of homozygous SNPs between tumor-normal pairs using unpaired variant calling. Variants derived from the same patient are expected to have a high degree of overlap between homozygous SNPs called in both the tumor and normal samples. A low amount of overlap between tumor and normal homozygous SNPs could indicate mismatched samples.
+
+- Tumor samples should have at least 90% overlap with their associated Normal sample to pass quality check for analysis. 
+
+- Note: a low number of total homozygous SNPs in either tumor or normal sample may skew results.
+
+```{r}
+snp_overlap_file <- params$snp_overlap_file
+snp_overlap <- read.delim(file = snp_overlap_file, 
+                          header = TRUE, 
+                          sep = '\t', 
+                          check.names = FALSE, 
+                          na.strings = c('.'))
+
+# # sort the Sample levels
+snp_overlap[["Tumor"]] <- factor(x = snp_overlap[["Tumor"]],
+                                  levels = sort(unique(as.character(snp_overlap[["Tumor"]]),
+                                                       decreasing = TRUE)))
+# sort dataframe by pcnt value
+# snp_overlap <- snp_overlap[order(snp_overlap[["pcnt"]]), ]
+# rownames(snp_overlap) <- NULL
+
+# add dummy column for plotting
+snp_overlap[["all"]] <- "."
+
+# function for making plot
+make_snp_overlap_plot <- function(df){
+    plots <- list()
+    if(is.data.frame(df)){
+        if(nrow(df) > 0){
+            # ~~~~~~~~~~ VARIANT TYPES PIE CHART ~~~~~~~~~~~~~~~ # 
+            snp_bar <- ggplot(data = df, aes(x = Tumor, y = pcnt, fill = comb)) +
+                geom_bar(stat = "identity", position="stack") +
+                coord_flip() +
+                theme_bw() +
+                ggtitle("Homozygous SNP Overlap") 
+            
+            plots[['plot']] <- snp_bar
+        }
+    }
+    return(plots)
+}
+
+```
+
+```{r}
+print_cols <- c("comb", "n", "pcnt", "Tumor", "Normal", "VariantCaller")
+DT::datatable(data = snp_overlap[ , print_cols],
+              options = list(pageLength = nrow(snp_overlap)),
+              class = 'cell-border stripe')
+
+```
+
+```{r}
+# ggplot(data = snp_overlap, aes(x = Tumor, y = pcnt, fill = comb)) +
+#     geom_bar(stat = "identity", position="fill") +
+#     coord_flip() +
+#     theme_bw() +
+#     ggtitle("Homozygous SNP Overlap") 
+
+# +
+#     facet_grid(Tumor~.)
+    
+        # theme(
+    #     panel.grid.minor.x = element_blank(),
+    #       panel.grid.major.x = element_blank(),
+    #       axis.ticks = element_blank(),
+    #       axis.text.x = element_blank(),
+    #       axis.title.x = element_blank()
+    #       )
+
+
+```
+
+## GATK HaplotypeCaller
+
+```{r}
+haplotypecaller_snp_plots <- make_snp_overlap_plot(snp_overlap[snp_overlap[["VariantCaller"]] == 'HaplotypeCaller', ])
+```
+
+```{r}
+# print any results found
+if (length(haplotypecaller_snp_plots) < 1){
+    cat('\n\n- __No results found__\n\n')
+} else {
+    plot <- haplotypecaller_snp_plots[["plot"]]
+    print(plot)
+}
+```
+
+## LoFreq
+
+```{r}
+lofreq_snp_plots <- make_snp_overlap_plot(snp_overlap[snp_overlap[["VariantCaller"]] == 'LoFreq', ])
+```
+
+```{r}
+# print any results found
+if (length(lofreq_snp_plots) < 1){
+    cat('\n\n- __No results found__\n\n')
+} else {
+    plot <- lofreq_snp_plots[["plot"]]
+    print(plot)
+}
+```
+
+## VarScan2 SNP
+
+```{r}
+varscan2_snp_plots <- make_snp_overlap_plot(snp_overlap[which(snp_overlap[["VariantCaller"]] == 'VarScan2' & snp_overlap[["VariantCallerType"]] == "snp" ), ])
+
+```
+
+```{r}
+# print any results found
+if (length(varscan2_snp_plots) < 1){
+    cat('\n\n- __No results found__\n\n')
+} else {
+    plot <- varscan2_snp_plots[["plot"]]
+    print(plot)
+}
+```
+
+```{r}
+save.image(file="snp.overlap.Rdata",compress = TRUE)
+```

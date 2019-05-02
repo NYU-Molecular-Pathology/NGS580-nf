@@ -3671,6 +3671,7 @@ process custom_analysis_report {
     file(signatures_weights) from all_signatures_weights
     file(tmb_file) from tmbs_collected
     file(git_json) from git_json_ch
+    file(snp_overlap_file) from snp_overlap_collected_updated
 
     output:
     file("${html_output}")
@@ -3704,7 +3705,8 @@ process custom_analysis_report {
         failed_pairs_log = "${failed_pairs_log}",
         targets_annotations_file = "${targets_annotations_file}",
         signatures_weights_file = "${signatures_weights}",
-        git_json_file = "${git_json}"
+        git_json_file = "${git_json}",
+        snp_overlap_file = "${snp_overlap_file}"
         ),
     output_format = "html_document",
     output_file = "${html_output}")
