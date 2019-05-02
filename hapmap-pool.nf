@@ -28,16 +28,35 @@ log.info "* Launch command:\n${workflow.commandLine}\n"
 Channel.fromPath( file(samplesheet) )
         .splitCsv(header: true, sep: '\t')
         .map{row ->
+            def sampleID = row['Sample']
             def bam = row['Bam']
-            return(file(bam))
-        }.set { samples_bams }
+            return([ sampleID, file(bam) ])
+        }.set { samplesIDs_bams }
 
+process fix_header {
+    stageInMode "copy"
+    input:
+    set val(sampleID), file(bam) from samplesIDs_bams
+
+    output:
+    file("${output_file}") into fixed_header_bams
+
+    script:
+    output_file = "${sampleID}.fixed.bam"
+    """
+    # need to fix the headers in each .bam file; change the sample name to "HapMap-pool"
+    # https://gatkforums.broadinstitute.org/gatk/discussion/6472/read-groups
+    samtools view -H "${bam}" | \
+    sed 's|\\(^@RG.*\\)\\(SM:[^\\s]*\\)\\(.*\$\\)|\\1SM:${params.outputBamName}\\3|' | \
+    samtools reheader - "${bam}" > "${output_file}"
+    """
+}
 
 process bam_merge {
     publishDir "${params.outputDir}", mode: 'copy'
 
     input:
-    file("*") from samples_bams.collect()
+    file("*") from fixed_header_bams.collect()
 
     output:
     file("${output_bam}")
@@ -47,7 +66,8 @@ process bam_merge {
     output_bam = "${params.outputBamName}.bam"
     output_bai = "${output_bam}.bai"
     """
-    samtools merge - *.bam | samtools sort --threads=\${NSLOTS:-\${NTHREADS:-1}} > "${output_bam}"
+    samtools merge --threads=\${NSLOTS:-\${NTHREADS:-1}} - *.bam | \
+    samtools sort --threads=\${NSLOTS:-\${NTHREADS:-1}} > "${output_bam}"
     samtools index "${output_bam}"
     """
 }
