@@ -4,27 +4,33 @@ library("ggplot2")
 args <- commandArgs(TRUE)
 tumor_tsv <- args[1]
 normal_tsv <- args[2]
-output_table <- args[3]
-output_plot <- args[4]
+output_matrix <- args[3]
+output_table <- args[4]
+output_aggr_table <- args[5]
+output_plot <- args[6]
 
-tumor_df <- read.delim(tumor_tsv, header = T, sep = "\t", na.strings = '.')
-normal_df <- read.delim(normal_tsv, header = T, sep = "\t", na.strings = '.')
+tumor_df <- read.delim(tumor_tsv, header = T, sep = "\t", na.strings = '.', stringsAsFactors = FALSE)
+normal_df <- read.delim(normal_tsv, header = T, sep = "\t", na.strings = '.', stringsAsFactors = FALSE)
+
+save.image("loaded.Rdata")
 
 # add a unique identifier to each variant
 tumor_df[['VariantID']] <- sprintf("%s:%s:%s>%s",tumor_df[['CHROM']],tumor_df[['POS']],tumor_df[['REF']],tumor_df[['ALT']])
 normal_df[['VariantID']] <- sprintf("%s:%s:%s>%s",normal_df[['CHROM']],normal_df[['POS']],normal_df[['REF']],normal_df[['ALT']])
 
-# QC cutoff values to filter with
-#DP; depth of coverage
-mincov <- 200
-#FREQ; variant allele frequency
-minvaf <- 0.98
+save.image("loaded.Rdata")
 
-tumor_df <- tumor_df[which(tumor_df[['DP']] > mincov), ]
-tumor_df <- tumor_df[which(tumor_df[['FREQ']] > minvaf), ]
-
-normal_df <- normal_df[which(normal_df[['DP']] > mincov), ]
-normal_df <- normal_df[which(normal_df[['FREQ']] > minvaf), ]
+# make sure that all VariantIDs are unique
+if( any(duplicated(tumor_df[['VariantID']])) ) {
+    print("ERROR: Duplicated VariantID's;")
+    print(which(duplicated(tumor_df[['VariantID']])))
+    quit(status = 1)
+}
+if( any(duplicated(normal_df[['VariantID']])) ) {
+    print("ERROR: Duplicated VariantID's;")
+    print(which(duplicated(normal_df[['VariantID']])))
+    quit(status = 1)
+}
 
 ## Functions to get elements from Venndiagram object in R
 Intersect <- function (x) {
@@ -59,38 +65,95 @@ Setdiff <- function (x, y) {
   setdiff(xx, yy)
 }
 
-
+# make a list of the variants for overlapping
 variant_list <- list(tumor=tumor_df[['VariantID']],normal=normal_df[['VariantID']])
-## Gets all combinations of elements in a list
-combs <- unlist(lapply(1:length(variant_list), function(j) combn(names(variant_list), j, simplify = FALSE)), recursive = FALSE)
-elements <- lapply(combs, function(i) Setdiff(variant_list[i], variant_list[setdiff(names(variant_list), i)]))
+
+# Gets all combinations of elements in a list
+combs <- unlist(lapply(X = 1:length(variant_list), 
+                       FUN = function(j) combn(names(variant_list), j, simplify = FALSE)), recursive = FALSE)
+
+# get the elements that belong to each combination of groupings
+elements <- lapply(X = combs, 
+                   FUN = function(i) Setdiff(variant_list[i], variant_list[setdiff(names(variant_list), i)]))
+
+# get the number of elements in each grouping
 n.obs <- sapply(elements, length)
+
+# generate a sequence of numbers up to the length of the largest set of elements
 seq.max <- seq_len(max(n.obs))
+
+# generate a matrix with the elements in separate columns
 mat <- sapply(elements, "[", i = seq.max)
-colnames(mat) <- combs
-#colnames(mat) <- gsub(",",".vs.",colnames(mat))
-# write.table(mat,file="combinations.tsv", quote=F,sep="\t",row.names=F)
 
+# generate some cleaner column names for the matrix
+new_names <- sapply(combs, function(x){
+    if ( length(x) > 1){
+        name <- paste(x, collapse = '.')
+        label <- sprintf("overlap: %s", name)
+        return( label )
+    } else{
+        return(x)
+    }
+})
+colnames(mat) <- new_names
 
+write.table(x = mat, file = output_matrix, quote = F,sep = "\t", row.names = F)
+
+# convert the matrix to a long format dataframe
+# NOTE: this can get slow for large numbers of combinations...
 overlap_df <- data.frame()
-for( i in seq(length(combs)) ){
-  print(class(elements[[i]]))
-  df <- as.data.frame(elements[[i]])
-  df[["comb"]] <- paste(combs[[i]], collapse = '.')
+for( i in seq(length(colnames(mat))) ){
+    # make dataframe
+    df <- as.data.frame(elements[[i]])
 
-  if(nrow(overlap_df) < 1){
-    overlap_df <- df
-  } else {
-    overlap_df <- rbind(overlap_df, df)
-  }
+        # make combination label column
+    df[["comb"]] <- colnames(mat)[i]
+    
+    # append to full dataframe
+    if(nrow(overlap_df) < 1){
+      overlap_df <- df
+    } else {
+      overlap_df <- rbind(overlap_df, df)
+    }
 }
+
+# rename the first column holding the Variant IDs
 names(overlap_df)[1] <- "VariantID"
+
+# add dummy variable for aggregating
+overlap_df[['n']] <- 1
+
 # add dummy variable for plotting
 overlap_df[['all']] <- '.'
 
+write.table(x = overlap_df, file = output_table, quote = FALSE, sep = '\t', row.names = FALSE)
+
+# get total number of variants
+total_num_variants <- length(unique(as.character(overlap_df[["VariantID"]])))
+
+# aggregate on the percent of entries in each grouping
+overlap_aggr <- aggregate(n ~ comb, data = overlap_df, FUN = sum)
+overlap_pcnt <- aggregate(n ~ comb, data = overlap_df, FUN = function(x){
+    return( round( (sum(x) / total_num_variants) * 100, digits = 1) )
+})
+names(overlap_pcnt) <- c("comb", "pcnt")
+overlap_aggr <- merge(overlap_aggr, overlap_pcnt)
+overlap_aggr[["all"]] <- '.'
+
+write.table(x = overlap_aggr, file = output_aggr_table, quote = FALSE, sep = '\t', row.names = FALSE)
+
 pdf(file = output_plot)
-ggplot(data = overlap_df, aes(x = all, fill = comb)) +
-    geom_bar(position="stack")
+ggplot(data = overlap_aggr, aes(x = all, y = pcnt, fill = comb)) +
+    geom_bar(stat = "identity", position="stack") +
+    theme_bw() +
+    ggtitle("Homozygous SNP Overlap") +
+    theme(
+        panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          axis.ticks = element_blank(),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank()
+          )
 dev.off()
 
-save.image("data.Rdata")
+save.image("final.Rdata")

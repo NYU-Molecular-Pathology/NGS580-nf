@@ -145,6 +145,8 @@ def signatures_weights_file = "signatures.weights.tsv"
 def targets_annotations_file = "targets.annotations.tsv"
 def tmb_file = "tmb.tsv"
 def git_json = "git.json"
+def snp_overlap_file = "snp-overlap.tsv"
+
 // load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
 String filemapJSON = new File("filemap.json").text
 def filemap = jsonSlurper.parseText(filemapJSON)
@@ -3443,25 +3445,147 @@ annotations_annovar_tables3.combine(samples_pairs3)
         def comparisonID = "${tumorID}_${normalID}"
         return [ caller, type, comparisonID, tumorID, tumor_tsv, normalID, normal_tsv ]
     }
+    .filter { caller, type, comparisonID, tumorID, tumor_tsv, normalID, normal_tsv ->
+        // dont use indels
+        type != "indel"
+    }
     .set { annotations_tables_paired }
     // .subscribe { println "[annotations_annovar_tables4]: ${it}" }
 
-process overlap_snps {
-    publishDir "${params.outputDir}/snp_overlap/${caller}", mode: 'copy'
+process overlap_snp_filter {
+    // need to pre-filter the annotation tables based on QC criteria
+    publishDir "${params.outputDir}/snp_overlap/${caller}/filtered", mode: 'copy'
+
     input:
     set val(caller), val(type), val(comparisonID), val(tumorID), file(tumor_tsv), val(normalID), file(normal_tsv) from annotations_tables_paired
 
+    output:
+    set val(caller), val(type), val(comparisonID), val(tumorID), file("${tumor_output}"), val(normalID), file("${normal_output}") into annotations_tables_paired_filtered
+
     script:
-    prefix = "${comparisonID}.${type}.${caller}"
-    output_table = "${prefix}.snp.overlap.tsv"
-    output_plot = "${prefix}.snp.overlap.pdf"
+    tumor_prefix = "${tumorID}.${caller}.${type}"
+    tumor_output = "${tumor_prefix}.snp-overlap.filtered.tsv"
+    normal_prefix = "${normalID}.${caller}.${type}"
+    normal_output = "${normal_prefix}.snp-overlap.filtered.tsv"
     """
-    snp-overlap.R "${tumor_tsv}" "${normal_tsv}" "${output_table}" "${output_plot}"
+    snp-overlap-filter.py -c "${caller}" -i "${tumor_tsv}" | \
+    paste-col.py --header "Sample" -v "${tumorID}" | \
+    paste-col.py --header "Tumor" -v "${tumorID}" | \
+    paste-col.py --header "Normal" -v "${normalID}" | \
+    paste-col.py --header "VariantCallerType" -v "${type}" | \
+    paste-col.py --header "VariantCaller" -v "${caller}" > "${tumor_output}"
+
+    snp-overlap-filter.py -c "${caller}" -i "${normal_tsv}" | \
+    paste-col.py --header "Sample" -v "${normalID}" | \
+    paste-col.py --header "Tumor" -v "${tumorID}" | \
+    paste-col.py --header "Normal" -v "${normalID}" | \
+    paste-col.py --header "VariantCallerType" -v "${type}" | \
+    paste-col.py --header "VariantCaller" -v "${caller}" > "${normal_output}"
     """
 }
 
+// Need to filter out the samples that did not have any remaining variants and log those entries
+annotations_tables_paired_filtered_good = Channel.create()
+annotations_tables_paired_filtered_bad = Channel.create()
+
+// filter out samples with empty variant tables
+annotations_tables_paired_filtered.choice( annotations_tables_paired_filtered_good, annotations_tables_paired_filtered_bad ){ items ->
+    def caller = items[0]
+    def type = items[1]
+    def comparisonID = items[2]
+    def tumorID = items[3]
+    def tumor_tsv = items[4]
+    def normalID = items[5]
+    def normal_tsv = items[6]
+
+    def output_ch = 1 // bad by default
+    // long count = Files.lines(tsv).count()
+    long tumor_count = Files.lines(tumor_tsv).count()
+    long normal_count = Files.lines(normal_tsv).count()
+
+    // good if either has >1 lines
+    if (tumor_count > 1) output_ch = 0
+    if (normal_count > 1) output_ch = 0
+
+    return(output_ch)
+}
+
+// log the bad sample combinations
+annotations_tables_paired_filtered_bad.map { caller, type, comparisonID, tumorID, tumor_tsv, normalID, normal_tsv ->
+    def reason = "No variants remaining after filtering, skipping homozygous SNP overlap"
+    def output = [comparisonID, tumorID, normalID, type, caller, reason, "${tumor_tsv},${normal_tsv}"].join('\t')
+    return(output)
+}.set { annotations_tables_paired_filtered_bad_logs }
+
+process overlap_snps {
+    publishDir "${params.outputDir}/snp_overlap/${caller}/final", mode: 'copy'
+    input:
+    set val(caller), val(type), val(comparisonID), val(tumorID), file(tumor_tsv), val(normalID), file(normal_tsv) from annotations_tables_paired_filtered_good
+
+    output:
+    set val(caller), val(type), val(comparisonID), val(tumorID), val(normalID), file("${output_aggr_table}") into sample_snp_overlap_aggr
+
+    script:
+    prefix = "${comparisonID}.${caller}.${type}"
+    output_matrix = "${prefix}.snp-overlap.matrix.tsv"
+    output_table = "${prefix}.snp-overlap.tsv"
+    output_aggr_table = "${prefix}.snp-overlap.aggregate.tsv"
+    output_plot = "${prefix}.snp-overlap.pdf"
+    """
+    snp-overlap.R \
+    "${tumor_tsv}" \
+    "${normal_tsv}" \
+    "${output_matrix}" \
+    "${output_table}" \
+    "${output_aggr_table}" \
+    "${output_plot}"
+    """
+}
+
+process update_overlap_snp_table {
+    publishDir "${params.outputDir}/snp_overlap/${caller}", mode: 'copy'
+    input:
+    set val(caller), val(type), val(comparisonID), val(tumorID), val(normalID), file(tsv) from sample_snp_overlap_aggr
+
+    output:
+    file("${output_file}") into updated_snp_overlap_aggr
+
+    script:
+    prefix = "${comparisonID}.${caller}.${type}"
+    output_file = "${prefix}.snp-overlap.aggregate.updated.tsv"
+    """
+    cat "${tsv}" | \
+    paste-col.py --header "Tumor" -v "${tumorID}" | \
+    paste-col.py --header "Normal" -v "${normalID}" | \
+    paste-col.py --header "VariantCallerType" -v "${type}" | \
+    paste-col.py --header "VariantCaller" -v "${caller}" > "${output_file}"
+    """
+}
+updated_snp_overlap_aggr.collectFile(name: ".${snp_overlap_file}", keepHeader: true, storeDir: "${params.outputDir}").set { snp_overlap_collected }
 
 
+process update_snp_overlap_collected {
+    // add labels to the table to output
+    publishDir "${params.outputDir}", mode: 'copy'
+
+    input:
+    file(table) from snp_overlap_collected
+
+    output:
+    file("${output_file}") into snp_overlap_collected_updated
+
+    script:
+    output_file = "${snp_overlap_file}"
+    """
+    paste-col.py -i "${table}" --header "Run" -v "${runID}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+ }
 
 
 
@@ -3520,7 +3644,7 @@ done_copy_samplesheet.concat(
 failed_samples.concat(samples_vcfs_tsvs_bad_logs, sample_sig_bad_logs)
     .collectFile(name: "failed.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set { failed_log_ch }
-failed_pairs.concat(pairs_vcfs_tsvs_bad_logs)
+failed_pairs.concat(pairs_vcfs_tsvs_bad_logs, annotations_tables_paired_filtered_bad_logs)
     .collectFile(name: "failed.pairs.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set{ failed_pairs_log_ch }
 
