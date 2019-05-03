@@ -6,6 +6,12 @@ Reformats the .tsv vcf table output to recalculate and standardize values for do
 INPUT: .TSV formatted output from GATK VariantsToTable
 OUTPUT: .TSV formatted table with recalculated variant allele frequency in the FREQ column
 USAGE: reformat-vcf-table.py -c HaplotypeCaller -s "sampleID" -i "sample_tsv" -o "sampleID.recalc.tsv"
+
+NOTE: All tables must be output with the following columns:
+
+FREQ: variant alternate allele frequency ranging from 0.0 to 1.0 (use tumor vaf for pairs)
+AF: same as FREQ
+DP: read depth
 """
 import csv
 import sys
@@ -106,6 +112,10 @@ def MuTect2(fin, fout):
     fout: file connection
         connection to the output file
 
+    Notes
+    -----
+    DP: sum of AD for Ref and Alt in tumor; https://gatkforums.broadinstitute.org/gatk/discussion/12264/dp-value-for-normal-sample-in-mutect2-calls
+    AF: Tumor Alt frequency
     """
     reader = csv.DictReader(fin, delimiter = '\t')
     # get old headers
@@ -119,12 +129,15 @@ def MuTect2(fin, fout):
     fieldnames.append('NORMAL.AD.REF')
     fieldnames.append('NORMAL.AD.ALT')
     fieldnames.append('NORMAL.AD.TOTAL')
+    fieldnames.append('AF')
+    fieldnames.append('DP')
+
     writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
     writer.writeheader()
     for row in reader:
         # set the FREQ to the tumor AF
-        tumor_AF_value = row["TUMOR.AF"]
         row['FREQ'] = row['TUMOR.AF']
+        row['AF'] = row["TUMOR.AF"]
         # change QUAL to the TLOD
         row['QUAL'] = row['TLOD']
         # split the tumor AD values for ref and alt
@@ -135,6 +148,8 @@ def MuTect2(fin, fout):
         # add up the total allelic depths
         row['TUMOR.AD.TOTAL'] = int(row['TUMOR.AD.REF']) + int(row['TUMOR.AD.ALT'])
         row['NORMAL.AD.TOTAL'] = int(row['NORMAL.AD.REF']) + int(row['NORMAL.AD.ALT'])
+        row['DP'] = row['TUMOR.AD.TOTAL']
+
         writer.writerow(row)
 
 def VarScan2(fin, fout, sampleID):
