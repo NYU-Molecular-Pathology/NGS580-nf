@@ -370,6 +370,10 @@ kill: $(NXF_NODEFILE) $(NXF_PIDFILE)
 # 	printf "$${INFOSTR}\n" >> $${output_file} ; \
 # 	wait $${pid}
 
+HAPMAP_POOL_SHEET:=samples.hapmap.tsv
+hapmap-pool: $(HAPMAP_POOL_SHEET)
+	./nextflow run hapmap-pool.nf -profile hapmap_pool $(RESUME)
+
 
 
 # save a record of the most recent Nextflow run completion
