@@ -156,6 +156,7 @@ disable_delly2 = true
 
 // names of some important output files to use throughout the pipeline
 def all_annotations_file = "annotations.tsv"
+def all_HapMapPool_annotations_file = "annotations.HapMap-Pool.tsv"
 def samplesheet_output_file = 'samplesheet.tsv'
 def sample_coverage_file = "coverage.samples.tsv"
 def interval_coverage_file = "coverage.intervals.tsv"
@@ -2214,6 +2215,7 @@ process msisensor {
 
 process mutect2 {
     // paired tumor-normal variant calling
+    // NOTE: all '@RG' read groups in .bam file headers should have the same 'SM:' sample ID value!
     publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_file}"
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy', pattern: "*${norm_vcf}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${multiallelics_stats}"
@@ -2825,7 +2827,7 @@ process update_collect_annotation_tables {
     file(table) from collected_annotation_tables
 
     output:
-    file("${output_file}") into (all_annotations_file_ch, all_annotations_file_ch2)
+    file("${output_file}") into (all_annotations_file_ch, all_annotations_file_ch2, all_annotations_file_ch3)
     val('') into done_update_collect_annotation_tables
 
     script:
@@ -2854,6 +2856,24 @@ process split_annotation_table {
     script:
     """
     split-annotation-table.py ".annotations.tsv"
+    """
+}
+
+process extract_hapmap_pool_annotations {
+    // make a separate table just for HapMap-Pool variants; for output convenience
+    publishDir "${params.outputDir}/annotations", mode: 'copy'
+
+    input:
+    file(tsv) from all_annotations_file_ch3
+
+    output:
+    file("${output_file}") into hapmap_pool_annotations
+
+    script:
+    output_file = "${all_HapMapPool_annotations_file}"
+    """
+    head -1 "${tsv}" > "${output_file}"
+    grep -i 'HapMap-Pool' "${tsv}" >> "${output_file}"
     """
 }
 

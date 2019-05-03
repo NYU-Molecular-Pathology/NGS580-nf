@@ -1,0 +1,86 @@
+# QC: HapMap Pool 
+
+Variant calling on negative control HapMap sample included in the current run. Variants are called using HapMap samples in the current run in place of tumor samples, and are paired with a previously generated pool of HapMap samples as a paired normal sample. It is expected that no significant variants will be detected with this variant calling. If significant variants are detected at high coverage and frequency, then it could indicate quality control issues with the sequencing run. Significant HapMap variants should have coverage greater than 200x and variant allele frequency greater than 5%.
+
+```{r}
+annotations_file <- params$annotations_file
+annotations <- read.delim(file = annotations_file, 
+                          header = TRUE, 
+                          sep = '\t', 
+                          check.names = FALSE, 
+                          na.strings = c('.'))
+
+save.image(file="variants.loaded.Rdata",compress = TRUE)
+
+# number of variants known to be common in the NYU HapMap Pool from previous studies
+num_hapmap_pool_variants <- 1285
+
+# sort the Sample levels
+annotations[["Sample"]] <- factor(x = annotations[["Sample"]], 
+                                  levels = sort(unique(as.character(annotations[["Sample"]]), 
+                                                       decreasing = TRUE)))
+
+# add '1' column for aggregations
+annotations[["n"]] <- 1
+
+# get just the hapmap pool annotations
+hapmap_pool <- data.frame()
+
+# check that there is a Normal column and that it has HapMap Pool variants; 
+# in case no hapmap was used and no pairs in analysis
+# false by default, check for true
+has_normal <- FALSE
+has_hapmap_pool <- FALSE
+has_normal <- "Normal" %in% names(annotations)
+if(has_normal){
+    # check that a sample "HapMap-Pool" is in the table
+    has_hapmap_pool  <- any(grepl(pattern = tolower('HapMap-Pool'), x = tolower(as.character(annotations[["Normal"]]))))
+    if(has_hapmap_pool){
+         hapmap_pool <- annotations[grep(pattern = "HapMap-Pool", x = annotations[["Normal"]]), ]
+         
+         # filter the dataframe; criteria >200x coverage, >5% variant allele frequency
+         hapmap_pool <- hapmap_pool[which(hapmap_pool[["DP"]] > 200), ]
+         hapmap_pool <- hapmap_pool[which(hapmap_pool[["AF"]] > 0.05), ]
+         hapmap_pool <- droplevels(hapmap_pool)
+    }
+}
+has_hapmap_pool_rows <- nrow(hapmap_pool) > 0
+num_hapmap_variants <- nrow(hapmap_pool)
+pcnt_new_hapmap_variants <- (num_hapmap_variants / num_hapmap_pool_variants) * 100
+# hapmap_sample_IDs <- unique(as.character(annotations[["Sample"]]))[
+#     grep(pattern = tolower("HapMap"), 
+#          x = tolower(unique(as.character(annotations[["Sample"]]))), 
+#          ignore.case = TRUE)
+#     ]
+
+```
+
+## Detected HapMap mutations
+
+```{r, results='asis'}
+if ( all(c(has_hapmap_pool_rows, has_normal, has_hapmap_pool)) ){
+    print_cols <- c("Chr", "Start", "End", "Ref", "Alt", "AF", "DP", "Tumor", "Normal")
+    DT::datatable(data = hapmap_pool[, print_cols],
+                  options = list(pageLength = 10),
+                  class = 'cell-border stripe')
+    
+} else {
+    cat('\n\n- __No HapMap Pool results found__\n\n')
+}
+
+```
+
+- Number of newly detected significant HapMap mutations: `r num_hapmap_variants`
+
+- Percent new HapMap mutations: `r round(pcnt_new_hapmap_variants, digits = 2)`%
+
+  - percentage must be below 2% to pass quality criteria for sequencing run
+
+- Number of previously detected known common variants in HapMap Pool: `r num_hapmap_pool_variants`
+  
+  - Source: NYS NGS580 pipeline validation study
+
+```{r}
+save.image(file="hapmap.pool.Rdata", compress = TRUE)
+rm(annotations)
+```
