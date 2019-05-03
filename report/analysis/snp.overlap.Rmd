@@ -8,22 +8,35 @@ Overlap of homozygous SNPs between tumor-normal pairs using unpaired variant cal
 
 ```{r}
 snp_overlap_file <- params$snp_overlap_file
-snp_overlap <- read.delim(file = snp_overlap_file, 
-                          header = TRUE, 
-                          sep = '\t', 
-                          check.names = FALSE, 
-                          na.strings = c('.'))
+snp_overlap <- data.frame()
 
-# # sort the Sample levels
-snp_overlap[["Tumor"]] <- factor(x = snp_overlap[["Tumor"]],
-                                  levels = sort(unique(as.character(snp_overlap[["Tumor"]]),
-                                                       decreasing = TRUE)))
-# sort dataframe by pcnt value
-# snp_overlap <- snp_overlap[order(snp_overlap[["pcnt"]]), ]
-# rownames(snp_overlap) <- NULL
-
-# add dummy column for plotting
-snp_overlap[["all"]] <- "."
+# file may not have been produced if no HapMap samples were included in run; 
+# try to load file if exists
+tryCatch(
+    {
+        snp_overlap <- read.delim(file = snp_overlap_file, 
+                                  header = TRUE, 
+                                  sep = '\t', 
+                                  check.names = FALSE, 
+                                  na.strings = c('.'))
+        
+        # # sort the Sample levels
+        snp_overlap[["Tumor"]] <- factor(x = snp_overlap[["Tumor"]],
+                                         levels = sort(unique(as.character(snp_overlap[["Tumor"]]),
+                                                              decreasing = TRUE)))
+        # sort dataframe by pcnt value
+        # snp_overlap <- snp_overlap[order(snp_overlap[["pcnt"]]), ]
+        # rownames(snp_overlap) <- NULL
+        
+        # add dummy column for plotting
+        snp_overlap[["all"]] <- "."
+        
+        
+    },
+    error=function(cond) {
+        return(NA)
+    }
+)
 
 # function for making plot
 make_snp_overlap_plot <- function(df){
@@ -45,11 +58,16 @@ make_snp_overlap_plot <- function(df){
 
 ```
 
-```{r}
-print_cols <- c("comb", "n", "pcnt", "Tumor", "Normal", "VariantCaller")
+```{r, results='asis'}
+if(nrow(snp_overlap) > 0){
+    print_cols <- c("comb", "n", "pcnt", "Tumor", "Normal", "VariantCaller")
 DT::datatable(data = snp_overlap[ , print_cols],
               options = list(pageLength = nrow(snp_overlap)),
               class = 'cell-border stripe')
+
+} else {
+    cat('\n\n- No results found')
+}
 
 ```
 
@@ -77,50 +95,59 @@ DT::datatable(data = snp_overlap[ , print_cols],
 ## GATK HaplotypeCaller
 
 ```{r}
-haplotypecaller_snp_plots <- make_snp_overlap_plot(snp_overlap[snp_overlap[["VariantCaller"]] == 'HaplotypeCaller', ])
-```
-
-```{r}
-# print any results found
-if (length(haplotypecaller_snp_plots) < 1){
-    cat('\n\n- __No results found__\n\n')
+if(nrow(snp_overlap) > 0){
+    haplotypecaller_snp_plots <- make_snp_overlap_plot(snp_overlap[snp_overlap[["VariantCaller"]] == 'HaplotypeCaller', ])
+    
+    # print any results found
+    if (length(haplotypecaller_snp_plots) < 1){
+        cat('\n\n- __No results found__\n\n')
+    } else {
+        plot <- haplotypecaller_snp_plots[["plot"]]
+        print(plot)
+    }
 } else {
-    plot <- haplotypecaller_snp_plots[["plot"]]
-    print(plot)
+    cat('\n\n- No results found')
 }
+
 ```
 
 ## LoFreq
 
 ```{r}
-lofreq_snp_plots <- make_snp_overlap_plot(snp_overlap[snp_overlap[["VariantCaller"]] == 'LoFreq', ])
-```
-
-```{r}
-# print any results found
-if (length(lofreq_snp_plots) < 1){
-    cat('\n\n- __No results found__\n\n')
+if(nrow(snp_overlap) > 0){
+    lofreq_snp_plots <- make_snp_overlap_plot(snp_overlap[snp_overlap[["VariantCaller"]] == 'LoFreq', ])
+    
+    # print any results found
+    if (length(lofreq_snp_plots) < 1){
+        cat('\n\n- __No results found__\n\n')
+    } else {
+        plot <- lofreq_snp_plots[["plot"]]
+        print(plot)
+    }
+    
 } else {
-    plot <- lofreq_snp_plots[["plot"]]
-    print(plot)
+    cat('\n\n- No results found')
 }
+
 ```
 
 ## VarScan2 SNP
 
 ```{r}
-varscan2_snp_plots <- make_snp_overlap_plot(snp_overlap[which(snp_overlap[["VariantCaller"]] == 'VarScan2' & snp_overlap[["VariantCallerType"]] == "snp" ), ])
-
-```
-
-```{r}
-# print any results found
-if (length(varscan2_snp_plots) < 1){
-    cat('\n\n- __No results found__\n\n')
+if(nrow(snp_overlap) > 0){
+    varscan2_snp_plots <- make_snp_overlap_plot(snp_overlap[which(snp_overlap[["VariantCaller"]] == 'VarScan2' & snp_overlap[["VariantCallerType"]] == "snp" ), ])
+    
+    # print any results found
+    if (length(varscan2_snp_plots) < 1){
+        cat('\n\n- __No results found__\n\n')
+    } else {
+        plot <- varscan2_snp_plots[["plot"]]
+        print(plot)
+    }
 } else {
-    plot <- varscan2_snp_plots[["plot"]]
-    print(plot)
+    cat('\n\n- No results found')
 }
+
 ```
 
 ```{r}
