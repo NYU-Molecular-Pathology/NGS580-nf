@@ -147,7 +147,27 @@ if ( PipelineConfig && PipelineConfig.containsKey("HapMapBai") && PipelineConfig
 } else {
     log.info("HapMapBai not loaded")
 }
-// if ( HapMapBam && HapMapBai ) println "YESSSSS" else println "NOOOO"
+
+// load SeraCare Pool TSV
+def SeraCareSelectedTsv_default = "data/SeraCare-selected-variants.tsv"
+def SeraCareSelectedTsv
+if ( PipelineConfig && PipelineConfig.containsKey("SeraCareSelectedTsv") && PipelineConfig.SeraCareSelectedTsv != null && new File("${PipelineConfig.SeraCareSelectedTsv}").exists() ) {
+    log.info("Loading SeraCareSelectedTsv from ${params.configFile}")
+    SeraCareSelectedTsv = PipelineConfig.SeraCareSelectedTsv
+} else {
+    SeraCareSelectedTsv = SeraCareSelectedTsv_default
+}
+def SeraCareSelectedTsvFile = new File("${SeraCareSelectedTsv}").getName()
+
+def SeraCarePoolAnnotations_default = "data/annotations.SeraCare-Pool.tsv"
+def SeraCarePoolAnnotations
+if ( PipelineConfig && PipelineConfig.containsKey("SeraCarePoolAnnotations") && PipelineConfig.SeraCarePoolAnnotations != null && new File("${PipelineConfig.SeraCarePoolAnnotations}").exists() ) {
+    log.info("Loading SeraCarePoolAnnotations from ${params.configFile}")
+    SeraCarePoolAnnotations = PipelineConfig.SeraCarePoolAnnotations
+} else {
+    SeraCarePoolAnnotations = SeraCarePoolAnnotations_default
+}
+def SeraCarePoolAnnotationsFile = new File("${SeraCarePoolAnnotations}").getName()
 
 // Enable or disable some pipeline steps here TODO: better config management for this
 disable_multiqc = true // for faster testing of the rest of the pipeline
@@ -156,6 +176,7 @@ disable_delly2 = true
 
 // names of some important output files to use throughout the pipeline
 def all_annotations_file = "annotations.tsv"
+def all_seracare_annotations_file = "annotations.SeraCare.tsv"
 def all_HapMapPool_annotations_file = "annotations.HapMap-Pool.tsv"
 def samplesheet_output_file = 'samplesheet.tsv'
 def sample_coverage_file = "coverage.samples.tsv"
@@ -371,7 +392,7 @@ Channel.fromPath( file(samplesheet) )
             return(sampleID)
         }
         .unique()
-        .into { sampleIDs; sampleIDs2 }
+        .into { sampleIDs; sampleIDs2; sampleIDs3 }
 
 // find all the HapMap samples
 sampleIDs2.filter {
@@ -387,6 +408,14 @@ Channel.from([ [file("${HapMapBam}"), file("${HapMapBai}")] ]).filter { items ->
     HapMapBam && HapMapBai && bam.exists() && bai.exists()
     }.set { hapmap_pool_ch }
 
+// find all the SeraCare samples
+sampleIDs3.filter {
+    def is_seracare = "${it}".toLowerCase().contains("seracare")
+    return(is_seracare)
+}.set { seracare_sample_ids }
+
+Channel.fromPath( "${SeraCareSelectedTsv}").into { seracare_selected_tsv; seracare_selected_tsv2 }
+Channel.fromPath( "${SeraCarePoolAnnotations}" ).set { seracare_pool_annotations }
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
 // logging channels
@@ -2651,7 +2680,7 @@ process annotate {
     output:
     file("${annotations_tsv}") into annotations_tables
     set val(sampleID), val(caller), val(type), file("${annotations_tsv}") into annotations_annovar_tables
-    set val(caller), val(type), val(sampleID), file("${annotations_tsv}") into (annotations_annovar_tables2, annotations_annovar_tables3, annotations_annovar_tables4)
+    set val(caller), val(type), val(sampleID), file("${annotations_tsv}") into (annotations_annovar_tables2, annotations_annovar_tables3, annotations_annovar_tables4, annotations_annovar_tables5)
     file("${avinput_file}")
     file("${avinput_tsv}")
     val(sampleID) into done_annotate
@@ -3671,6 +3700,103 @@ process update_snp_overlap_collected {
 
 
 
+// ~~~~~~ QC: SeraCare selected variants comparison ~~~~~ //
+// set val(caller), val(type), val(sampleID), file("${annotations_tsv}") into (annotations_annovar_tables2, annotations_annovar_tables3, annotations_annovar_tables4, annotations_annovar_tables5)
+// seracare_sample_ids
+annotations_annovar_tables5.combine(seracare_sample_ids).filter { items ->
+    def caller = items[0]
+    def type = items[1]
+    def sampleID = items[2]
+    def tsv = items[3]
+    def seracare_sample_id = items[4]
+
+    seracare_sample_id == sampleID
+}
+.filter { items ->
+    // dont process 'indel' calling results
+    def caller = items[0]
+    def type = items[1]
+    def sampleID = items[2]
+    def tsv = items[3]
+    def seracare_sample_id = items[4]
+
+    ! "${type}".toLowerCase().contains("indel")
+}
+.filter { items ->
+    // dont process 'indel' calling results
+    def caller = items[0]
+    def type = items[1]
+    def sampleID = items[2]
+    def tsv = items[3]
+    def seracare_sample_id = items[4]
+
+    caller == "LoFreq"
+}
+.map { caller, type, sampleID, tsv, seracare_sample_id ->
+    return([ caller, type, sampleID, tsv ])
+}
+.combine(seracare_selected_tsv)
+.set { seracare_annotations }
+
+process filter_update_seracare_selected_variants {
+    // filter for SeraCare Selected Variants and add extra annotation to the .tsv
+    input:
+    set val(caller), val(type), val(sampleID), file(tsv), file(selected_tsv) from seracare_annotations
+
+    output:
+    file("${output_file}") into seracare_variants
+
+    script:
+    prefix = "${sampleID}.${caller}.${type}"
+    output_file = "${prefix}.seracare-selected.tsv"
+    """
+    seracare-selected-variant-filter.py -i "${tsv}" -o "${output_file}" --seracare "${selected_tsv}"
+    """
+}
+
+process collect_seracare_annotation_tables {
+    // combine all variants into a single table
+
+    input:
+    file('t*') from seracare_variants.collect()
+
+    output:
+    file("${output_file}") into collected_seracare_variants
+
+    script:
+    output_file = "all_seracare_annotations.tmp.tsv"
+    """
+    concat-tables.py t* > "${output_file}"
+    """
+}
+
+process update_collect_seracare_annotation_tables {
+    // add labels to the table to output
+    publishDir "${params.outputDir}/annotations", mode: 'copy'
+
+    input:
+    file(table) from collected_seracare_variants
+
+    output:
+    file("${output_file}") into collected_updated_seracare_variants
+
+    script:
+    output_file = "${all_seracare_annotations_file}"
+    """
+    paste-col.py -i "${table}" --header "Run" -v "${runID}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
+    paste-col.py --header "System" -v "${localhostname}" > \
+    "${output_file}"
+    """
+}
+collected_updated_seracare_variants.mix(seracare_pool_annotations, seracare_selected_tsv2).set { seracare_pool_items }
+
+
+
+
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
 // collect from all processes to make sure they are finished before starting reports
@@ -3733,7 +3859,7 @@ failed_pairs.concat(pairs_vcfs_tsvs_bad_logs, annotations_tables_paired_filtered
 // need a channel for items that may or may not have been produced depending on the conditional nature of the pipeline config
 // e.g. paired vs unpaired runs, some files might not exist
 Channel.fromPath('.placeholder1')
-.mix(snp_overlap_collected_updated)
+.mix(snp_overlap_collected_updated, seracare_pool_items)
 .set { report_inputs }
 
 process custom_analysis_report {
@@ -3758,7 +3884,7 @@ process custom_analysis_report {
     file(signatures_weights) from all_signatures_weights
     file(tmb_file) from tmbs_collected
     file(git_json) from git_json_ch
-    file(extra_report_inputs: "*") from report_inputs
+    file(extra_report_inputs: "*") from report_inputs.collect()
 
     output:
     file("${html_output}")
@@ -3793,7 +3919,10 @@ process custom_analysis_report {
         targets_annotations_file = "${targets_annotations_file}",
         signatures_weights_file = "${signatures_weights}",
         git_json_file = "${git_json}",
-        snp_overlap_file = "${snp_overlap_file}"
+        snp_overlap_file = "${snp_overlap_file}",
+        seracare_annotations_file = "${all_seracare_annotations_file}",
+        seracare_pool_annotations_file = "${SeraCarePoolAnnotationsFile}",
+        seracare_selected_variants = "${SeraCareSelectedTsvFile}"
         ),
     output_format = "html_document",
     output_file = "${html_output}")

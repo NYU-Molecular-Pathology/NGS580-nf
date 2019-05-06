@@ -8,5 +8,8 @@
     "numTargetSplitLines": 100,
     "HapMapBam": "/gpfs/scratch/kellys04/molecpathlab/ref/HapMap-Pool/HapMap-pool.bam",
     "HapMapBai": "/gpfs/scratch/kellys04/molecpathlab/ref/HapMap-Pool/HapMap-pool.bam.bai",
-    "HapMapBamMd5": "8ec0a749f46fb7259524e4aa8d50f44f"
+    "HapMapBamMd5": "8ec0a749f46fb7259524e4aa8d50f44f",
+    "SeraCareSelectedTsv": "data/SeraCare-selected-variants.tsv",
+    "SeraCarePoolAnnotations": "data/annotations.SeraCare-Pool.tsv"
+
 }

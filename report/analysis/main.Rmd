@@ -16,7 +16,7 @@ output:
     toc: yes
 bibliography: citations.bib
 params:
-  child: !r c("targets.Rmd", "samples.Rmd", "failed.Rmd","reads.Rmd", "coverage.samples.Rmd", "coverage.intervals.Rmd", "variants.Rmd", "signatures.Rmd", "tmb.Rmd", "snp.overlap.Rmd", "hapmap.pool.Rmd")
+  child: !r c("targets.Rmd", "samples.Rmd", "failed.Rmd","reads.Rmd", "coverage.samples.Rmd", "coverage.intervals.Rmd", "variants.Rmd", "signatures.Rmd", "tmb.Rmd", "snp.overlap.Rmd", "hapmap.pool.Rmd", "seracare.pool.Rmd")
   input_dir: input
   annotations_file: annotations.tsv
   samplesheet_file: samplesheet.tsv
@@ -35,6 +35,9 @@ params:
   tmb_file: tmb.tsv
   git_json_file: git.json
   snp_overlap_file: snp-overlap.tsv
+  seracare_annotations_file: annotations.SeraCare.tsv
+  seracare_pool_annotations_file: annotations.SeraCare-Pool.tsv
+  seracare_selected_variants: SeraCare-selected-variants.tsv
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report
