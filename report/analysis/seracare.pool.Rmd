@@ -2,42 +2,73 @@
 
 SeraCare is a positive controle synthetic variant DNA sample that may be included in sequencing runs to ensure that variants are being detected properly. The variants detected in the current run's SeraCare sample may be compared to a background pool of previously sequenced SeraCare samples to determine if variants are being called with the expected frequency.
 
+In order to pass quality criteria, the frequency of SeraCare variants should be within the 95% Confidence Interval, and should meet the minimum coverage listed. 
+
 ```{r}
 seracare_annotations_file <- params$seracare_annotations_file # current run SeraCare sample variants
-seracare_pool_annotations_file <- params$seracare_pool_annotations_file # SeraCare pool variants
 seracare_selected_variants <- params$seracare_selected_variants # list of known SeraCare variants
 
 seracare_annotations <- data.frame()
-# seracare_pool_annotations <- data.frame()
 seracare_selected <- data.frame()
+missing_muts <- character()
+missing_selected <- data.frame()
+
+save.image(file="seracare.pool.Rdata",compress = TRUE)
 
 # file may not have been produced if no SeraCare samples were included in run; 
 # try to load file if exists
 tryCatch(
     {
         seracare_annotations <- read.delim(file = seracare_annotations_file, 
-                                  header = TRUE, 
-                                  sep = '\t', 
-                                  check.names = FALSE, 
-                                  na.strings = c('.'))
-        # seracare_pool_annotations <- read.delim(file = seracare_pool_annotations_file, 
-        #                           header = TRUE, 
-        #                           sep = '\t', 
-        #                           check.names = FALSE, 
-        #                           na.strings = c('.'))
-        seracare_selected <- read.delim(file = seracare_selected_variants, 
-                                  header = TRUE, 
-                                  sep = '\t', 
-                                  check.names = FALSE, 
-                                  na.strings = c('.'))
+                                           header = TRUE, 
+                                           sep = '\t', 
+                                           check.names = FALSE, 
+                                           na.strings = c('.'))
+        
+        save.image(file="seracare.pool.Rdata",compress = TRUE)
+        
+        seracare_selected <- read.delim(file = seracare_selected_variants,
+                                        header = TRUE,
+                                        sep = '\t',
+                                        check.names = FALSE,
+                                        na.strings = c('.'))
+        
+        save.image(file="seracare.pool.Rdata",compress = TRUE)
         
         # sort the Sample levels
-        seracare_annotations[["Sample"]] <- factor(x = seracare_annotations[["Sample"]],
-                                         levels = sort(unique(as.character(seracare_annotations[["Sample"]]),
-                                                              decreasing = TRUE)))
-        seracare_annotations[["Mut_ID"]] <- sprintf("%s %s", seracare_annotations[["SeraCare.Gene"]], seracare_annotations[["SeraCare.AminoAcid"]])
+        seracare_annotations[["Sample"]] <- factor(x = as.character(seracare_annotations[["Sample"]]),
+                                                   levels = sort(unique(as.character(seracare_annotations[["Sample"]]),
+                                                                        decreasing = TRUE)))
+        
+        # add an ID for easy reading
+        seracare_annotations[["Mut_ID"]] <- sprintf("%s %s", 
+                                                    seracare_annotations[["SeraCare.Gene"]],
+                                                    seracare_annotations[["SeraCare.AAChange"]])
+        
+        seracare_selected[["Mut_ID"]] <- sprintf("%s %s", 
+                                                 seracare_selected[["Gene"]],
+                                                 seracare_selected[["AAChange"]])
+        
+        
         # convert expect AF to factor level
-        seracare_annotations[["SeraCare.TargetAF"]] <- factor(x = seracare_annotations[["SeraCare.TargetAF"]], levels = sort(unique(seracare_annotations[["SeraCare.TargetAF"]])))
+        seracare_annotations[["SeraCare.AF"]] <- factor(x = seracare_annotations[["SeraCare.AF"]], levels = sort(unique(seracare_annotations[["SeraCare.AF"]])))
+        
+        # find the selected SeraCare variants that were not called for each sample
+        for (sample in levels(seracare_annotations[["Sample"]])){
+            df <- seracare_annotations[which(seracare_annotations[["Sample"]] == sample ), ]
+            df <- droplevels(df)
+            sample_muts <- unique(df[["Mut_ID"]])
+            if(any(! seracare_selected[["Mut_ID"]] %in% sample_muts)){
+                missing_df <- seracare_selected[which(! seracare_selected[["Mut_ID"]] %in% sample_muts), ]
+                missing_df[["Sample"]] <- sample
+                if(nrow(missing_selected) < 1){
+                    missing_selected <- missing_df
+                } else {
+                    missing_selected <- rbind(missing_selected, missing_df)
+                }
+            }
+        }
+        
     },
     error=function(cond) {
         return(NA)
@@ -50,31 +81,47 @@ tryCatch(
 
 SeraCare filtered variants called by LoFreq.
 
-```{r}
+```{r, results='asis'}
 if(nrow(seracare_annotations) > 0){
     
-    print_cols <- c("Gene.refGene", "SeraCare.AminoAcid", "DP", "AF","SeraCare.TargetAF", 
-                    "Chr", "Start", "End", "Ref", "Alt", 
-                     "Sample", "SeraCare.COSMIC")
+    print_cols <- c("SeraCare.Gene", "SeraCare.AAChange", "DP", "SeraCare.ReqCov",
+                    "AF","SeraCare.AF", "SeraCare.CI.Lower", "SeraCare.CI.Upper",
+                    "CHROM", "POS", "REF", "ALT", 
+                     "Sample")
     DT::datatable(data = seracare_annotations[ , print_cols],
                   options = list(pageLength = 25),
                   class = 'cell-border stripe')
     
-    ggplot(data =  seracare_annotations, 
-           aes(y = AF, 
-               x = Sample, 
-               color = SeraCare.TargetAF, 
-               group = Mut_ID) ) + 
-        geom_point() +
-        geom_line() +
-        theme_bw() +
-        theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-        # scale_y_continuous(limits = c(0, NA), 
-        #                    breaks = seq(0, max(seracare_annotations[["AF"]]), 0.025)) +
-        # facet_grid(~SeraCare.TargetAF) +
-        ylab("Detected Variant Allele Frequency") +
-        ggtitle(sprintf('SeraCare Variant Frequencies'))
+    # ggplot(data =  seracare_annotations, 
+    #        aes(y = AF, 
+    #            x = Sample, 
+    #            color = SeraCare.AF, 
+    #            group = Mut_ID) ) + 
+    #     geom_point() +
+    #     geom_line() +
+    #     theme_bw() +
+    #     theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    #     # scale_y_continuous(limits = c(0, NA), 
+    #     #                    breaks = seq(0, max(seracare_annotations[["AF"]]), 0.025)) +
+    #     # facet_grid(~SeraCare.AF) +
+    #     ylab("Detected Variant Allele Frequency") +
+    #     ggtitle(sprintf('SeraCare Variant Frequencies'))
     
+} else {
+    cat('\n\n- No results found')
+}
+```
+
+SeraCare variants that were not called in the run:
+
+```{r, results='asis'}
+if(nrow(missing_selected) > 0){
+    
+    print_cols <- c("Gene", "Coding", "AAChange", "Sample", "CHROM", "POS", "REF", "ALT")
+    DT::datatable(data = missing_selected[ , print_cols],
+                  options = list(pageLength = 10),
+                  class = 'cell-border stripe')
+
 } else {
     cat('\n\n- No results found')
 }
@@ -82,4 +129,5 @@ if(nrow(seracare_annotations) > 0){
 
 ```{r}
 save.image(file="seracare.pool.Rdata",compress = TRUE)
+rm(seracare_annotations)
 ```
