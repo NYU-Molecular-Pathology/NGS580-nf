@@ -1,5 +1,5 @@
 # NGS580 container for Sambamba and Samtools
-FROM stevekm/ngs580-nf:base
+FROM ubuntu:16.04
 
 MAINTAINER Stephen M. Kelly
 
