@@ -8,7 +8,7 @@ seracare_pool_annotations_file <- params$seracare_pool_annotations_file # SeraCa
 seracare_selected_variants <- params$seracare_selected_variants # list of known SeraCare variants
 
 seracare_annotations <- data.frame()
-seracare_pool_annotations <- data.frame()
+# seracare_pool_annotations <- data.frame()
 seracare_selected <- data.frame()
 
 # file may not have been produced if no SeraCare samples were included in run; 
@@ -20,11 +20,11 @@ tryCatch(
                                   sep = '\t', 
                                   check.names = FALSE, 
                                   na.strings = c('.'))
-        seracare_pool_annotations <- read.delim(file = seracare_pool_annotations_file, 
-                                  header = TRUE, 
-                                  sep = '\t', 
-                                  check.names = FALSE, 
-                                  na.strings = c('.'))
+        # seracare_pool_annotations <- read.delim(file = seracare_pool_annotations_file, 
+        #                           header = TRUE, 
+        #                           sep = '\t', 
+        #                           check.names = FALSE, 
+        #                           na.strings = c('.'))
         seracare_selected <- read.delim(file = seracare_selected_variants, 
                                   header = TRUE, 
                                   sep = '\t', 

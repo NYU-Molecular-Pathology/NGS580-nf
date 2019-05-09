@@ -13,40 +13,21 @@ signal(SIGPIPE,SIG_DFL)
 https://stackoverflow.com/questions/14207708/ioerror-errno-32-broken-pipe-python
 """
 
-# NA_strs = ['.'] # strings used as "NA" values in the table
-# Func_refGene_allowed = ['exonic'] # , 'splicing' 'exonic;splicing', , 'UTR5'
-# coverage_min = 500.0 # should correspond to GATK CallableLoci depth cutoff
-# frequency_min = 0.05 # 5%
-# ExAC_allowed = ['.', '0'] # only allow NA or 0 values
-
 def filter_row(row, seracare_selected):
     """
     Return True or False if the row passes all the filter criteria
     """
-    # update row columns with default values
-    row['SeraCare.Gene'] = '.'
-    row['SeraCare.COSMIC'] = '.'
-    row['SeraCare.AminoAcid'] = '.'
-    row['SeraCare.Type'] = '.'
-    row['SeraCare.TargetAF'] = '.'
+    allowed = False
+    key = "{0}{1}{2}{3}".format(row['CHROM'], row['POS'], row['REF'], row['ALT'])
+    if key in seracare_selected:
+        allowed = True
+        row['SeraCare.Gene'] = seracare_selected[key]['Gene']
+        row['SeraCare.Coding'] = seracare_selected[key]['Coding']
+        row['SeraCare.COSMIC'] = seracare_selected[key]['COSMIC']
+        row['SeraCare.AAChange'] = seracare_selected[key]['AAChange']
+        row['SeraCare.AF'] = seracare_selected[key]['AF']
 
-    # COSMIC id annotation string from ANNOVAR
-    row_COSMIC = row['cosmic70']
-
-    # false by default
-    in_allowed_COSMIC = False
-
-    # check if the COSMIC id in the sample annotation is included in the SeraCare Selected COSMIC identifiers
-    for selected in seracare_selected:
-        if selected['COSMIC'] in row_COSMIC:
-            in_allowed_COSMIC = True
-            row['SeraCare.Gene'] = selected['Gene']
-            row['SeraCare.COSMIC'] = selected['COSMIC']
-            row['SeraCare.AminoAcid'] = selected['AminoAcid']
-            row['SeraCare.Type'] = selected['Type']
-            row['SeraCare.TargetAF'] = selected['TargetAF']
-
-    return(in_allowed_COSMIC, row)
+    return(allowed, row)
 
 def main(**kwargs):
     """
@@ -67,24 +48,35 @@ def main(**kwargs):
         fout = sys.stdout
 
     # load the SeraCare Selected Variants from file
-    seracare_selected = []
+    seracare_selected_list = []
     with open(seracare_tsv) as f:
         reader = csv.DictReader(f, delimiter = '\t')
         for row in reader:
-            seracare_selected.append(row)
+            seracare_selected_list.append(row)
+    # convert to a dict
+    seracare_selected = {}
+    for item in seracare_selected_list:
+        key = "{0}{1}{2}{3}".format(item['CHROM'], item['POS'], item['REF'], item['ALT'])
+        seracare_selected[key] = item
 
     # start loading the sample annotations
     reader = csv.DictReader(fin, delimiter = '\t')
     # need to update the output fieldnames to include the SeraCare Selected columns
     fieldnames = reader.fieldnames
     fieldnames.append('SeraCare.Gene')
+    fieldnames.append('SeraCare.Coding')
+    fieldnames.append('SeraCare.AAChange')
     fieldnames.append('SeraCare.COSMIC')
-    fieldnames.append('SeraCare.AminoAcid')
-    fieldnames.append('SeraCare.Type')
-    fieldnames.append('SeraCare.TargetAF')
+    fieldnames.append('SeraCare.AF')
     writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
     writer.writeheader()
     for row in reader:
+        # update row columns with default values
+        row['SeraCare.Gene'] = '.'
+        row['SeraCare.Coding'] = '.'
+        row['SeraCare.COSMIC'] = '.'
+        row['SeraCare.AAChange'] = '.'
+        row['SeraCare.AF'] = '.'
         allowed, new_row = filter_row(row = {k:v for k,v in row.items()}, seracare_selected = seracare_selected)
         if allowed:
             writer.writerow(new_row)

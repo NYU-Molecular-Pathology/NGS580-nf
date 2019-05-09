@@ -36,7 +36,6 @@ params:
   git_json_file: git.json
   snp_overlap_file: snp-overlap.tsv
   seracare_annotations_file: annotations.SeraCare.tsv
-  seracare_pool_annotations_file: annotations.SeraCare-Pool.tsv
   seracare_selected_variants: SeraCare-selected-variants.tsv
 ---
 ```{r setup, include=FALSE}

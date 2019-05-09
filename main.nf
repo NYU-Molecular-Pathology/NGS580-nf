@@ -159,16 +159,14 @@ if ( PipelineConfig && PipelineConfig.containsKey("SeraCareSelectedTsv") && Pipe
 }
 def SeraCareSelectedTsvFile = new File("${SeraCareSelectedTsv}").getName()
 
-def SeraCarePoolAnnotations_default = "data/annotations.SeraCare-Pool.tsv"
-def SeraCarePoolAnnotations
-if ( PipelineConfig && PipelineConfig.containsKey("SeraCarePoolAnnotations") && PipelineConfig.SeraCarePoolAnnotations != null && new File("${PipelineConfig.SeraCarePoolAnnotations}").exists() ) {
-    log.info("Loading SeraCarePoolAnnotations from ${params.configFile}")
-    SeraCarePoolAnnotations = PipelineConfig.SeraCarePoolAnnotations
+def SeraCareErrorRate_default = 0.02
+def SeraCareErrorRate
+if ( PipelineConfig && PipelineConfig.containsKey("SeraCareErrorRate") && PipelineConfig.SeraCareErrorRate != null ) {
+    log.info("Loading SeraCareErrorRate from ${params.configFile}")
+    SeraCareErrorRate = PipelineConfig.SeraCareErrorRate
 } else {
-    SeraCarePoolAnnotations = SeraCarePoolAnnotations_default
+    SeraCareErrorRate = SeraCareErrorRate_default
 }
-def SeraCarePoolAnnotationsFile = new File("${SeraCarePoolAnnotations}").getName()
-
 // Enable or disable some pipeline steps here TODO: better config management for this
 disable_multiqc = true // for faster testing of the rest of the pipeline
 disable_msisensor = true // breaks on very small demo datasets
@@ -415,7 +413,6 @@ sampleIDs3.filter {
 }.set { seracare_sample_ids }
 
 Channel.fromPath( "${SeraCareSelectedTsv}").into { seracare_selected_tsv; seracare_selected_tsv2 }
-Channel.fromPath( "${SeraCarePoolAnnotations}" ).set { seracare_pool_annotations }
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
 // logging channels
@@ -3738,13 +3735,13 @@ annotations_annovar_tables5.combine(seracare_sample_ids).filter { items ->
 .combine(seracare_selected_tsv)
 .set { seracare_annotations }
 
-process filter_update_seracare_selected_variants {
+process filter_seracare_selected_variants {
     // filter for SeraCare Selected Variants and add extra annotation to the .tsv
     input:
     set val(caller), val(type), val(sampleID), file(tsv), file(selected_tsv) from seracare_annotations
 
     output:
-    file("${output_file}") into seracare_variants
+    set val(caller), val(type), val(sampleID), file("${output_file}") into seracare_variants
 
     script:
     prefix = "${sampleID}.${caller}.${type}"
@@ -3754,11 +3751,27 @@ process filter_update_seracare_selected_variants {
     """
 }
 
+process confidence_intervals_seracare {
+    // need to calculate the confidence interval for variant calling for the mutations from SeraCare samples
+    input:
+    set val(caller), val(type), val(sampleID), file(tsv) from seracare_variants
+
+    output:
+    file("${output_file}") into seracare_variants_ci
+
+    script:
+    prefix = "${sampleID}.${caller}.${type}"
+    output_file = "${prefix}.seracare-selected.ci.tsv"
+    """
+    variant-confidence-intervals.R "${tsv}" "${output_file}" "${SeraCareErrorRate}"
+    """
+}
+
 process collect_seracare_annotation_tables {
     // combine all variants into a single table
 
     input:
-    file('t*') from seracare_variants.collect()
+    file('t*') from seracare_variants_ci.collect()
 
     output:
     file("${output_file}") into collected_seracare_variants
@@ -3792,7 +3805,7 @@ process update_collect_seracare_annotation_tables {
     "${output_file}"
     """
 }
-collected_updated_seracare_variants.mix(seracare_pool_annotations, seracare_selected_tsv2).set { seracare_pool_items }
+collected_updated_seracare_variants.mix(seracare_selected_tsv2).set { seracare_pool_items }
 
 
 
@@ -3921,7 +3934,6 @@ process custom_analysis_report {
         git_json_file = "${git_json}",
         snp_overlap_file = "${snp_overlap_file}",
         seracare_annotations_file = "${all_seracare_annotations_file}",
-        seracare_pool_annotations_file = "${SeraCarePoolAnnotationsFile}",
         seracare_selected_variants = "${SeraCareSelectedTsvFile}"
         ),
     output_format = "html_document",
