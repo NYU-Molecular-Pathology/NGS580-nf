@@ -2877,7 +2877,7 @@ process extract_hapmap_pool_annotations {
     output_file = "${all_HapMapPool_annotations_file}"
     """
     head -1 "${tsv}" > "${output_file}"
-    grep -i 'HapMap-Pool' "${tsv}" >> "${output_file}"
+    grep -i 'HapMap-Pool' "${tsv}" >> "${output_file}" || :
     """
 }
 
@@ -3730,6 +3730,12 @@ failed_pairs.concat(pairs_vcfs_tsvs_bad_logs, annotations_tables_paired_filtered
     .set{ failed_pairs_log_ch }
 
 
+// need a channel for items that may or may not have been produced depending on the conditional nature of the pipeline config
+// e.g. paired vs unpaired runs, some files might not exist
+Channel.fromPath('.placeholder1')
+.mix(snp_overlap_collected_updated)
+.set { report_inputs }
+
 process custom_analysis_report {
     // create a batch report for all samples in the analysis
     publishDir "${params.outputDir}", mode: 'copy'
@@ -3752,7 +3758,7 @@ process custom_analysis_report {
     file(signatures_weights) from all_signatures_weights
     file(tmb_file) from tmbs_collected
     file(git_json) from git_json_ch
-    file(snp_overlap_file) from snp_overlap_collected_updated
+    file(extra_report_inputs: "*") from report_inputs
 
     output:
     file("${html_output}")
