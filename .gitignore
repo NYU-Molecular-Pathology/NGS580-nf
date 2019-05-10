@@ -71,3 +71,4 @@ flowchart.dot.*
 nextflow.html.*
 *.html.*
 trace.txt.*
+data/*
