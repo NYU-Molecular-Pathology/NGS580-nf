@@ -59,7 +59,7 @@ if ( params.numTargetSplitLines == null ){
 // check for targets.bed file to use
 // 0. use CLI passed arg
 // 1. check for config.json values
-def targetsBedDefault = "targets.bed"
+def targetsBedDefault = "targets/targets.580.bed"
 def targetsBed
 params.targetsBed = null
 if( params.targetsBed == null ){
@@ -76,7 +76,7 @@ if( params.targetsBed == null ){
 // check for targets.refFlat.bed file to use
 // 0. use CLI passed arg
 // 1. check for config.json values
-def targetsRefFlatBedDefault = "targets.refFlat.580.bed" // TODO: change this to "targets.refFlat.bed"
+def targetsRefFlatBedDefault = "targets/targets.refFlat.bed"
 def targetsRefFlatBed
 params.targetsRefFlatBed = null
 if( params.targetsRefFlatBed == null ){
