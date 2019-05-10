@@ -73,21 +73,21 @@ if( params.targetsBed == null ){
     targetsBed = "${targetsBedDefault}"
 }
 
-// check for targets.refFlat.bed file to use
+// check for targets.annotated.bed file to use
 // 0. use CLI passed arg
 // 1. check for config.json values
-def targetsRefFlatBedDefault = "targets/targets.refFlat.bed"
-def targetsRefFlatBed
-params.targetsRefFlatBed = null
-if( params.targetsRefFlatBed == null ){
-    if ( PipelineConfig && PipelineConfig.containsKey("targetsRefFlatBed") && PipelineConfig.targetsRefFlatBed != null ) {
-        log.info("Loading targetsRefFlatBed from ${params.configFile}")
-        targetsRefFlatBed = "${PipelineConfig.targetsRefFlatBed}"
+def targetsAnnotatedBedDefault = "targets/targets.annotated.580.bed"
+def targetsAnnotatedBed
+params.targetsAnnotatedBed = null
+if( params.targetsAnnotatedBed == null ){
+    if ( PipelineConfig && PipelineConfig.containsKey("targetsAnnotatedBed") && PipelineConfig.targetsAnnotatedBed != null ) {
+        log.info("Loading targetsAnnotatedBed from ${params.configFile}")
+        targetsAnnotatedBed = "${PipelineConfig.targetsAnnotatedBed}"
     } else {
-        targetsRefFlatBed = "${targetsRefFlatBedDefault}"
+        targetsAnnotatedBed = "${targetsAnnotatedBedDefault}"
     }
 } else {
-    targetsRefFlatBed = "${targetsRefFlatBedDefault}"
+    targetsAnnotatedBed = "${targetsAnnotatedBedDefault}"
 }
 
 // check for Run ID
@@ -211,7 +211,7 @@ log.info "* Launch command:\n${workflow.commandLine}\n"
 // ~~~~~ DATA INPUT ~~~~~ //
 // targets .bed file
 Channel.fromPath( file(targetsBed) ).set{ targets_bed } // TODO: why is this here? duplicated..
-Channel.fromPath( file(targetsRefFlatBed) ).set{ targets_refFlat_bed }
+Channel.fromPath( file(targetsAnnotatedBed) ).set{ targets_annotated_bed }
 
 // reference files
 Channel.fromPath( file(targetsBed) ).into { targets_bed;
@@ -2918,7 +2918,7 @@ process gatk_CallableLoci {
     publishDir "${params.outputDir}/loci", mode: 'copy'
 
     input:
-    set val(sampleID), file(bamfile), file(baifile), file(genomeFa), file(genomeFai), file(genomeDict), file(targetsBed) from samples_bam_ref
+    set val(sampleID), file(bamfile), file(baifile), file(genomeFa), file(genomeFai), file(genomeDict), file(targets_bed) from samples_bam_ref
 
     output:
     set val("${sampleID}"), file("${output_summary}") into called_loci
@@ -2942,7 +2942,7 @@ process gatk_CallableLoci {
     --minMappingQuality 20 \
     --minBaseQuality 20 \
     --minDepth 500 \
-    --intervals "${targetsBed}" \
+    --intervals "${targets_bed}" \
     -o "${output_bed}"
 
     grep -E 'CALLABLE|PASS' "${output_bed}" > "${output_bed_pass}" || touch "${output_bed_pass}" # exit code 1 if no matches
@@ -3311,7 +3311,7 @@ samples_bam3.combine(samples_pairs2) // [ sampleID, sampleBam, tumorID, normalID
                     .combine(ref_fasta13) // add reference genome and targets
                     .combine(ref_fai13)
                     .combine(ref_dict13)
-                    .combine(targets_refFlat_bed)
+                    .combine(targets_annotated_bed)
                     .set {
                       samples_bam_ref_targets
                     }
@@ -3320,7 +3320,7 @@ process cnvkit {
     publishDir "${params.outputDir}/cnv", mode: 'copy'
 
     input:
-    set val(comparisonID), val(tumorID), file(tumorBam), val(normalID), file(normalBam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_refFlat_bed) from samples_bam_ref_targets
+    set val(comparisonID), val(tumorID), file(tumorBam), val(normalID), file(normalBam), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_annotated_bed_file) from samples_bam_ref_targets
 
     output:
     file("${output_cns}")
@@ -3342,7 +3342,7 @@ process cnvkit {
     # running cnvkit pipeline on paried tumor/normal bams using batch mode, required tumorBam, normalBam, reference fasta and bed.
     cnvkit.py batch "${tumorBam}" \
     --normal "${normalBam}" \
-    --targets "${targets_refFlat_bed}" \
+    --targets "${targets_annotated_bed_file}" \
     --fasta "${ref_fasta}" \
     --output-reference "${normal_reference}" \
     -p \${NSLOTS:-\${NTHREADS:-1}}

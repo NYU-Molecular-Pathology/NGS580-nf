@@ -4,7 +4,7 @@
     "fastqDirs": [],
     "demux_samplesheet": "demux-samplesheet.csv",
     "targetsBed": "targets/targets.580.bed",
-    "targetsRefFlatBed": "targets/targets.refFlat.bed",
+    "targetsAnnotatedBed": "targets/targets.annotated.580.bed",
     "numTargetSplitLines": 100,
     "HapMapBam": "/gpfs/scratch/kellys04/molecpathlab/ref/HapMap-Pool/HapMap-pool.bam",
     "HapMapBai": "/gpfs/scratch/kellys04/molecpathlab/ref/HapMap-Pool/HapMap-pool.bam.bai",
