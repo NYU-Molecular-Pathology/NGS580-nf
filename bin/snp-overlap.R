@@ -96,7 +96,7 @@ new_names <- sapply(combs, function(x){
     }
 })
 colnames(mat) <- new_names
-
+save.image("loaded.Rdata")
 write.table(x = mat, file = output_matrix, quote = F,sep = "\t", row.names = F)
 
 # convert the matrix to a long format dataframe
@@ -104,10 +104,17 @@ write.table(x = mat, file = output_matrix, quote = F,sep = "\t", row.names = F)
 overlap_df <- data.frame()
 for( i in seq(length(colnames(mat))) ){
     # make dataframe
-    df <- as.data.frame(elements[[i]])
-
+    # # check that there are elements to make df from...
+    if (length(elements[[i]]) < 1){
+        # create dataframe with no rows
+        df <- setNames(data.frame(matrix(ncol = 2, nrow = 0)), 
+                       c("VariantID", colnames(mat)[i]))
+    } else {
+        df <- as.data.frame(elements[[i]])
         # make combination label column
-    df[["comb"]] <- colnames(mat)[i]
+        df[["comb"]] <- colnames(mat)[i]
+        names(df)[1] <- "VariantID"
+    }
     
     # append to full dataframe
     if(nrow(overlap_df) < 1){
@@ -117,8 +124,6 @@ for( i in seq(length(colnames(mat))) ){
     }
 }
 
-# rename the first column holding the Variant IDs
-names(overlap_df)[1] <- "VariantID"
 
 # add dummy variable for aggregating
 overlap_df[['n']] <- 1
