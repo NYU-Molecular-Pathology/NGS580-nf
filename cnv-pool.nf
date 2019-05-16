@@ -37,9 +37,9 @@ Channel.fromPath( file(samplesheet) )
 
 // reference files
 Channel.fromPath( file("${params.targetsBed}") ).set { targets_bed }
-Channel.fromPath( file(params.ref_fa) ).set { ref_fasta_ch }
-Channel.fromPath( file(params.ref_fai) ).set { ref_fai_ch }
-Channel.fromPath( file(params.ref_dict) ).set { ref_dict_ch }
+Channel.fromPath( file(params.ref_fa) ).into { ref_fasta_ch; ref_fasta_ch2 }
+Channel.fromPath( file(params.ref_fai) ).into { ref_fai_ch; ref_fai_ch2 }
+Channel.fromPath( file(params.ref_dict) ).into { ref_dict_ch; ref_dict_ch2 }
 
 
 sample_bams.combine(targets_bed)
@@ -50,10 +50,7 @@ sample_bams.combine(targets_bed)
 
 process cnv_reference {
     // https://cnvkit.readthedocs.io/en/v0.9.0/pipeline.html
-    // cnvkit.py batch * -r "${output_file}" -p \${NSLOTS:-\${NTHREADS:-1}}
-    echo true
-    publishDir "${params.outputDir}", mode: 'copy'
-
+    // Make target and antitarget coverage.cnn for each normal sample
     input:
     set file(bam), file(bed), file(ref_fasta), file(ref_fai), file(ref_dict) from sample_cnv_inputs
 
@@ -63,15 +60,33 @@ process cnv_reference {
     script:
     output_file = "${bam}.cnn"
     """
-    pwd
     cnvkit.py batch \
     -n "${bam}" \
     --output-reference "${output_file}" \
     --targets "${bed}" \
-    --fasta "${ref_fasta}"
+    --fasta "${ref_fasta}" \
+    -p \${NSLOTS:-\${NTHREADS:-1}}
     """
 }
+cnns_ch.toList().toList()
+.combine(ref_fasta_ch2)
+.combine(ref_fai_ch2)
+.combine(ref_dict_ch2)
+.set { cnn_ref_ch }
 
+process cnv_pooledreference {
+    // Combine all .cnn as PooledReference.cnn
+    publishDir "${params.outputDir}", mode: 'copy'
 
-//     ##Need to run this after creating target and antitarget coverge.cnn for all normal samples
-// cnvkit.py reference *coverage.cnn -f /gpfs/data/igorlab/ref/hg19/genome.fa -o PooledReference.cnn
+    input:
+    set file("*.cnn"), file(ref_fasta), file(ref_fai), file(ref_dict) from cnn_ref_ch
+
+    output:
+    file("${output_file}")
+
+    script:
+    output_file = "${params.outputFileName}.cnn"
+    """
+    cnvkit.py reference *.cnn -f "${ref_fasta}" -o "${output_file}"
+    """
+}
