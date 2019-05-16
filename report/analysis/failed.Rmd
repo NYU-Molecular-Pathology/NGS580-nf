@@ -76,7 +76,7 @@ if(file.exists(failed_pairs_log)){
     }
     
     if(nrow(failed_pairs) > 0){
-        DT::datatable(data = failed_pairs[, names(failed_pairs)[!names(failed_pairs) %in% c("Files", "")]],
+        DT::datatable(data = failed_pairs[, names(failed_pairs)[!names(failed_pairs) %in% c("Files", "", "Comparison")]],
               options = list(pageLength = 5),
               class = 'cell-border stripe')
     } else {

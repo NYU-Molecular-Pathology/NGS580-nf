@@ -11,6 +11,8 @@ tmb <- read.delim(file = tmb_file, header = TRUE, sep = '\t')
 
 # sort by TMB value
 tmb <- tmb[order(tmb[["TMB"]], decreasing = TRUE), ]
+# round the values for printing
+tmb[["TMB"]] <- round(tmb[["TMB"]], digits = 1)
 rownames(tmb) <- NULL
 ```
 
