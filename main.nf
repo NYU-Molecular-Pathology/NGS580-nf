@@ -2147,6 +2147,7 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
                         def comparisonID = "${tumorID}_${normalID}"
                         return [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai ]
                     }
+                    .tap { samples_dd_ra_rc_bam_noHapMap_pairs }
                     .mix(hapmap_samples_pool)
                     .tap { samples_dd_ra_rc_bam_pairs } // make a channel for just this set of data
                     .combine(ref_fasta3) // add reference genome and targets
@@ -2495,6 +2496,7 @@ process vcf_to_tsv_pairs {
 
     output:
     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file("${reformat_tsv}") into vcf_tsv_pairs // to annotation
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${reformat_tsv}") into vcf_tsv_pairs2
 
     script:
     prefix = "${comparisonID}.${chunkLabel}.${caller}"
@@ -3809,6 +3811,105 @@ collected_updated_seracare_variants.mix(seracare_selected_tsv2).set { seracare_p
 
 
 
+
+
+// ~~~~~ IGV Snapshot ~~~~~ //
+// visualization of select variants in IGV
+
+vcf_tsv_pairs2.filter { caller, comparisonID, tumorID, normalID, chunkLabel, tsv ->
+    // only keep entries with >1 line (header)
+    def count = tsv.readLines().size()
+    count > 1
+}.set { vcf_tsv_pairs_filtered }
+
+process igv_filter_variant {
+    // filter the tsv variant table to find variants to snapshot
+    tag "${caller}"
+
+    input:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(tsv) from vcf_tsv_pairs_filtered
+
+    output:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${output_file}") into igv_filtered_variants
+
+    script:
+    prefix = "${comparisonID}.${chunkLabel}.${caller}"
+    output_file = "${prefix}.igv-annotations.tsv"
+    """
+    igv-variant-filter.py -c "${caller}" -i "${tsv}" > "${output_file}"
+    """
+}
+
+igv_filtered_variants.filter {
+    caller, comparisonID, tumorID, normalID, chunkLabel, tsv ->
+    // only keep entries with >1 line (header)
+    def count = tsv.readLines().size()
+    count > 1
+}.set { igv_refiltered_variants }
+
+process igv_tsv_to_bed {
+    // convert the variants tsv table into a bed file
+    input:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(tsv) from igv_refiltered_variants
+
+    output:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${output_file}") into igv_regions
+
+    script:
+    prefix = "${comparisonID}.${chunkLabel}.${caller}"
+    output_file = "${prefix}.igv-regions.bed"
+    """
+    variant-tsv2bed.py -i "${tsv}" -o "${output_file}"
+    """
+}
+
+igv_regions.combine(samples_dd_ra_rc_bam_noHapMap_pairs)
+.filter { caller, comparisonID, tumorID, normalID, chunkLabel, bed, paired_comparisonID, paired_tumorID, tumorBam, tumorBai, paired_normalID, normalBam, normalBai ->
+    def comparisonID_match = comparisonID ==  paired_comparisonID
+    def tumorID_match = tumorID == paired_tumorID
+    def normalID_math = normalID == paired_normalID
+    comparisonID_match && tumorID_match && normalID_math
+}.map { caller, comparisonID, tumorID, normalID, chunkLabel, bed, paired_comparisonID, paired_tumorID, tumorBam, tumorBai, paired_normalID, normalBam, normalBai ->
+    return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed, tumorBam, tumorBai, normalBam, normalBai ])
+}
+.set { igv_regions_bams }
+
+process igv_snapshot {
+    // run IGV headlessly to make snapshots
+    input:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(bed), file(tumorBam), file(tumorBai), file(normalBam), file(normalBai) from igv_regions_bams
+
+    output:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${snapshotDirectory}") into igv_snaphots
+
+    script:
+    prefix = "${comparisonID}.${chunkLabel}.${caller}"
+    batchscript = "snapshots.bat"
+    snapshotDirectory = "${prefix}"
+    image_height = 500
+    genome = 'hg19'
+    """
+    mkdir "${snapshotDirectory}"
+
+    # make IGV snapshot batch script
+    make-igv-batchscript.py \
+    "${tumorBam}" "${normalBam}" \
+    -r "${bed}" \
+    -d "${snapshotDirectory}" \
+    -b "${batchscript}" \
+    --height "${image_height}" \
+    --genome "${genome}"
+
+    # run IGV headlessly with xvfb
+    xvfb-run \
+    --auto-servernum \
+    --server-num=1 \
+    igv.sh \
+    -b "${batchscript}"
+    """
+}
+igv_snaphots.groupTuple(by: [0, 1, 2, 3])
+.subscribe { println "[igv_snaphots] ${it}" }
 
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
