@@ -72,3 +72,4 @@ nextflow.html.*
 *.html.*
 trace.txt.*
 data/*
+samples.cnv.tsv
