@@ -167,6 +167,16 @@ if ( PipelineConfig && PipelineConfig.containsKey("SeraCareErrorRate") && Pipeli
 } else {
     SeraCareErrorRate = SeraCareErrorRate_default
 }
+
+def CNVPool_default = "ref/CNV-Pool/CNV-Pool.580.cnn"
+def CNVPool
+if ( PipelineConfig && PipelineConfig.containsKey("CNVPool") && PipelineConfig.CNVPool != null && new File("${PipelineConfig.CNVPool}").exists() ) {
+    log.info("Loading CNVPool from ${params.configFile}")
+    CNVPool = PipelineConfig.CNVPool
+} else {
+    CNVPool = CNVPool_default
+}
+
 // Enable or disable some pipeline steps here TODO: better config management for this
 disable_multiqc = true // for faster testing of the rest of the pipeline
 disable_msisensor = true // breaks on very small demo datasets
@@ -413,6 +423,7 @@ sampleIDs3.filter {
 }.set { seracare_sample_ids }
 
 Channel.fromPath( "${SeraCareSelectedTsv}").into { seracare_selected_tsv; seracare_selected_tsv2 }
+Channel.fromPath("${CNVPool}").set { cnv_pool_ch }
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
 // logging channels
@@ -3308,6 +3319,7 @@ samples_bam3.combine(samples_pairs2) // [ sampleID, sampleBam, tumorID, normalID
                         def comparisonID = "${tumorID}_${normalID}"
                         return [ comparisonID, tumorID, tumorBam, normalID, normalBam ]
                     }//.subscribe { println "[samples_bam3]${it}"}
+                    .tap { samples_pairs_bam_ch }
                     .combine(ref_fasta13) // add reference genome and targets
                     .combine(ref_fai13)
                     .combine(ref_dict13)
@@ -3317,6 +3329,7 @@ samples_bam3.combine(samples_pairs2) // [ sampleID, sampleBam, tumorID, normalID
                     }
 
 process cnvkit {
+    // CNV calling on the tumor-normal pairs
     publishDir "${params.outputDir}/cnv", mode: 'copy'
 
     input:
@@ -3361,8 +3374,63 @@ process cnvkit {
     """
 }
 
+// get a copy of the channel to use with the CNV pool
+// combine against the CNV Pool file
+samples_pairs_bam_ch.combine(cnv_pool_ch)
+.map { comparisonID, tumorID, tumorBam, normalID, normalBam, cnv_pool_file ->
+    // remap the channel to replace the Normal with CNV Pool
+    def cnv_poolID = "CNV-Pool"
+    def new_comparisonID = "${tumorID}_${cnv_poolID}"
+    return([ new_comparisonID, tumorID, tumorBam, cnv_poolID, cnv_pool_file ])
+}
+.set { samples_cnv_pool_ch }
+// samples_cnv_pool_ch.subscribe { println "[samples_cnv_pool_ch] ${it}" }
+
+process cnvkit_pooled_reference {
+    // CNV calling on the tumor-poolednormal pairs
+    publishDir "${params.outputDir}/cnv", mode: 'copy'
+
+    input:
+    set val(new_comparisonID), val(tumorID), file(tumorBam), val(cnv_poolID), file(cnv_pool_file) from samples_cnv_pool_ch
+
+    output:
+    file("${output_cns}")
+    file("${output_finalcnr}")
+    set val(new_comparisonID), val(tumorID), val(cnv_poolID), file("${output_cnr}"), file("${output_call_cns}"), file("${segment_gainloss}") into sample_cnvs_pooledreference
+
+    script:
+    prefix = "${new_comparisonID}"
+    tumorBamID = "${tumorBam}".replaceFirst(/.bam$/, "")
+    tmp_cns = "${tumorBamID}.cns"
+    tmp_cnr = "${tumorBamID}.cnr"
+    output_cns = "${prefix}.cns"
+    output_cnr = "${prefix}.cnr"
+    output_finalcnr = "${prefix}.final.cnr"
+    output_call_cns = "${prefix}.call.cns"
+    segment_gainloss = "${prefix}.segment-gainloss.txt"
+    """
+    # running cnvkit pipeline on tumor/pooled_normal reference using batch mode, required tumorBam, pooledReference.cnn.
+    cnvkit.py batch "${tumorBam}" \
+    -r "${cnv_pool_file}" \
+    -p \${NSLOTS:-\${NTHREADS:-1}}
+
+    # Produces ${tmp_cns} and ${tmp_cnr}, rename to ${output_cns} and ${output_cnr}
+    mv ${tmp_cns} ${output_cns}
+    mv ${tmp_cnr} ${output_cnr}
+
+    # Given segmented log2 ratio estimates (.cns), derive each segment’s absolute integer copy number.
+    cnvkit.py call --filter cn "${output_cns}"
+
+    # Identify targeted genes with copy number gain or loss above or below a threshold, -t :threshold and -m:number of bins
+    cnvkit.py gainloss "${output_cnr}" -s "${output_call_cns}" -t 0.3 -m 5 > "${segment_gainloss}"
+    cnvkit.py gainloss "${output_cnr}" -t 0.3 -m 5 > "${output_finalcnr}"
+    """
+}
+
+
 // only keep files with at least 1 variant for TMB analysis
-sample_cnvs.filter { comparisonID, tumorID, normalID, cnr, call_cns, segment_gainloss ->
+sample_cnvs.mix( sample_cnvs_pooledreference )
+.filter { comparisonID, tumorID, normalID, cnr, call_cns, segment_gainloss ->
     def count = cnr.readLines().size()
     if (count <= 1) log.warn "${comparisonID} doesn't have enough lines in cnr and will not be processed"
     count > 1
