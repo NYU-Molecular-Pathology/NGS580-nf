@@ -3863,6 +3863,39 @@ process igv_tsv_to_bed {
     """
 }
 
+// TODO: Need to chunk the bed file because some of them are too big to run, need to parallelize more
+// process igv_bed_line_chunk {
+//     // split the .bed file into new files based on desired lines in each file
+//
+//     input:
+//     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(bed) from igv_regions
+//
+//     output:
+//     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file('*') into igv_regions_split
+//
+//     script:
+//     numLines = 50
+//     """
+//     split-bed-lines.py "${bed}" "${numTargetSplitLines}"
+//     """
+// }
+// // igv_regions_split.set { igv_regions_split }
+// igv_regions_split.map { caller, comparisonID, tumorID, normalID, chunkLabel, bed_files ->
+//     // check if its a list or not
+//     def is_list = bed_files instanceof Collection
+//     if(is_list){
+//         return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed_files ])
+//     } else {
+//         // make it a list
+//         def bed_list = [ bed_files ]
+//         return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed_list ])
+//     }
+// }
+// .transpose(by: [0,1,2,3,4])
+// .subscribe { println "[igv_regions_split] ${it}" }
+
+
+
 igv_regions.combine(samples_dd_ra_rc_bam_noHapMap_pairs)
 .filter { caller, comparisonID, tumorID, normalID, chunkLabel, bed, paired_comparisonID, paired_tumorID, tumorBam, tumorBai, paired_normalID, normalBam, normalBai ->
     def comparisonID_match = comparisonID ==  paired_comparisonID
@@ -3910,7 +3943,7 @@ process igv_snapshot {
 }
 igv_snaphots.groupTuple(by: [0, 1, 2, 3])
 .subscribe { println "[igv_snaphots] ${it}" }
-
+// TODO: aggregate all snapshots into a single dir per-sample
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
 // collect from all processes to make sure they are finished before starting reports
