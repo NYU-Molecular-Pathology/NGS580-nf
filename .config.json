@@ -9,5 +9,6 @@
     "HapMapBam": "/gpfs/scratch/kellys04/molecpathlab/ref/HapMap-Pool/HapMap-pool.bam",
     "HapMapBai": "/gpfs/scratch/kellys04/molecpathlab/ref/HapMap-Pool/HapMap-pool.bam.bai",
     "SeraCareSelectedTsv": "data/SeraCare-selected-variants.tsv",
-    "SeraCareErrorRate": 0.02
+    "SeraCareErrorRate": 0.02,
+    "CNVPool": "/gpfs/data/molecpathlab/ref/CNV-Pool/CNV-Pool.580.cnn"
 }
