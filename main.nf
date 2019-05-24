@@ -3892,7 +3892,6 @@ vcf_tsv_pairs2.filter { caller, comparisonID, tumorID, normalID, chunkLabel, tsv
 
 process igv_filter_variant {
     // filter the tsv variant table to find variants to snapshot
-    tag "${caller}"
 
     input:
     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(tsv) from vcf_tsv_pairs_filtered
@@ -3932,59 +3931,67 @@ process igv_tsv_to_bed {
 }
 
 // TODO: Need to chunk the bed file because some of them are too big to run, need to parallelize more
-// process igv_bed_line_chunk {
-//     // split the .bed file into new files based on desired lines in each file
-//
-//     input:
-//     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(bed) from igv_regions
-//
-//     output:
-//     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file('*') into igv_regions_split
-//
-//     script:
-//     numLines = 50
-//     """
-//     split-bed-lines.py "${bed}" "${numTargetSplitLines}"
-//     """
-// }
-// // igv_regions_split.set { igv_regions_split }
-// igv_regions_split.map { caller, comparisonID, tumorID, normalID, chunkLabel, bed_files ->
-//     // check if its a list or not
-//     def is_list = bed_files instanceof Collection
-//     if(is_list){
-//         return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed_files ])
-//     } else {
-//         // make it a list
-//         def bed_list = [ bed_files ]
-//         return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed_list ])
-//     }
-// }
-// .transpose(by: [0,1,2,3,4])
-// .subscribe { println "[igv_regions_split] ${it}" }
+process igv_bed_line_chunk {
+    // split the .bed file into new files based on desired lines in each file
 
+    input:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(bed) from igv_regions
 
+    output:
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file('*') into igv_regions_split
 
-igv_regions.combine(samples_dd_ra_rc_bam_noHapMap_pairs)
-.filter { caller, comparisonID, tumorID, normalID, chunkLabel, bed, paired_comparisonID, paired_tumorID, tumorBam, tumorBai, paired_normalID, normalBam, normalBai ->
+    script:
+    numLines = 30 // IGV snaphot takes ~2s per target region; 30 regions = ~1min execution
+    """
+    split-bed-lines.py "${bed}" "${numTargetSplitLines}"
+    """
+}
+
+// 'bed_files' may be a single file or a list of files;
+// need to convert all to list, then emit all files individually, and get the chunk label
+igv_regions_split.map { caller, comparisonID, tumorID, normalID, chunkLabel, bed_files ->
+    // check if its a list or not
+    def is_list = bed_files instanceof Collection
+    if(is_list){
+        return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed_files ])
+    } else {
+        // make it a list
+        def bed_list = [ bed_files ]
+        return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed_list ])
+    }
+}
+.transpose()
+.map { caller, comparisonID, tumorID, normalID, chunkLabel, bed ->
+    // get number at the end of the file basename to denote the chunk Label
+    def bedChunkLabel = "${bed.name}".findAll(/\d*$/)[0]
+
+    return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed, bedChunkLabel ])
+}
+.set { igv_regions_chunked }
+
+// Combine against the tumor-normal pairs bam files
+igv_regions_chunked.combine(samples_dd_ra_rc_bam_noHapMap_pairs)
+.filter { caller, comparisonID, tumorID, normalID, chunkLabel, bed, bedChunkLabel, paired_comparisonID, paired_tumorID, tumorBam, tumorBai, paired_normalID, normalBam, normalBai ->
     def comparisonID_match = comparisonID ==  paired_comparisonID
     def tumorID_match = tumorID == paired_tumorID
     def normalID_math = normalID == paired_normalID
     comparisonID_match && tumorID_match && normalID_math
-}.map { caller, comparisonID, tumorID, normalID, chunkLabel, bed, paired_comparisonID, paired_tumorID, tumorBam, tumorBai, paired_normalID, normalBam, normalBai ->
-    return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed, tumorBam, tumorBai, normalBam, normalBai ])
+}.map { caller, comparisonID, tumorID, normalID, chunkLabel, bed, bedChunkLabel, paired_comparisonID, paired_tumorID, tumorBam, tumorBai, paired_normalID, normalBam, normalBai ->
+    return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed, bedChunkLabel, tumorBam, tumorBai, normalBam, normalBai ])
 }
 .set { igv_regions_bams }
 
 process igv_snapshot {
     // run IGV headlessly to make snapshots
+
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(bed), file(tumorBam), file(tumorBai), file(normalBam), file(normalBai) from igv_regions_bams
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(bed), val(bedChunkLabel), file(tumorBam), file(tumorBai), file(normalBam), file(normalBai) from igv_regions_bams
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${snapshotDirectory}") into igv_snaphots
+    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), val(bedChunkLabel), file("${snapshotDirectory}") into igv_snaphots
 
     script:
-    prefix = "${comparisonID}.${chunkLabel}.${caller}"
+    prefix = "${comparisonID}.${chunkLabel}.${caller}.${bedChunkLabel}"
     batchscript = "snapshots.bat"
     snapshotDirectory = "${prefix}"
     image_height = 500
@@ -4009,8 +4016,21 @@ process igv_snapshot {
     -b "${batchscript}"
     """
 }
-igv_snaphots.groupTuple(by: [0, 1, 2, 3])
-.subscribe { println "[igv_snaphots] ${it}" }
+// igv_snaphots.groupTuple(by: [0, 1, 2, 3, 4])
+// .set { igv_snaphots_grouped }
+// .subscribe { println "[igv_snaphots] ${it}" }
+
+// process aggregate_snapshots {
+//     stageInMode "copy"
+//     input:
+//     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), val(bedChunkLabels), file("*") from igv_snaphots_grouped
+//
+//     script:
+//     """
+//     pwd
+//     ls -l
+//     """
+// }
 // TODO: aggregate all snapshots into a single dir per-sample
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
