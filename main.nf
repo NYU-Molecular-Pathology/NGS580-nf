@@ -1,10 +1,133 @@
+// NGS580 Target exome analysis for 580 gene panel
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import groovy.json.JsonSlurper;
+def jsonSlurper = new JsonSlurper()
 
-//
-// NGS580 Target exome analysis for 580 gene panel
-//
+// ~~~~~~~~~~ CONFIGURATION ~~~~~~~~~~ //
+// configure pipeline settings
+// order of evaluation
+// 1. uses CLI passed arg in 'params'
+// 2. uses nextflow.config arg in 'params'
+// 3. uses values from config.json
+// 4. uses default value
+
+// default values; overriden by nextflow.config and CLI
+params.configFile = "config.json"
+params.reportDir = "report"
+params.outputDir = "output"
+params.ref_dir = "ref"
+
+// default config values
+def defaultParams = [:]
+defaultParams.runID = "NGS580_run"
+defaultParams.workflowLabel = "NGS580"
+defaultParams.numTargetSplitLines = 50
+defaultParams.targetsBed = "targets/targets.580.bed"
+defaultParams.targetsAnnotatedBed = "targets/targets.annotated.580.bed"
+defaultParams.projectDir = "${workflow.projectDir}"
+defaultParams.samplesheet = "samples.analysis.tsv"
+defaultParams.SeraCareSelectedTsv = "data/SeraCare-selected-variants.tsv"
+defaultParams.SeraCareErrorRate = 0.02
+defaultParams.CNVPool = "ref/CNV-Pool/CNV-Pool.580.cnn"
+defaultParams.HapMapBam = "ref/HapMap-Pool/HapMap-pool.bam"
+defaultParams.HapMapBai = "ref/HapMap-Pool/HapMap-pool.bam.bai"
+
+// load the JSON config, if present
+def externalConfig
+def externalConfigFile_obj = new File("${params.configFile}")
+if ( externalConfigFile_obj.exists() ) {
+    log.info("Loading configs from ${params.configFile}")
+    String externalConfigJSON = externalConfigFile_obj.text
+    externalConfig = jsonSlurper.parseText(externalConfigJSON)
+}
+// add and overwrite all values in defaultParams with items from config
+if( externalConfig ){
+    log.info("Updating with configs from ${params.configFile}")
+    // overwrite existing default params with JSON config values
+    defaultParams.keySet().each { key ->
+        if( externalConfig.containsKey(key) ){
+            defaultParams[key] = externalConfig[key]
+        }
+    }
+    // append the missing JSON configs to default params; doesn't overwrite
+    externalConfig.keySet().each { key ->
+        if( ! defaultParams.containsKey(key) ){
+            defaultParams[key] = externalConfig[key]
+        }
+    }
+}
+
+// add all the entries to params; wont overwrite existing entries from CLI or nextflow.config
+params << defaultParams
+
+// set variables to use throughout the pipeline
+def numTargetSplitLines = params.numTargetSplitLines
+def HapMapBam = params.HapMapBam
+def HapMapBai = params.HapMapBai
+def targetsBed = params.targetsBed
+def targetsAnnotatedBed = params.targetsAnnotatedBed
+def runID = params.runID
+def samplesheet = params.samplesheet
+def SeraCareSelectedTsv = params.SeraCareSelectedTsv
+def SeraCareSelectedTsvFile = new File("${SeraCareSelectedTsv}").getName()
+def SeraCareErrorRate = params.SeraCareErrorRate
+def CNVPool = params.CNVPool
+def projectDir = params.runID
+
+// system configs
+def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
+def username = System.getProperty("user.name")
+String localhostname = java.net.InetAddress.getLocalHost().getHostName();
+Date now = new Date()
+SimpleDateFormat timestamp = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss")
+def currentDirPath = new File(System.getProperty("user.dir")).getCanonicalPath()
+
+// Enable or disable some pipeline steps here TODO: better config management for this
+disable_multiqc = true // for faster testing of the rest of the pipeline
+disable_msisensor = true // breaks on very small demo datasets
+disable_delly2 = true
+disable_eval_pair_vcf = true
+
+// load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
+String filemapJSON = new File("filemap.json").text
+def filemap = jsonSlurper.parseText(filemapJSON)
+
+// names of some important output files to use throughout the pipeline
+def all_annotations_file = filemap.files.all_annotations_file
+def all_seracare_annotations_file = filemap.files.all_seracare_annotations_file
+def all_HapMapPool_annotations_file = filemap.files.all_HapMapPool_annotations_file
+def samplesheet_output_file = filemap.files.samplesheet_output_file
+def sample_coverage_file = filemap.files.sample_coverage_file
+def interval_coverage_file = filemap.files.interval_coverage_file
+def signatures_weights_file = filemap.files.signatures_weights_file
+def targets_annotations_file = filemap.files.targets_annotations_file
+def tmb_file = filemap.files.tmb_file
+def git_json = filemap.files.git_json
+def snp_overlap_file = filemap.files.snp_overlap_file
+def outputDirPath = new File(params.outputDir).getCanonicalPath()
+def reportDirPath = new File(params.reportDir).getCanonicalPath()
+
+// REFERENCE FILES
+params.ref_fa = "${params.ref_dir}/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa"
+params.ref_fa_bwa_dir = "${params.ref_dir}/BWA/hg19"
+params.ref_fai = "${params.ref_dir}/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa.fai"
+params.ref_dict = "${params.ref_dir}/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.dict"
+params.ref_chrom_sizes = "${params.ref_dir}/Illumina/hg19/chrom.sizes"
+params.microsatellites = "${params.ref_dir}/msisensor/hg19/microsatellites.list"
+params.trimmomatic_contaminant_fa = "${params.ref_dir}/contaminants/trimmomatic.fa"
+
+params.gatk_bundle_dir = "${params.ref_dir}/gatk-bundle"
+params.gatk_1000G_phase1_indels_hg19_vcf = "${params.gatk_bundle_dir}/1000G_phase1.indels.hg19.vcf"
+params.gatk_1000G_phase1_indels_hg19_vcf_idx = "${params.gatk_bundle_dir}/1000G_phase1.indels.hg19.vcf.idx"
+params.mills_and_1000G_gold_standard_indels_hg19_vcf = "${params.gatk_bundle_dir}/Mills_and_1000G_gold_standard.indels.hg19.vcf"
+params.mills_and_1000G_gold_standard_indels_hg19_vcf_idx = "${params.gatk_bundle_dir}/Mills_and_1000G_gold_standard.indels.hg19.vcf.idx"
+params.dbsnp_ref_vcf = "${params.gatk_bundle_dir}/dbsnp_138.hg19.vcf"
+params.dbsnp_ref_vcf_idx = "${params.gatk_bundle_dir}/dbsnp_138.hg19.vcf.idx"
+params.dbsnp_ref_vcf_gz = "${params.gatk_bundle_dir}/dbsnp_138.hg19.vcf.gz"
+params.dbsnp_ref_vcf_gz_tbi = "${params.gatk_bundle_dir}/dbsnp_138.hg19.vcf.gz.tbi"
+params.cosmic_ref_vcf = "${params.ref_dir}/hg19/CosmicCodingMuts_v73.hg19.vcf"
+params.cosmic_ref_vcf_idx = "${params.ref_dir}/hg19/CosmicCodingMuts_v73.hg19.vcf.idx"
 
 // ~~~~~~~~~~ VALIDATION ~~~~~~~~~~ //
 // make sure reference data directory exists
@@ -20,184 +143,6 @@ if( !ANNOVAR_DB_DIR.exists() ){
     log.error "ANNOVAR database dir does not exist: ${params.ANNOVAR_DB_DIR}"
     exit 1
 }
-
-// ~~~~~~~~~~ CONFIGURATION ~~~~~~~~~~ //
-// configure pipeline settings
-// overriden by nextflow.config and CLI args
-params.configFile = "config.json"
-params.reportDir = "report"
-params.outputDir = "output"
-def username = params.username // from nextflow.config
-def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
-def outputDirPath = new File(params.outputDir).getCanonicalPath()
-def reportDirPath = new File(params.reportDir).getCanonicalPath()
-String localhostname = java.net.InetAddress.getLocalHost().getHostName();
-// Date now = new Date()
-// SimpleDateFormat timestamp = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss")
-// currentDirPath = new File(System.getProperty("user.dir")).getCanonicalPath()
-
-// load the JSON config, if present
-def jsonSlurper = new JsonSlurper()
-def PipelineConfig
-def PipelineConfigFile_obj = new File("${params.configFile}")
-if ( PipelineConfigFile_obj.exists() ) {
-    log.info("Loading configs from ${params.configFile}")
-    String PipelineConfigJSON = PipelineConfigFile_obj.text
-    PipelineConfig = jsonSlurper.parseText(PipelineConfigJSON)
-}
-
-def numTargetSplitLinesDefault = 100
-def numTargetSplitLines
-params.numTargetSplitLines = PipelineConfig.numTargetSplitLines
-if ( params.numTargetSplitLines == null ){
-    numTargetSplitLines = numTargetSplitLinesDefault
-} else {
-    numTargetSplitLines = params.numTargetSplitLines.toInteger()
-}
-
-
-// check for targets.bed file to use
-// 0. use CLI passed arg
-// 1. check for config.json values
-def targetsBedDefault = "targets/targets.580.bed"
-def targetsBed
-params.targetsBed = null
-if( params.targetsBed == null ){
-    if ( PipelineConfig && PipelineConfig.containsKey("targetsBed") && PipelineConfig.targetsBed != null ) {
-        log.info("Loading targetsBed from ${params.configFile}")
-        targetsBed = "${PipelineConfig.targetsBed}"
-    } else {
-        targetsBed = "${targetsBedDefault}"
-    }
-} else {
-    targetsBed = "${targetsBedDefault}"
-}
-
-// check for targets.annotated.bed file to use
-// 0. use CLI passed arg
-// 1. check for config.json values
-def targetsAnnotatedBedDefault = "targets/targets.annotated.580.bed"
-def targetsAnnotatedBed
-params.targetsAnnotatedBed = null
-if( params.targetsAnnotatedBed == null ){
-    if ( PipelineConfig && PipelineConfig.containsKey("targetsAnnotatedBed") && PipelineConfig.targetsAnnotatedBed != null ) {
-        log.info("Loading targetsAnnotatedBed from ${params.configFile}")
-        targetsAnnotatedBed = "${PipelineConfig.targetsAnnotatedBed}"
-    } else {
-        targetsAnnotatedBed = "${targetsAnnotatedBedDefault}"
-    }
-} else {
-    targetsAnnotatedBed = "${targetsAnnotatedBedDefault}"
-}
-
-// check for Run ID
-// 0. use CLI passed arg
-// 1. check for config.json values
-// 2. use the name of the current directory
-def projectDir = "${workflow.projectDir}"
-def projectDirname = new File("${projectDir}").getName()
-def runID
-params.runID = null
-if( params.runID == null ){
-    if ( PipelineConfig && PipelineConfig.containsKey("runID") && PipelineConfig.runID != null ) {
-        log.info("Loading runID from ${params.configFile}")
-        runID = "${PipelineConfig.runID}"
-    } else {
-        runID = "${projectDir}"
-    }
-} else {
-    runID = "${projectDir}"
-}
-
-// Check for samplesheet;
-// 0. Use CLI passed samplesheet
-// 1. check for config.json values
-// 2. Check for samples.analysis.tsv in current directory
-def default_samplesheet = "samples.analysis.tsv"
-def default_samplesheet_obj = new File("${default_samplesheet}")
-def samplesheet
-params.samplesheet = null
-if(params.samplesheet == null){
-    if ( PipelineConfig && PipelineConfig.containsKey("samplesheet") && PipelineConfig.samplesheet != null ) {
-        log.info("Loading samplesheet from ${params.configFile}")
-        samplesheet = PipelineConfig.samplesheet
-    } else if( default_samplesheet_obj.exists() ){
-        samplesheet = default_samplesheet_obj.getCanonicalPath()
-    } else {
-        log.error("No samplesheet found, please provide one with '--samplesheet'")
-        exit 1
-    }
-} else {
-    samplesheet = params.samplesheet
-}
-
-
-// Check for HapMapBam and HapMapBai
-def HapMapBam
-def HapMapBai
-if ( PipelineConfig && PipelineConfig.containsKey("HapMapBam") && PipelineConfig.HapMapBam != null && new File("${PipelineConfig.HapMapBam}").exists() ) {
-    log.info("Loading HapMapBam from ${params.configFile}")
-    HapMapBam = PipelineConfig.HapMapBam
-} else {
-    log.info("HapMapBam not loaded")
-}
-if ( PipelineConfig && PipelineConfig.containsKey("HapMapBai") && PipelineConfig.HapMapBai != null && new File("${PipelineConfig.HapMapBai}").exists() ) {
-    log.info("Loading HapMapBai from ${params.configFile}")
-    HapMapBai = PipelineConfig.HapMapBai
-} else {
-    log.info("HapMapBai not loaded")
-}
-
-// load SeraCare Pool TSV
-def SeraCareSelectedTsv_default = "data/SeraCare-selected-variants.tsv"
-def SeraCareSelectedTsv
-if ( PipelineConfig && PipelineConfig.containsKey("SeraCareSelectedTsv") && PipelineConfig.SeraCareSelectedTsv != null && new File("${PipelineConfig.SeraCareSelectedTsv}").exists() ) {
-    log.info("Loading SeraCareSelectedTsv from ${params.configFile}")
-    SeraCareSelectedTsv = PipelineConfig.SeraCareSelectedTsv
-} else {
-    SeraCareSelectedTsv = SeraCareSelectedTsv_default
-}
-def SeraCareSelectedTsvFile = new File("${SeraCareSelectedTsv}").getName()
-
-def SeraCareErrorRate_default = 0.02
-def SeraCareErrorRate
-if ( PipelineConfig && PipelineConfig.containsKey("SeraCareErrorRate") && PipelineConfig.SeraCareErrorRate != null ) {
-    log.info("Loading SeraCareErrorRate from ${params.configFile}")
-    SeraCareErrorRate = PipelineConfig.SeraCareErrorRate
-} else {
-    SeraCareErrorRate = SeraCareErrorRate_default
-}
-
-def CNVPool_default = "ref/CNV-Pool/CNV-Pool.580.cnn"
-def CNVPool
-if ( PipelineConfig && PipelineConfig.containsKey("CNVPool") && PipelineConfig.CNVPool != null && new File("${PipelineConfig.CNVPool}").exists() ) {
-    log.info("Loading CNVPool from ${params.configFile}")
-    CNVPool = PipelineConfig.CNVPool
-} else {
-    CNVPool = CNVPool_default
-}
-
-// Enable or disable some pipeline steps here TODO: better config management for this
-disable_multiqc = true // for faster testing of the rest of the pipeline
-disable_msisensor = true // breaks on very small demo datasets
-disable_delly2 = true
-
-// names of some important output files to use throughout the pipeline
-def all_annotations_file = "annotations.tsv"
-def all_seracare_annotations_file = "annotations.SeraCare.tsv"
-def all_HapMapPool_annotations_file = "annotations.HapMap-Pool.tsv"
-def samplesheet_output_file = 'samplesheet.tsv'
-def sample_coverage_file = "coverage.samples.tsv"
-def interval_coverage_file = "coverage.intervals.tsv"
-def signatures_weights_file = "signatures.weights.tsv"
-def targets_annotations_file = "targets.annotations.tsv"
-def tmb_file = "tmb.tsv"
-def git_json = "git.json"
-def snp_overlap_file = "snp-overlap.tsv"
-
-// load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
-String filemapJSON = new File("filemap.json").text
-def filemap = jsonSlurper.parseText(filemapJSON)
 
 // ~~~~~ START WORKFLOW ~~~~~ //
 log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
@@ -428,7 +373,7 @@ Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
 // logging channels
 Channel.from("Sample\tProgram\tType\tNote\tFiles").set { failed_samples }
-Channel.from("Comparison\tTumor\tNormal\tChunk\tProgram\tNote\tFiles").set { failed_pairs }
+Channel.from("Comparison\tTumor\tNormal\tChunk\tProgram\tProgramType\tNote\tFiles").set { failed_pairs }
 
 // ~~~~~ PIPELINE TASKS ~~~~~ //
 // PREPROCESSING
@@ -2042,6 +1987,7 @@ process delly2 {
 
 
 // // REQUIRES ANNOTATIONS FOR DBSNP FILTERING
+// TODO: set this back up again
 // process vaf_distribution_plot {
 //     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
 //     errorStrategy 'ignore'
@@ -2105,13 +2051,7 @@ samples_dd_ra_rc_bam5.combine(hapmap_sample_ids).filter { items ->
     return([ comparisonID, sampleID, bam, bai, HapMapPoolID, HapMapPoolBam, HapMapPoolBai ])
 }
 .set { hapmap_samples_pool }
-// .subscribe { println "[hapmap_pool_ch]  ${it}" }
 
-
-
-
-// samples_dd_ra_rc_bam2 // set val(sampleID), file("${sampleID}.dd.ra.rc.bam"), file("${sampleID}.dd.ra.rc.bam.bai")
-// samples_pairs // [ tumorID, normalID ]
 // get all the combinations of samples & pairs
 samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai, tumorID, normalID ]
                     .filter { item -> // only keep combinations where sample is same as tumor pair sample
@@ -2187,10 +2127,8 @@ Channel.fromPath( targetsBed )
             .unique()
             .set{ chroms }
 
-// split the .bed file into new files based on desired lines in each file
 process line_chunk {
-    // publishDir "${params.outputDir}/line", mode: 'copy'
-
+    // split the .bed file into new files based on desired lines in each file
     input:
     file(bedFile) from targets_bed10
 
@@ -2268,8 +2206,8 @@ process mutect2 {
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file("targets.bed"), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx), file(cosmic_ref_vcf), file(cosmic_ref_vcf_idx), val(chunkLabel) from samples_dd_ra_rc_bam_pairs_ref_gatk_chrom
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${norm_vcf}") into vcfs_mutect2
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${norm_vcf}") into samples_mutect3 // to VariantEval eval_pair_vcf
+    set val(caller), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${norm_vcf}") into vcfs_mutect2
+    set val(caller), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${norm_vcf}") into samples_mutect3
     file("${vcf_file}")
     file("${norm_vcf}")
     file("${multiallelics_stats}")
@@ -2278,8 +2216,8 @@ process mutect2 {
 
     script:
     caller = "MuTect2"
-    prefix = "${comparisonID}.${chunkLabel}.${caller}"
-    // bed_subset = "${prefix}.bed"
+    callerType = "NA"
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     vcf_file = "${prefix}.vcf"
     norm_vcf = "${prefix}.norm.vcf"
     filtered_vcf = "${prefix}.filtered.vcf"
@@ -2338,13 +2276,14 @@ process lofreq_somatic {
     file("${final_indels_vcf_gz}")
     file("${final_minus_dbsnp_snvs_vcf_gz}")
     file("${final_minus_dbsnp_indels_vcf_gz}")
-    set val("${caller}"), val(comparisonID), val(tumorID), val(normalID), val("snvs"), file("${final_snvs_vcf_norm}") into vcfs_lofreq_somatic_snvs_vcf_norm
-    set val("${caller}"), val(comparisonID), val(tumorID), val(normalID), val("indels"), file("${final_indels_vcf_norm}") into vcfs_lofreq_somatic_indels_vcf_norm
-    set val("${caller}"), val(comparisonID), val(tumorID), val(normalID), val("snvs-minus-dbsnp"), file("${final_minus_dbsnp_snvs_vcf_norm}") into vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm
-    set val("${caller}"), val(comparisonID), val(tumorID), val(normalID), val("indels-minus-dbsnp"), file("${final_minus_dbsnp_snvs_vcf_norm}") into vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm
+    set val("${caller}"), val("snvs"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${final_snvs_vcf_norm}") into vcfs_lofreq_somatic_snvs_vcf_norm
+    set val("${caller}"), val("indels"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${final_indels_vcf_norm}") into vcfs_lofreq_somatic_indels_vcf_norm
+    set val("${caller}"), val("snvs-minus-dbsnp"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${final_minus_dbsnp_snvs_vcf_norm}") into vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm
+    set val("${caller}"), val("indels-minus-dbsnp"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${final_minus_dbsnp_snvs_vcf_norm}") into vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm
 
     script:
     caller = "LoFreqSomatic"
+    chunkLabel = "NA"
     prefix = "${comparisonID}.${caller}"
     lofreq_prefix = "${prefix}."
 
@@ -2391,23 +2330,6 @@ process lofreq_somatic {
     """
 }
 
-// normalize the channels to add chrom and type vals throughout
-// vcfs_mutect2.map { caller, comparisonID, tumorID, normalID, chrom, vcf ->
-//     def type = "NA"
-//     return [ caller, comparisonID, tumorID, normalID, chrom, type, vcf ]
-// }.set { vcfs_mutect2_refactor }
-
-// vcfs_lofreq_somatic_snvs_vcf_norm.concat(
-//     vcfs_lofreq_somatic_indels_vcf_norm,
-//     vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm,
-//     vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm
-//     )
-// .map { caller, comparisonID, tumorID, normalID, type, vcf ->
-//     def chrom = "NA"
-//     return [ caller, comparisonID, tumorID, normalID, chrom, type, vcf ]
-// }
-// .set { vcfs_lofreq_somatic_refactor }
-
 // get all the paired sample vcfs for downstream processing
 vcfs_mutect2.mix(vcfs_lofreq_somatic_snvs_vcf_norm,
     vcfs_lofreq_somatic_indels_vcf_norm,
@@ -2420,13 +2342,13 @@ process filter_vcf_pairs {
     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from vcfs_pairs.combine(ref_fasta17).combine(ref_fai17).combine(ref_dict17)
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from vcfs_pairs.combine(ref_fasta17).combine(ref_fai17).combine(ref_dict17)
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${filtered_vcf}") into filtered_vcf_pairs // to tsv
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${filtered_vcf}") into filtered_vcf_pairs // to tsv
 
     script:
-    prefix = "${comparisonID}.${chunkLabel}.${caller}"
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     filtered_vcf = "${prefix}.filtered.vcf"
     if( caller == 'MuTect2' )
         """
@@ -2503,14 +2425,14 @@ process vcf_to_tsv_pairs {
     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from filtered_vcf_pairs.combine(ref_fasta18).combine(ref_fai18).combine(ref_dict18)
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from filtered_vcf_pairs.combine(ref_fasta18).combine(ref_fai18).combine(ref_dict18)
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file("${reformat_tsv}") into vcf_tsv_pairs // to annotation
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${reformat_tsv}") into vcf_tsv_pairs2
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file("${reformat_tsv}") into vcf_tsv_pairs // to annotation
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${reformat_tsv}") into vcf_tsv_pairs2
 
     script:
-    prefix = "${comparisonID}.${chunkLabel}.${caller}"
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     tsv_file = "${prefix}.tsv"
     reformat_tsv = "${prefix}.reformat.tsv"
     if( caller == 'MuTect2' )
@@ -2537,6 +2459,7 @@ process vcf_to_tsv_pairs {
         paste-col.py --header "Sample" -v "${tumorID}"  | \
         paste-col.py --header "Tumor" -v "${tumorID}"  | \
         paste-col.py --header "Normal" -v "${normalID}"  | \
+        paste-col.py --header "VariantCallerType" -v "${callerType}"  | \
         paste-col.py --header "VariantCaller" -v "${caller}" > \
         "${reformat_tsv}"
         """
@@ -2589,6 +2512,7 @@ process vcf_to_tsv_pairs {
         paste-col.py --header "Sample" -v "${tumorID}" | \
         paste-col.py --header "Tumor" -v "${tumorID}" | \
         paste-col.py --header "Normal" -v "${normalID}" | \
+        paste-col.py --header "VariantCallerType" -v "${callerType}"  | \
         paste-col.py --header "VariantCaller" -v "${caller}" > \
         "${reformat_tsv}"
         """
@@ -2596,20 +2520,21 @@ process vcf_to_tsv_pairs {
         error "Invalid caller: ${caller}"
 }
 
-disable_eval_pair_vcf = true
+
 samples_mutect3.combine(dbsnp_ref_vcf5)
                 .combine(dbsnp_ref_vcf_idx5)
                 .combine(ref_fasta5)
                 .combine(ref_fai5)
                 .combine(ref_dict5)
                 .set { pairs_filtered_vcfs }
+
 process eval_pair_vcf {
     // variant quality metrics
     tag "${caller}.${chunkLabel}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${eval_file}"
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(pairs_vcf), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx), file(ref_fasta), file(ref_fai), file(ref_dict4) from pairs_filtered_vcfs
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(pairs_vcf), file(dbsnp_ref_vcf), file(dbsnp_ref_vcf_idx), file(ref_fasta), file(ref_fai), file(ref_dict4) from pairs_filtered_vcfs
 
     output:
     file("${eval_file}")
@@ -2619,7 +2544,7 @@ process eval_pair_vcf {
     disable_eval_pair_vcf != true
 
     script:
-    prefix = "${comparisonID}.${chunkLabel}.${caller}"
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     eval_file = "${prefix}.eval.grp"
     """
     gatk.sh -T VariantEval \
@@ -2635,10 +2560,6 @@ samples_vcfs_tsvs_good = Channel.create()
 samples_vcfs_tsvs_bad = Channel.create()
 pairs_vcfs_tsvs_good = Channel.create()
 pairs_vcfs_tsvs_bad = Channel.create()
-
-// samples_lofreq_vcf.mix(sample_vcf_hc2)
-//     .mix(vcf_tsvs)
-//     .into { samples_vcfs_tsvs; samples_vcfs_tsvs2 }
 
 // filter out samples with empty variant tables
 vcf_tsvs.choice( samples_vcfs_tsvs_good, samples_vcfs_tsvs_bad ){ items ->
@@ -2661,21 +2582,22 @@ samples_vcfs_tsvs_bad.map { caller, type, sampleID, sample_vcf, sample_tsv ->
 
 vcf_tsv_pairs.choice( pairs_vcfs_tsvs_good, pairs_vcfs_tsvs_bad ){ items ->
     def caller = items[0]
-    def comparisonID = items[1]
-    def tumorID = items[2]
-    def normalID = items[3]
-    def chunkLabel = items[4]
-    def sample_vcf = items[5]
-    def sample_tsv = items[6]
+    def callerType = items[1]
+    def comparisonID = items[2]
+    def tumorID = items[3]
+    def normalID = items[4]
+    def chunkLabel = items[5]
+    def sample_vcf = items[6]
+    def sample_tsv = items[7]
     def output = 1 // bad by default
     long count = Files.lines(sample_tsv).count()
     if (count > 1) output = 0 // good if has >1 lines
     return(output)
 }
 
-pairs_vcfs_tsvs_bad.map { caller, comparisonID, tumorID, normalID, chunkLabel, sample_vcf, sample_tsv ->
+pairs_vcfs_tsvs_bad.map { caller, callerType, comparisonID, tumorID, normalID, chunkLabel, sample_vcf, sample_tsv ->
     def reason = "Too few lines in sample_tsv, skipping annotation"
-    def output = [comparisonID, tumorID, normalID, chunkLabel, caller, reason, "${sample_vcf},${sample_tsv}"].join('\t')
+    def output = [comparisonID, tumorID, normalID, chunkLabel, caller, callerType, reason, "${sample_vcf},${sample_tsv}"].join('\t')
     return(output)
 }.set { pairs_vcfs_tsvs_bad_logs }
 
@@ -2784,7 +2706,7 @@ process annotate_pairs {
     publishDir "${params.outputDir}/annotations/${caller}", mode: 'copy', pattern: "*${annotations_tsv}"
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from pairs_vcfs_tsvs_good.combine(annovar_db_dir2)
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(sample_vcf), file(sample_tsv), file(annovar_db_dir) from pairs_vcfs_tsvs_good.combine(annovar_db_dir2)
 
     output:
     file("${annotations_tsv}") into annotations_tables_pairs
@@ -2795,7 +2717,7 @@ process annotate_pairs {
     val(comparisonID) into done_annotate_pairs
 
     script:
-    prefix = "${comparisonID}.${chunkLabel}.${caller}"
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     avinput_file = "${prefix}.avinput"
     avinput_tsv = "${prefix}.avinput.tsv"
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
@@ -3065,7 +2987,6 @@ tmbs.collectFile(name: "${tmb_file}", keepHeader: true, storeDir: "${params.outp
 
 
 // Genomic Signatures
-
 process signatures_variant_filter {
     // need to apply some filter criteria to the variant tables before using them to generate signatures
     tag "${caller}.${type}"
@@ -3099,10 +3020,10 @@ process signatures_variant_filter {
 // set up channels for filtering
 sample_sig_good = Channel.create()
 sample_sig_bad = Channel.create()
+
 // minimum number of entries required to run signatures
 deconstructSigs_variant_min = 55
 
-// filtered_vcfs3.mix(sample_vcf_hc, samples_lofreq_vcf3)
 filtered_signatures_tsvs.choice( sample_sig_good, sample_sig_bad ){ items ->
     // make sure there are enough variants in the VCF to proceed!
     def caller = items[0]
@@ -3261,7 +3182,6 @@ process merge_signatures_pie_plots {
 
     input:
     set val(caller), val(type), file(input_files:'*') from signatures_pieplots_caller_grouped
-    // file(input_files:'*') from signatures_pie_plots.toList()
 
     output:
     file("${output_file}")
@@ -3293,7 +3213,6 @@ process merge_signatures_pie_plots {
 
 
 // SETUP CHANNELS FOR PAIRED TUMOR-NORMAL STEPS FOR CNV analysis
-// samples_pairs // [ tumorID, normalID ]
 // get all the combinations of samples & pairs
 samples_bam3.combine(samples_pairs2) // [ sampleID, sampleBam, tumorID, normalID ]
                     .filter { item -> // only keep combinations where sample is same as tumor pair sample
@@ -3884,7 +3803,7 @@ collected_updated_seracare_variants.mix(seracare_selected_tsv2).set { seracare_p
 // ~~~~~ IGV Snapshot ~~~~~ //
 // visualization of select variants in IGV
 
-vcf_tsv_pairs2.filter { caller, comparisonID, tumorID, normalID, chunkLabel, tsv ->
+vcf_tsv_pairs2.filter { caller, callerType, comparisonID, tumorID, normalID, chunkLabel, tsv ->
     // only keep entries with >1 line (header)
     def count = tsv.readLines().size()
     count > 1
@@ -3894,21 +3813,20 @@ process igv_filter_variant {
     // filter the tsv variant table to find variants to snapshot
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(tsv) from vcf_tsv_pairs_filtered
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(tsv) from vcf_tsv_pairs_filtered
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${output_file}") into igv_filtered_variants
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${output_file}") into igv_filtered_variants
 
     script:
-    prefix = "${comparisonID}.${chunkLabel}.${caller}"
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     output_file = "${prefix}.igv-annotations.tsv"
     """
     igv-variant-filter.py -c "${caller}" -i "${tsv}" > "${output_file}"
     """
 }
 
-igv_filtered_variants.filter {
-    caller, comparisonID, tumorID, normalID, chunkLabel, tsv ->
+igv_filtered_variants.filter { caller, callerType, comparisonID, tumorID, normalID, chunkLabel, tsv ->
     // only keep entries with >1 line (header)
     def count = tsv.readLines().size()
     count > 1
@@ -3917,13 +3835,13 @@ igv_filtered_variants.filter {
 process igv_tsv_to_bed {
     // convert the variants tsv table into a bed file
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(tsv) from igv_refiltered_variants
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(tsv) from igv_refiltered_variants
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${output_file}") into igv_regions
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${output_file}") into igv_regions
 
     script:
-    prefix = "${comparisonID}.${chunkLabel}.${caller}"
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     output_file = "${prefix}.igv-regions.bed"
     """
     variant-tsv2bed.py -i "${tsv}" -o "${output_file}"
@@ -3935,10 +3853,10 @@ process igv_bed_line_chunk {
     // split the .bed file into new files based on desired lines in each file
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(bed) from igv_regions
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(bed) from igv_regions
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file('*') into igv_regions_split
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file('*') into igv_regions_split
 
     script:
     numLines = 30 // IGV snaphot takes ~2s per target region; 30 regions = ~1min execution
@@ -3949,35 +3867,35 @@ process igv_bed_line_chunk {
 
 // 'bed_files' may be a single file or a list of files;
 // need to convert all to list, then emit all files individually, and get the chunk label
-igv_regions_split.map { caller, comparisonID, tumorID, normalID, chunkLabel, bed_files ->
+igv_regions_split.map { caller, callerType, comparisonID, tumorID, normalID, chunkLabel, bed_files ->
     // check if its a list or not
     def is_list = bed_files instanceof Collection
     if(is_list){
-        return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed_files ])
+        return([ caller, callerType, comparisonID, tumorID, normalID, chunkLabel, bed_files ])
     } else {
         // make it a list
         def bed_list = [ bed_files ]
-        return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed_list ])
+        return([ caller, callerType, comparisonID, tumorID, normalID, chunkLabel, bed_list ])
     }
 }
-.transpose()
-.map { caller, comparisonID, tumorID, normalID, chunkLabel, bed ->
+.transpose() // emit each bed chunk individually
+.map { caller, callerType, comparisonID, tumorID, normalID, chunkLabel, bed ->
     // get number at the end of the file basename to denote the chunk Label
     def bedChunkLabel = "${bed.name}".findAll(/\d*$/)[0]
 
-    return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed, bedChunkLabel ])
+    return([ caller, callerType, comparisonID, tumorID, normalID, chunkLabel, bed, bedChunkLabel ])
 }
 .set { igv_regions_chunked }
 
 // Combine against the tumor-normal pairs bam files
 igv_regions_chunked.combine(samples_dd_ra_rc_bam_noHapMap_pairs)
-.filter { caller, comparisonID, tumorID, normalID, chunkLabel, bed, bedChunkLabel, paired_comparisonID, paired_tumorID, tumorBam, tumorBai, paired_normalID, normalBam, normalBai ->
+.filter { caller, callerType, comparisonID, tumorID, normalID, chunkLabel, bed, bedChunkLabel, paired_comparisonID, paired_tumorID, tumorBam, tumorBai, paired_normalID, normalBam, normalBai ->
     def comparisonID_match = comparisonID ==  paired_comparisonID
     def tumorID_match = tumorID == paired_tumorID
     def normalID_math = normalID == paired_normalID
     comparisonID_match && tumorID_match && normalID_math
-}.map { caller, comparisonID, tumorID, normalID, chunkLabel, bed, bedChunkLabel, paired_comparisonID, paired_tumorID, tumorBam, tumorBai, paired_normalID, normalBam, normalBai ->
-    return([ caller, comparisonID, tumorID, normalID, chunkLabel, bed, bedChunkLabel, tumorBam, tumorBai, normalBam, normalBai ])
+}.map { caller, callerType, comparisonID, tumorID, normalID, chunkLabel, bed, bedChunkLabel, paired_comparisonID, paired_tumorID, tumorBam, tumorBai, paired_normalID, normalBam, normalBai ->
+    return([ caller, callerType, comparisonID, tumorID, normalID, chunkLabel, bed, bedChunkLabel, tumorBam, tumorBai, normalBam, normalBai ])
 }
 .set { igv_regions_bams }
 
@@ -3985,13 +3903,13 @@ process igv_snapshot {
     // run IGV headlessly to make snapshots
 
     input:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(bed), val(bedChunkLabel), file(tumorBam), file(tumorBai), file(normalBam), file(normalBai) from igv_regions_bams
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(bed), val(bedChunkLabel), file(tumorBam), file(tumorBai), file(normalBam), file(normalBai) from igv_regions_bams
 
     output:
-    set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), val(bedChunkLabel), file("${snapshotDirectory}") into igv_snaphots
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), val(bedChunkLabel), file("${snapshotDirectory}") into igv_snaphots
 
     script:
-    prefix = "${comparisonID}.${chunkLabel}.${caller}.${bedChunkLabel}"
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}.${bedChunkLabel}"
     batchscript = "snapshots.bat"
     snapshotDirectory = "${prefix}"
     image_height = 500
@@ -4016,21 +3934,22 @@ process igv_snapshot {
     -b "${batchscript}"
     """
 }
-// igv_snaphots.groupTuple(by: [0, 1, 2, 3, 4])
-// .set { igv_snaphots_grouped }
-// .subscribe { println "[igv_snaphots] ${it}" }
 
-// process aggregate_snapshots {
-//     stageInMode "copy"
-//     input:
-//     set val(caller), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), val(bedChunkLabels), file("*") from igv_snaphots_grouped
-//
-//     script:
-//     """
-//     pwd
-//     ls -l
-//     """
-// }
+// group all the snapshot dirs together by category
+igv_snaphots.groupTuple(by: [0, 1, 2, 3, 4])
+.set { igv_snaphots_grouped }
+
+process aggregate_snapshots {
+    stageInMode "copy"
+    input:
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), val(bedChunkLabels), file("*") from igv_snaphots_grouped
+
+    script:
+    """
+    pwd
+    ls -l
+    """
+}
 // TODO: aggregate all snapshots into a single dir per-sample
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
@@ -4329,18 +4248,16 @@ workflow.onComplete {
         """
         .stripIndent()
 
-    if(params.pipeline_email) {
-        sendMail {
-            to "${params.email_to}"
-            from "${params.email_from}"
-            // attach attachments // attachments keep breaking hold off on these
-            subject "[${params.workflow_label}] ${status}"
+    sendMail {
+        to "${params.email_to}"
+        from "${params.email_from}"
+        // attach attachments // attachments keep breaking hold off on these
+        subject "[${params.workflowLabel}] ${status}"
 
-            body
-            """
-            ${msg}
-            """
-            .stripIndent()
-        }
+        body
+        """
+        ${msg}
+        """
+        .stripIndent()
     }
 }

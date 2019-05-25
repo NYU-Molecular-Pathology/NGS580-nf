@@ -10,5 +10,18 @@
         "suffix": {
             "final_cns": "final.cns"
         }
+    },
+    "files": {
+        "all_annotations_file" : "annotations.tsv",
+        "all_seracare_annotations_file" : "annotations.SeraCare.tsv",
+        "all_HapMapPool_annotations_file" : "annotations.HapMap-Pool.tsv",
+        "samplesheet_output_file" : "samplesheet.tsv",
+        "sample_coverage_file" : "coverage.samples.tsv",
+        "interval_coverage_file" : "coverage.intervals.tsv",
+        "signatures_weights_file" : "signatures.weights.tsv",
+        "targets_annotations_file" : "targets.annotations.tsv",
+        "tmb_file" : "tmb.tsv",
+        "git_json" : "git.json",
+        "snp_overlap_file" : "snp-overlap.tsv"
     }
 }
