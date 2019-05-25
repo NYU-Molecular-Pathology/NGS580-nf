@@ -3912,7 +3912,7 @@ process igv_snapshot {
     prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}.${bedChunkLabel}"
     batchscript = "snapshots.bat"
     snapshotDirectory = "${prefix}"
-    image_height = 500
+    image_height = 750
     genome = 'hg19'
     """
     mkdir "${snapshotDirectory}"

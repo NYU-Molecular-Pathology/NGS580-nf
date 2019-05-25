@@ -43,7 +43,7 @@ def main(**kwargs):
 
         alt_len = len(alt)
         end = pos + alt_len
-        start = pos - 1
+        start = pos
 
         row = [chrom, start, end]
         writer.writerow(row)
