@@ -3936,21 +3936,46 @@ process igv_snapshot {
 }
 
 // group all the snapshot dirs together by category
-igv_snaphots.groupTuple(by: [0, 1, 2, 3, 4])
+igv_snaphots.groupTuple(by: [0, 1, 2, 3, 4, 5])
 .set { igv_snaphots_grouped }
 
-process aggregate_snapshots {
+process aggregate_snapshots_bedChunkLabels {
     stageInMode "copy"
     input:
     set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), val(bedChunkLabels), file("*") from igv_snaphots_grouped
 
+    output:
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${snapshotDirectory}") into aggregated_snapshots
+
     script:
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
+    snapshotDirectory = "${prefix}"
     """
-    pwd
-    ls -l
+    mkdir "${snapshotDirectory}"
+    find . -type f -name "*.png" -exec mv {} "${snapshotDirectory}/" \\;
     """
 }
-// TODO: aggregate all snapshots into a single dir per-sample
+
+aggregated_snapshots.groupTuple(by: [0, 1, 2, 3, 4])
+.set { reaggregated_snapshots }
+
+process aggregate_snapshots_chunkLabels {
+    stageInMode "copy"
+    publishDir "${params.outputDir}/igv-snapshots", mode: 'copy'
+    input:
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabels), file("*") from reaggregated_snapshots
+
+    output:
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file("${snapshotDirectory}")
+
+    script:
+    prefix = "${comparisonID}.${caller}.${callerType}"
+    snapshotDirectory = "${prefix}"
+    """
+    mkdir "${snapshotDirectory}"
+    find . -type f -name "*.png" -exec mv {} "${snapshotDirectory}/" \\;
+    """
+}
 
 // ~~~~~~~~ REPORTING ~~~~~~~ //
 // collect from all processes to make sure they are finished before starting reports
