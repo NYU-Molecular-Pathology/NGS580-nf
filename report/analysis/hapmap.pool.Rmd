@@ -42,6 +42,8 @@ if(has_normal){
          hapmap_pool <- hapmap_pool[which(hapmap_pool[["DP"]] > 200), ]
          hapmap_pool <- hapmap_pool[which(hapmap_pool[["AF"]] > 0.05), ]
          hapmap_pool <- droplevels(hapmap_pool)
+         # round the AF values for printing
+         hapmap_pool[["AF"]] <- round(hapmap_pool[["AF"]], digits = 3)
     }
 }
 has_hapmap_pool_rows <- nrow(hapmap_pool) > 0

@@ -53,6 +53,11 @@ tryCatch(
         # convert expect AF to factor level
         seracare_annotations[["SeraCare.AF"]] <- factor(x = seracare_annotations[["SeraCare.AF"]], levels = sort(unique(seracare_annotations[["SeraCare.AF"]])))
         
+        # round off large decimal values for report printing
+        seracare_annotations[["AF"]] <- round(x = seracare_annotations[["AF"]], digits = 3)
+        seracare_annotations[["SeraCare.CI.Lower"]] <- round(x = seracare_annotations[["SeraCare.CI.Lower"]], digits = 3)
+        seracare_annotations[["SeraCare.CI.Upper"]] <- round(x = seracare_annotations[["SeraCare.CI.Upper"]], digits = 3)
+        
         # find the selected SeraCare variants that were not called for each sample
         for (sample in levels(seracare_annotations[["Sample"]])){
             df <- seracare_annotations[which(seracare_annotations[["Sample"]] == sample ), ]
@@ -84,9 +89,8 @@ SeraCare filtered variants called by LoFreq.
 ```{r, results='asis'}
 if(nrow(seracare_annotations) > 0){
     
-    print_cols <- c("SeraCare.Gene", "SeraCare.AAChange", "DP", "SeraCare.ReqCov",
-                    "AF","SeraCare.AF", "SeraCare.CI.Lower", "SeraCare.CI.Upper",
-                    "CHROM", "POS", "REF", "ALT", 
+    print_cols <- c("Mut_ID", "DP", "SeraCare.ReqCov",
+                    "AF","SeraCare.AF", "SeraCare.CI.Lower", "SeraCare.CI.Upper", 
                      "Sample")
     DT::datatable(data = seracare_annotations[ , print_cols],
                   options = list(pageLength = 25),

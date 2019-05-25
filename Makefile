@@ -374,6 +374,9 @@ HAPMAP_POOL_SHEET:=samples.hapmap.tsv
 hapmap-pool: $(HAPMAP_POOL_SHEET)
 	./nextflow run hapmap-pool.nf -profile hapmap_pool $(RESUME)
 
+CNV_POOL_SHEET:=samples.cnv.tsv
+cnv-pool: $(CNV_POOL_SHEET)
+	./nextflow run cnv-pool.nf -profile cnv_pool $(RESUME)
 
 
 # save a record of the most recent Nextflow run completion
