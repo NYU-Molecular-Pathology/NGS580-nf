@@ -179,7 +179,9 @@ Channel.fromPath( file(targetsBed) ).into { targets_bed;
     targets_bed8;
     targets_bed9;
     targets_bed10;
-    targets_bed11 }
+    targets_bed11;
+    targets_bed12;
+    targets_bed13 }
 
 Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
     ref_fasta2;
@@ -198,7 +200,8 @@ Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
     ref_fasta15;
     ref_fasta16;
     ref_fasta17;
-    ref_fasta18 }
+    ref_fasta18;
+    ref_fasta19 }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai2;
     ref_fai3;
@@ -216,7 +219,8 @@ Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai15;
     ref_fai16;
     ref_fai17;
-    ref_fai18 }
+    ref_fai18;
+    ref_fai19 }
 Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
     ref_dict2;
     ref_dict3;
@@ -234,7 +238,8 @@ Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
     ref_dict15;
     ref_dict16;
     ref_dict17;
-    ref_dict18 }
+    ref_dict18;
+    ref_dict19 }
 
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
@@ -335,7 +340,8 @@ Channel.fromPath( file(samplesheet) )
         }
         .into { samples_pairs;
         samples_pairs2;
-        samples_pairs3 }
+        samples_pairs3;
+        samples_pairs4 }
 
 // read sample IDs from analysis sheet
 Channel.fromPath( file(samplesheet) )
@@ -427,6 +433,22 @@ process print_metadata {
     """
     printf "Run\tTime\tSession\tWorkflow\tLocation\tSystem\tOutputPath\tUsername\n" > "${output_file}"
     printf "${runID}\t${workflowTimestamp}\t${workflow.sessionId}\t${workflow.runName}\t${workflow.projectDir}\t${localhostname}\t${outputDirPath}\t${username}\n" >> "${output_file}"
+    """
+}
+
+process targets_zip {
+    input:
+    file(targets_bed) from targets_bed13
+
+    output:
+    set file("${output_bgz}"), file("${output_index}") into targets_zipped
+
+    script:
+    output_bgz = "targets.bed.bgz"
+    output_index = "targets.bed.bgz.tbi"
+    """
+    bgzip -c "${targets_bed}" > "${output_bgz}"
+    tabix -p bed "${output_bgz}"
     """
 }
 
@@ -721,7 +743,7 @@ process sambamba_dedup {
 
     output:
     set val(sampleID), file("${bam_file}") into samples_dd_bam, samples_dd_bam2
-    file("${bai_file}")
+    set val(sampleID), file("${bam_file}"), file("${bai_file}") into samples_dd_bam3, samples_dd_bam4
     set val(sampleID), file("${log_file}") into sambamba_dedup_logs
     val(sampleID) into done_sambamba_dedup
 
@@ -2114,8 +2136,56 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
                     .combine(microsatellites) // add MSI ref
                     .set { samples_dd_ra_rc_bam_pairs_ref_msi }
 
+samples_dd_bam3.combine(samples_pairs4) // [ sampleID, sampleBam, sampleBai, tumorID, normalID ]
+    .filter { items -> // only keep combinations where sample is same as tumor pair sample
+        def sampleID = items[0]
+        def sampleBam = items[1]
+        def sampleBai = items[2]
+        def tumorID = items[3]
+        sampleID == tumorID
+    }
+    .map { items -> // re-order the elements
+        def sampleID = items[0]
+        def sampleBam = items[1]
+        def sampleBai = items[2]
+        def tumorID = items[3]
+        def normalID = items[4]
 
+        def tumorBam = sampleBam
+        def tumorBai = sampleBai
 
+        return [ tumorID, tumorBam, tumorBai, normalID ]
+    }
+    .combine(samples_dd_bam4) // combine again to get the samples & files again
+    .filter { items -> // keep only combinations where the normal ID matches the new sample ID
+        def tumorID = items[0]
+        def tumorBam = items[1]
+        def tumorBai = items[2]
+        def normalID = items[3]
+        def sampleID = items[4]
+        def sampleBam = items[5]
+        def sampleBai = items[6]
+        normalID == sampleID
+    }
+    .map {items -> // re arrange the elements
+        def tumorID = items[0]
+        def tumorBam = items[1]
+        def tumorBai = items[2]
+        def normalID = items[3]
+        def sampleID = items[4]
+        def sampleBam = items[5]
+        def sampleBai = items[6]
+
+        def normalBam = sampleBam
+        def normalBai = sampleBai
+        def comparisonID = "${tumorID}_${normalID}"
+        return [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai ]
+    }
+    .combine(ref_fasta19) // add reference genome and targets
+    .combine(ref_fai19)
+    .combine(ref_dict19)
+    // .combine(targets_bed12)
+    .tap { samples_dd_bam_noHapMap_pairs_ref } // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict, targets_bed ]
 
 // get the unique chromosomes in the targets bed file
 //  for per-chrom paired variant calling
@@ -2329,6 +2399,76 @@ process lofreq_somatic {
     "${final_minus_dbsnp_indels_vcf_norm}"
     """
 }
+
+process manta {
+    publishDir "${params.outputDir}/variants/${caller}", mode: 'copy'
+
+    input:
+    set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bgz), file(targets_tbi) from samples_dd_bam_noHapMap_pairs_ref.combine(targets_zipped)
+
+    output:
+    set val("${caller}"), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${candidateSmallIndels}"), file("${candidateSmallIndels_tbi}") into mantaToStrelka
+    file("${candidateSV}")
+    file("${candidateSV_tbi}")
+    file("${diploidSV}")
+    file("${diploidSV_tbi}")
+    file("${somaticSV}")
+    file("${somaticSV_tbi}")
+    // set val("${caller}"), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${candidateSmallIndels}"), file("${candidateSmallIndels_tbi}"), file("${candidateSV}"), file("${candidateSV_tbi}"), file("${diploidSV}"), file("${diploidSV_tbi}"), file("${somaticSV}"), file("${somaticSV_tbi}") into mantaOutput
+
+    script:
+    caller = "Manta"
+    chunkLabel = "NA"
+    callerType = "NA"
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
+    runDir = "${prefix}.Manta"
+    candidateSmallIndels = "${prefix}.candidateSmallIndels.vcf.gz"
+    candidateSmallIndels_tbi = "${prefix}.candidateSmallIndels.vcf.gz.tbi"
+    candidateSV = "${prefix}.candidateSV.vcf.gz"
+    candidateSV_tbi = "${prefix}.candidateSV.vcf.gz.tbi"
+    diploidSV = "${prefix}.diploidSV.vcf.gz"
+    diploidSV_tbi = "${prefix}.diploidSV.vcf.gz.tbi"
+    somaticSV = "${prefix}.somaticSV.vcf.gz"
+    somaticSV_tbi = "${prefix}.somaticSV.vcf.gz.tbi"
+    """
+    configManta.py \
+    --normalBam "${normalBam}" \
+    --tumorBam "${tumorBam}" \
+    --referenceFasta "${ref_fasta}" \
+    --runDir "${runDir}" \
+    --callRegions "${targets_bgz}" \
+    --exome
+
+    python ${runDir}/runWorkflow.py \
+    -m local \
+    -j \${NSLOTS:-\${NTHREADS:-1}}
+
+    mv ${runDir}/results/variants/candidateSmallIndels.vcf.gz \
+    "${candidateSmallIndels}"
+
+    mv ${runDir}/results/variants/candidateSmallIndels.vcf.gz.tbi \
+    "${candidateSmallIndels_tbi}"
+
+    mv ${runDir}/results/variants/candidateSV.vcf.gz \
+    "${candidateSV}"
+
+    mv ${runDir}/results/variants/candidateSV.vcf.gz.tbi \
+    "${candidateSV_tbi}"
+
+    mv ${runDir}/results/variants/diploidSV.vcf.gz \
+    "${diploidSV}"
+
+    mv ${runDir}/results/variants/diploidSV.vcf.gz.tbi \
+    "${diploidSV_tbi}"
+
+    mv ${runDir}/results/variants/somaticSV.vcf.gz \
+    "${somaticSV}"
+
+    mv ${runDir}/results/variants/somaticSV.vcf.gz.tbi \
+    "${somaticSV_tbi}"
+    """
+}
+
 
 // get all the paired sample vcfs for downstream processing
 vcfs_mutect2.mix(vcfs_lofreq_somatic_snvs_vcf_norm,
