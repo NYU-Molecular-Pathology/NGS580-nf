@@ -201,7 +201,8 @@ Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
     ref_fasta16;
     ref_fasta17;
     ref_fasta18;
-    ref_fasta19 }
+    ref_fasta19;
+    ref_fasta20 }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai2;
     ref_fai3;
@@ -220,7 +221,8 @@ Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai16;
     ref_fai17;
     ref_fai18;
-    ref_fai19 }
+    ref_fai19;
+    ref_fai20 }
 Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
     ref_dict2;
     ref_dict3;
@@ -239,7 +241,8 @@ Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
     ref_dict16;
     ref_dict17;
     ref_dict18;
-    ref_dict19 }
+    ref_dict19;
+    ref_dict20 }
 
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
@@ -441,7 +444,7 @@ process targets_zip {
     file(targets_bed) from targets_bed13
 
     output:
-    set file("${output_bgz}"), file("${output_index}") into targets_zipped
+    set file("${output_bgz}"), file("${output_index}") into targets_zipped, targets_zipped2
 
     script:
     output_bgz = "targets.bed.bgz"
@@ -2181,6 +2184,7 @@ samples_dd_bam3.combine(samples_pairs4) // [ sampleID, sampleBam, sampleBai, tum
         def comparisonID = "${tumorID}_${normalID}"
         return [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai ]
     }
+    .tap { samples_dd_bam_noHapMap_pairs }
     .combine(ref_fasta19) // add reference genome and targets
     .combine(ref_fai19)
     .combine(ref_dict19)
@@ -2469,6 +2473,84 @@ process manta {
     """
 }
 
+samples_dd_bam_noHapMap_pairs.combine(mantaToStrelka)
+.filter { items ->
+    def comparisonID = items[0]
+    def tumorID = items[1]
+    def tumorBam = items[2]
+    def tumorBai = items[3]
+    def normalID = items[4]
+    def normalBam = items[5]
+    def normalBai = items[6]
+    def MantaCaller = items[7]
+    def MantaCallerType = items[8]
+    def MantaComparisonID = items[9]
+    def MantaTumorID = items[10]
+    def MantaNormalID = items[11]
+    def MantaChunkLabel = items[12]
+    def MantaCandidateSmallIndels = items[13]
+    def MantaCandidateSmallIndels_tbi = items[14]
+
+    def comparisonID_match = comparisonID == MantaComparisonID
+    def tumorID_match = tumorID == MantaTumorID
+    def normalID_match = normalID == MantaNormalID
+    def all_matches = [ comparisonID_match, tumorID_match, normalID_match ]
+    for ( match in all_matches ){
+        if ( match == false ){
+            return false
+        }
+    }
+    return true
+}
+.map { items ->
+    def comparisonID = items[0]
+    def tumorID = items[1]
+    def tumorBam = items[2]
+    def tumorBai = items[3]
+    def normalID = items[4]
+    def normalBam = items[5]
+    def normalBai = items[6]
+    def MantaCaller = items[7]
+    def MantaCallerType = items[8]
+    def MantaComparisonID = items[9]
+    def MantaTumorID = items[10]
+    def MantaNormalID = items[11]
+    def MantaChunkLabel = items[12]
+    def MantaCandidateSmallIndels = items[13]
+    def MantaCandidateSmallIndels_tbi = items[14]
+
+    return([comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, MantaCandidateSmallIndels, MantaCandidateSmallIndels_tbi])
+}
+.combine(ref_fasta20) // add reference genome and targets
+.combine(ref_fai20)
+.combine(ref_dict20)
+.tap { samples_dd_bam_noHapMap_pairs_manta }
+
+process strelka {
+    input:
+    set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(small_indels), file(small_indels_tbi), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bgz), file(targets_tbi) from samples_dd_bam_noHapMap_pairs_manta.combine(targets_zipped2)
+
+    script:
+    caller = "Strelka"
+    chunkLabel = "NA"
+    callerType = "NA"
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
+    runDir = "${prefix}.Strelka"
+    """
+    configureStrelkaSomaticWorkflow.py \
+    --normalBam "${normalBam}" \
+    --tumorBam "${tumorBam}" \
+    --referenceFasta "${ref_fasta}" \
+    --indelCandidates "${small_indels}" \
+    --runDir ${runDir} \
+    --callRegions "${targets_bgz}" \
+    --exome
+
+    python ${runDir}/runWorkflow.py \
+    -m local \
+    -j \${NSLOTS:-\${NTHREADS:-1}}
+    """
+}
 
 // get all the paired sample vcfs for downstream processing
 vcfs_mutect2.mix(vcfs_lofreq_somatic_snvs_vcf_norm,
