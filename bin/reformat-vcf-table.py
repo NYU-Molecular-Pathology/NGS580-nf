@@ -232,6 +232,96 @@ def VarScan2(fin, fout, sampleID):
 
         writer.writerow(row)
 
+def StrelkaSomaticIndel(fin, fout):
+    """
+    Reformat the lines of Strelka somatic indel tsv table
+
+    https://github.com/Illumina/strelka/tree/v2.9.x/docs/userGuide#somatic-variant-allele-frequencies
+    > The somatic allele frequency estimate in the tumor sample is not directly available in the VCF output.
+    > A recommend way to extract such a value from the strelka VCF record is:
+    > tier1RefCounts = First comma-delimited value from FORMAT/TAR
+    > tier1AltCounts = First comma-delimited value from FORMAT/TIR
+    > Somatic allele freqeuncy is $tier1AltCounts / ($tier1AltCounts + $tier1RefCounts)
+    """
+    reader = csv.DictReader(fin, delimiter = '\t')
+    old_fieldnames = reader.fieldnames
+    new_fieldnames = [ n for n in old_fieldnames ]
+    new_fieldnames.append('FREQ')
+    new_fieldnames.append('AF')
+    new_fieldnames.append('TUMOR.AF')
+    new_fieldnames.append('NORMAL.AF')
+    new_fieldnames.append('DP')
+    new_fieldnames.append('QUAL')
+    writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = new_fieldnames)
+    writer.writeheader()
+    for row in reader:
+        tumor_TAR_values = row['TUMOR.TAR'].split(',')
+        tier1RefCounts = int(tumor_TAR_values[0])
+        tumor_TIR_values = row['TUMOR.TIR'].split(',')
+        tier1AltCounts = int(tumor_TIR_values[0])
+        tumor_AF = tier1AltCounts / (( tier1AltCounts + tier1RefCounts ) * 1.0) # coerce to float
+        row['AF'] = tumor_AF
+        row['FREQ'] = tumor_AF
+        row['TUMOR.AF'] = tumor_AF
+
+        normal_TAR_values = row['NORMAL.TAR'].split(',')
+        normal_tier1RefCounts = int(tumor_TAR_values[0])
+        normal_TIR_values = row['NORMAL.TIR'].split(',')
+        normal_tier1AltCounts = int(normal_TIR_values[0])
+        normal_AF = normal_tier1AltCounts / (( normal_tier1AltCounts + normal_tier1RefCounts ) * 1.0) # coerce to float
+        row['NORMAL.AF'] = normal_AF
+
+        row['DP'] = row['TUMOR.DP']
+        row['QUAL'] = row['QSI']
+        writer.writerow(row)
+
+def StrelkaSomaticSNV(fin, fout):
+    """
+    Reformat the lines of Strelka somatic indel tsv table
+
+    https://github.com/Illumina/strelka/tree/v2.9.x/docs/userGuide#somatic-variant-allele-frequencies
+    > The somatic allele frequency estimate in the tumor sample is not directly available in the VCF output.
+    > A recommend way to extract such a value from the strelka VCF record is:
+    > refCounts = Value of FORMAT column $REF + “U” (e.g. if REF="A" then use the value in FOMRAT/AU)
+    > altCounts = Value of FORMAT column $ALT + “U” (e.g. if ALT="T" then use the value in FOMRAT/TU)
+    > tier1RefCounts = First comma-delimited value from $refCounts
+    > tier1AltCounts = First comma-delimited value from $altCounts
+    > Somatic allele freqeuncy is $tier1AltCounts / ($tier1AltCounts + $tier1RefCounts)
+    """
+    reader = csv.DictReader(fin, delimiter = '\t')
+    old_fieldnames = reader.fieldnames
+    new_fieldnames = [ n for n in old_fieldnames ]
+    new_fieldnames.append('FREQ')
+    new_fieldnames.append('AF')
+    new_fieldnames.append('TUMOR.AF')
+    new_fieldnames.append('NORMAL.AF')
+    new_fieldnames.append('QUAL')
+    new_fieldnames.append('SB')
+    writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = new_fieldnames)
+    writer.writeheader()
+    for row in reader:
+        ref_nucleotide = row['REF']
+        alt_nucleotide = row['ALT']
+        tumor_ref_counts_colname = "TUMOR." + ref_nucleotide + "U"
+        tumor_alt_counts_colname = "TUMOR." + alt_nucleotide + "U"
+        tumor_ref_counts = int(row[tumor_ref_counts_colname].split(',')[0])
+        tumor_alt_counts = int(row[tumor_alt_counts_colname].split(',')[0])
+        tumor_AF = tumor_alt_counts / ((tumor_alt_counts + tumor_ref_counts) * 1.0) # coerce to float
+
+        row['AF'] = tumor_AF
+        row['FREQ'] = tumor_AF
+        row['TUMOR.AF'] = tumor_AF
+
+        normal_ref_counts_colname = "NORMAL." + ref_nucleotide + "U"
+        normal_alt_counts_colname = "NORMAL." + alt_nucleotide + "U"
+        normal_ref_counts = int(row[normal_ref_counts_colname].split(',')[0])
+        normal_alt_counts = int(row[normal_alt_counts_colname].split(',')[0])
+        normal_AF = normal_alt_counts / ((normal_alt_counts + normal_ref_counts) * 1.0) # coerce to float
+        row['NORMAL.AF'] = normal_AF
+
+        row['QUAL'] = row['QSS']
+        row['SB'] = row['SNVSB']
+        writer.writerow(row)
 
 def main(**kwargs):
     """
@@ -268,6 +358,14 @@ def main(**kwargs):
         VarScan2(fin, fout, sampleID)
         fout.close()
         fin.close()
+    elif caller == "StrelkaSomaticIndel":
+        StrelkaSomaticIndel(fin, fout)
+        fout.close()
+        fin.close()
+    elif caller == "StrelkaSomaticSNV":
+        StrelkaSomaticSNV(fin, fout)
+        fout.close()
+        fin.close()
     else:
         print("ERROR: caller not recognized: {0}".format(caller))
         sys.exit(1)
@@ -282,8 +380,9 @@ def parse():
     parser = argparse.ArgumentParser(description='Append a column of text to a file')
     parser.add_argument("-i", default = None, dest = 'input_file', help="Input file")
     parser.add_argument("-o", default = None, dest = 'output_file', help="Output file")
-
-    parser.add_argument("-c", "--caller", dest = 'caller', help="Variant caller used", required=True)
+    parser.add_argument("-c", "--caller", dest = 'caller', help="Variant caller used", required=True,
+        choices=['HaplotypeCaller', 'LoFreq', 'MuTect2', 'VarScan2',
+        'StrelkaSomaticIndel', 'StrelkaSomaticSNV'])
     parser.add_argument("-s", "--sampleID", dest = 'sampleID', help="Sample ID", required=True)
     args = parser.parse_args()
 

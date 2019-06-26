@@ -202,7 +202,8 @@ Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
     ref_fasta17;
     ref_fasta18;
     ref_fasta19;
-    ref_fasta20 }
+    ref_fasta20;
+    ref_fasta21 }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai2;
     ref_fai3;
@@ -222,7 +223,8 @@ Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai17;
     ref_fai18;
     ref_fai19;
-    ref_fai20 }
+    ref_fai20;
+    ref_fai21 }
 Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
     ref_dict2;
     ref_dict3;
@@ -242,7 +244,8 @@ Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
     ref_dict17;
     ref_dict18;
     ref_dict19;
-    ref_dict20 }
+    ref_dict20;
+    ref_dict21 }
 
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
@@ -2405,19 +2408,17 @@ process lofreq_somatic {
 }
 
 process manta {
-    publishDir "${params.outputDir}/variants/${caller}", mode: 'copy'
+    publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy'
 
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bgz), file(targets_tbi) from samples_dd_bam_noHapMap_pairs_ref.combine(targets_zipped)
 
     output:
-    set val("${caller}"), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${candidateSmallIndels}"), file("${candidateSmallIndels_tbi}") into mantaToStrelka
+    set val("${caller}"), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${candidateSmallIndels_gz}"), file("${candidateSmallIndels_tbi}") into mantaToStrelka
     file("${candidateSV}")
-    file("${candidateSV_tbi}")
     file("${diploidSV}")
-    file("${diploidSV_tbi}")
     file("${somaticSV}")
-    file("${somaticSV_tbi}")
+    file("${candidateSmallIndels}")
     // set val("${caller}"), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${candidateSmallIndels}"), file("${candidateSmallIndels_tbi}"), file("${candidateSV}"), file("${candidateSV_tbi}"), file("${diploidSV}"), file("${diploidSV_tbi}"), file("${somaticSV}"), file("${somaticSV_tbi}") into mantaOutput
 
     script:
@@ -2426,13 +2427,17 @@ process manta {
     callerType = "NA"
     prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     runDir = "${prefix}.Manta"
-    candidateSmallIndels = "${prefix}.candidateSmallIndels.vcf.gz"
+    candidateSmallIndels = "${prefix}.candidateSmallIndels.vcf"
+    candidateSmallIndels_gz = "${prefix}.candidateSmallIndels.vcf.gz"
     candidateSmallIndels_tbi = "${prefix}.candidateSmallIndels.vcf.gz.tbi"
-    candidateSV = "${prefix}.candidateSV.vcf.gz"
+    candidateSV = "${prefix}.candidateSV.vcf"
+    candidateSV_gz = "${prefix}.candidateSV.vcf.gz"
     candidateSV_tbi = "${prefix}.candidateSV.vcf.gz.tbi"
-    diploidSV = "${prefix}.diploidSV.vcf.gz"
+    diploidSV = "${prefix}.diploidSV.vcf"
+    diploidSV_gz = "${prefix}.diploidSV.vcf.gz"
     diploidSV_tbi = "${prefix}.diploidSV.vcf.gz.tbi"
-    somaticSV = "${prefix}.somaticSV.vcf.gz"
+    somaticSV = "${prefix}.somaticSV.vcf"
+    somaticSV_gz = "${prefix}.somaticSV.vcf.gz"
     somaticSV_tbi = "${prefix}.somaticSV.vcf.gz.tbi"
     """
     configManta.py \
@@ -2447,29 +2452,24 @@ process manta {
     -m local \
     -j \${NSLOTS:-\${NTHREADS:-1}}
 
+    # needed for Strelka
     mv ${runDir}/results/variants/candidateSmallIndels.vcf.gz \
-    "${candidateSmallIndels}"
-
+    "${candidateSmallIndels_gz}"
+    gunzip -c "${candidateSmallIndels_gz}" > "${candidateSmallIndels}"
     mv ${runDir}/results/variants/candidateSmallIndels.vcf.gz.tbi \
     "${candidateSmallIndels_tbi}"
 
     mv ${runDir}/results/variants/candidateSV.vcf.gz \
-    "${candidateSV}"
-
-    mv ${runDir}/results/variants/candidateSV.vcf.gz.tbi \
-    "${candidateSV_tbi}"
+    "${candidateSV_gz}"
+    gunzip -c "${candidateSV_gz}" > "${candidateSV}"
 
     mv ${runDir}/results/variants/diploidSV.vcf.gz \
-    "${diploidSV}"
-
-    mv ${runDir}/results/variants/diploidSV.vcf.gz.tbi \
-    "${diploidSV_tbi}"
+    "${diploidSV_gz}"
+    gunzip -c "${diploidSV_gz}" > "${diploidSV}"
 
     mv ${runDir}/results/variants/somaticSV.vcf.gz \
-    "${somaticSV}"
-
-    mv ${runDir}/results/variants/somaticSV.vcf.gz.tbi \
-    "${somaticSV_tbi}"
+    "${somaticSV_gz}"
+    gunzip -c "${somaticSV_gz}" > "${somaticSV}"
     """
 }
 
@@ -2527,8 +2527,14 @@ samples_dd_bam_noHapMap_pairs.combine(mantaToStrelka)
 .tap { samples_dd_bam_noHapMap_pairs_manta }
 
 process strelka {
+    publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy'
+
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(small_indels), file(small_indels_tbi), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bgz), file(targets_tbi) from samples_dd_bam_noHapMap_pairs_manta.combine(targets_zipped2)
+
+    output:
+    set val("${caller}"), val("snvs"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${somatic_snvs}") into strelka_snvs
+    set val("${caller}"), val("indel"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${somatic_indels}") into strelka_indels
 
     script:
     caller = "Strelka"
@@ -2536,6 +2542,12 @@ process strelka {
     callerType = "NA"
     prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     runDir = "${prefix}.Strelka"
+    somatic_indels = "${prefix}.somatic.indels.vcf"
+    somatic_indels_gz = "${prefix}.somatic.indels.vcf.gz"
+    somatic_indels_tbi = "${prefix}.somatic.indels.vcf.gz.tbi"
+    somatic_snvs = "${prefix}.somatic.snvs.vcf"
+    somatic_snvs_gz = "${prefix}.somatic.snvs.vcf.gz"
+    somatic_snvs_tbi = "${prefix}.somatic.snvs.vcf.gz.tbi"
     """
     configureStrelkaSomaticWorkflow.py \
     --normalBam "${normalBam}" \
@@ -2549,6 +2561,37 @@ process strelka {
     python ${runDir}/runWorkflow.py \
     -m local \
     -j \${NSLOTS:-\${NTHREADS:-1}}
+
+    mv ${runDir}/results/variants/somatic.indels.vcf.gz \
+    "${somatic_indels_gz}"
+    gunzip -c "${somatic_indels_gz}" > "${somatic_indels}"
+
+    mv ${runDir}/results/variants/somatic.snvs.vcf.gz \
+    "${somatic_snvs_gz}"
+    gunzip -c "${somatic_snvs_gz}" > "${somatic_snvs}"
+    """
+}
+
+
+strelka_snvs.mix(strelka_indels).set{ raw_vcfs_pairs }
+
+process normalize_vcfs_pairs {
+    publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy'
+
+    input:
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from raw_vcfs_pairs.combine(ref_fasta21).combine(ref_fai21).combine(ref_dict21)
+
+    output:
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file("${norm_vcf}") into norm_vcfs_pairs
+
+    script:
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
+    norm_vcf = "${prefix}.norm.vcf"
+    """
+    cat ${vcf} | \
+    bcftools norm --multiallelics -both --output-type v - | \
+    bcftools norm --fasta-ref "${ref_fasta}" --output-type v - > \
+    "${norm_vcf}"
     """
 }
 
@@ -2556,7 +2599,8 @@ process strelka {
 vcfs_mutect2.mix(vcfs_lofreq_somatic_snvs_vcf_norm,
     vcfs_lofreq_somatic_indels_vcf_norm,
     vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm,
-    vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm).set { vcfs_pairs }
+    vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm,
+    norm_vcfs_pairs).set { vcfs_pairs }
 
 process filter_vcf_pairs {
     // filter the .vcf for tumor-normal pairs
@@ -2636,6 +2680,11 @@ process filter_vcf_pairs {
         -V "${vcf}" \
         -select "AF > 0.01"  \
         > "${filtered_vcf}"
+        """
+    else if( caller == 'Strelka' )
+        """
+        # no filtering just yet...
+        cp "${vcf}" "${filtered_vcf}"
         """
     else
         error "Invalid caller: ${caller}"
@@ -2738,6 +2787,143 @@ process vcf_to_tsv_pairs {
         paste-col.py --header "VariantCaller" -v "${caller}" > \
         "${reformat_tsv}"
         """
+    else if( caller == 'Strelka' )
+        if ( callerType == "snvs" )
+            """
+            # convert to tsv format
+            # NOTE: automatically filters for only PASS entries
+            gatk.sh -T VariantsToTable \
+            -R "${ref_fasta}" \
+            -V "${vcf}" \
+            -F CHROM \
+            -F POS \
+            -F ID \
+            -F REF \
+            -F ALT \
+            -F FILTER \
+            -F DP \
+            -F SOMATIC \
+            -F QSS \
+            -F MQ \
+            -F SNVSB \
+            -F SomaticEVS \
+            -GF DP \
+            -GF AU \
+            -GF TU \
+            -GF CU \
+            -GF GU \
+            -o "${tsv_file}"
+
+            # vcf header example for Strelka SNVs
+            ##fileformat=VCFv4.1
+            ##FILTER=<ID=PASS,Description="All filters passed">
+            ##source=strelka
+            ##source_version=2.9.10
+            ##content=strelka somatic snv calls
+            ##priorSomaticSnvRate=0.0001
+            ##INFO=<ID=QSS,Number=1,Type=Integer,Description="Quality score for any somatic snv, ie. for the ALT allele to be present at a significantly different frequency in the tumor and normal">
+            ##INFO=<ID=TQSS,Number=1,Type=Integer,Description="Data tier used to compute QSS">
+            ##INFO=<ID=NT,Number=1,Type=String,Description="Genotype of the normal in all data tiers, as used to classify somatic variants. One of {ref,het,hom,conflict}.">
+            ##INFO=<ID=QSS_NT,Number=1,Type=Integer,Description="Quality score reflecting the joint probability of a somatic variant and NT">
+            ##INFO=<ID=TQSS_NT,Number=1,Type=Integer,Description="Data tier used to compute QSS_NT">
+            ##INFO=<ID=SGT,Number=1,Type=String,Description="Most likely somatic genotype excluding normal noise states">
+            ##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description="Somatic mutation">
+            ##INFO=<ID=DP,Number=1,Type=Integer,Description="Combined depth across samples">
+            ##INFO=<ID=MQ,Number=1,Type=Float,Description="RMS Mapping Quality">
+            ##INFO=<ID=MQ0,Number=1,Type=Integer,Description="Total Mapping Quality Zero Reads">
+            ##INFO=<ID=ReadPosRankSum,Number=1,Type=Float,Description="Z-score from Wilcoxon rank sum test of Alt Vs. Ref read-position in the tumor">
+            ##INFO=<ID=SNVSB,Number=1,Type=Float,Description="Somatic SNV site strand bias">
+            ##INFO=<ID=PNOISE,Number=1,Type=Float,Description="Fraction of panel containing non-reference noise at this site">
+            ##INFO=<ID=PNOISE2,Number=1,Type=Float,Description="Fraction of panel containing more than one non-reference noise obs at this site">
+            ##INFO=<ID=SomaticEVS,Number=1,Type=Float,Description="Somatic Empirical Variant Score (EVS) expressing the phred-scaled probability of the call being a false positive observation.">
+            ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth for tier1 (used+filtered)">
+            ##FORMAT=<ID=FDP,Number=1,Type=Integer,Description="Number of basecalls filtered from original read depth for tier1">
+            ##FORMAT=<ID=SDP,Number=1,Type=Integer,Description="Number of reads with deletions spanning this site at tier1">
+            ##FORMAT=<ID=SUBDP,Number=1,Type=Integer,Description="Number of reads below tier1 mapping quality threshold aligned across this site">
+            ##FORMAT=<ID=AU,Number=2,Type=Integer,Description="Number of 'A' alleles used in tiers 1,2">
+            ##FORMAT=<ID=CU,Number=2,Type=Integer,Description="Number of 'C' alleles used in tiers 1,2">
+            ##FORMAT=<ID=GU,Number=2,Type=Integer,Description="Number of 'G' alleles used in tiers 1,2">
+            ##FORMAT=<ID=TU,Number=2,Type=Integer,Description="Number of 'T' alleles used in tiers 1,2">
+            ##FILTER=<ID=LowEVS,Description="Somatic Empirical Variant Score (SomaticEVS) is below threshold">
+            ##FILTER=<ID=LowDepth,Description="Tumor or normal sample read depth at this locus is below 2">
+
+            # reformat and adjust the TSV table for consistency downstream
+            # add extra columns to the VCF TSV file for downstream
+            reformat-vcf-table.py -c StrelkaSomaticSNV -s "${tumorID}" -i "${tsv_file}" | \
+            paste-col.py --header "Sample" -v "${tumorID}" | \
+            paste-col.py --header "Tumor" -v "${tumorID}" | \
+            paste-col.py --header "Normal" -v "${normalID}" | \
+            paste-col.py --header "VariantCallerType" -v "${callerType}"  | \
+            paste-col.py --header "VariantCaller" -v "${caller}" > \
+            "${reformat_tsv}"
+            """
+        else if( callerType == 'indel' )
+            """
+            # convert to tsv format
+            # NOTE: automatically filters for only PASS entries
+            gatk.sh -T VariantsToTable \
+            -R "${ref_fasta}" \
+            -V "${vcf}" \
+            -F CHROM \
+            -F POS \
+            -F ID \
+            -F REF \
+            -F ALT \
+            -F FILTER \
+            -F SOMATIC \
+            -F MQ \
+            -F SomaticEVS \
+            -F QSI \
+            -GF DP \
+            -GF TAR \
+            -GF TIR \
+            -GF TOR \
+            -o "${tsv_file}"
+
+            # vcf header example for Strelka indels
+            ##fileformat=VCFv4.1
+            ##FILTER=<ID=PASS,Description="All filters passed">
+            ##source=strelka
+            ##source_version=2.9.10
+            ##content=strelka somatic indel calls
+            ##priorSomaticIndelRate=1e-06
+            ##INFO=<ID=QSI,Number=1,Type=Integer,Description="Quality score for any somatic variant, ie. for the ALT haplotype to be present at a significantly different frequency in the tumor and normal">
+            ##INFO=<ID=TQSI,Number=1,Type=Integer,Description="Data tier used to compute QSI">
+            ##INFO=<ID=NT,Number=1,Type=String,Description="Genotype of the normal in all data tiers, as used to classify somatic variants. One of {ref,het,hom,conflict}.">
+            ##INFO=<ID=QSI_NT,Number=1,Type=Integer,Description="Quality score reflecting the joint probability of a somatic variant and NT">
+            ##INFO=<ID=TQSI_NT,Number=1,Type=Integer,Description="Data tier used to compute QSI_NT">
+            ##INFO=<ID=SGT,Number=1,Type=String,Description="Most likely somatic genotype excluding normal noise states">
+            ##INFO=<ID=RU,Number=1,Type=String,Description="Smallest repeating sequence unit in inserted or deleted sequence">
+            ##INFO=<ID=RC,Number=1,Type=Integer,Description="Number of times RU repeats in the reference allele">
+            ##INFO=<ID=IC,Number=1,Type=Integer,Description="Number of times RU repeats in the indel allele">
+            ##INFO=<ID=IHP,Number=1,Type=Integer,Description="Largest reference interrupted homopolymer length intersecting with the indel">
+            ##INFO=<ID=MQ,Number=1,Type=Float,Description="RMS Mapping Quality">
+            ##INFO=<ID=MQ0,Number=1,Type=Integer,Description="Total Mapping Quality Zero Reads">
+            ##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description="Somatic mutation">
+            ##INFO=<ID=OVERLAP,Number=0,Type=Flag,Description="Somatic indel possibly overlaps a second indel.">
+            ##INFO=<ID=SomaticEVS,Number=1,Type=Float,Description="Somatic Empirical Variant Score (EVS) expressing the phred-scaled probability of the call being a false positive observation.">
+            ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth for tier1">
+            ##FORMAT=<ID=DP2,Number=1,Type=Integer,Description="Read depth for tier2">
+            ##FORMAT=<ID=TAR,Number=2,Type=Integer,Description="Reads strongly supporting alternate allele for tiers 1,2">
+            ##FORMAT=<ID=TIR,Number=2,Type=Integer,Description="Reads strongly supporting indel allele for tiers 1,2">
+            ##FORMAT=<ID=TOR,Number=2,Type=Integer,Description="Other reads (weak support or insufficient indel breakpoint overlap) for tiers 1,2">
+            ##FORMAT=<ID=DP50,Number=1,Type=Float,Description="Average tier1 read depth within 50 bases">
+            ##FORMAT=<ID=FDP50,Number=1,Type=Float,Description="Average tier1 number of basecalls filtered from original read depth within 50 bases">
+            ##FORMAT=<ID=SUBDP50,Number=1,Type=Float,Description="Average number of reads below tier1 mapping quality threshold aligned across sites within 50 bases">
+            ##FORMAT=<ID=BCN50,Number=1,Type=Float,Description="Fraction of filtered reads within 50 bases of the indel.">
+            ##FILTER=<ID=LowEVS,Description="Somatic Empirical Variant Score (SomaticEVS) is below threshold">
+            ##FILTER=<ID=LowDepth,Description="Tumor or normal sample read depth at this locus is below 2">
+
+            reformat-vcf-table.py -c StrelkaSomaticIndel -s "${tumorID}" -i "${tsv_file}" | \
+            paste-col.py --header "Sample" -v "${tumorID}" | \
+            paste-col.py --header "Tumor" -v "${tumorID}" | \
+            paste-col.py --header "Normal" -v "${normalID}" | \
+            paste-col.py --header "VariantCallerType" -v "${callerType}"  | \
+            paste-col.py --header "VariantCaller" -v "${caller}" > \
+            "${reformat_tsv}"
+            """
+        else
+            error "Invalid Strelka callerType: ${callerType}"
     else
         error "Invalid caller: ${caller}"
 }
@@ -2984,6 +3170,28 @@ process annotate_pairs {
 
         # merge the tables together
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tsv}"
+        """
+    else if( caller == "Strelka" )
+        """
+        # annotate .vcf
+        table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
+        --buildver "${params.ANNOVAR_BUILD_VERSION}" \
+        --remove \
+        --protocol "${params.ANNOVAR_PROTOCOL}" \
+        --operation "${params.ANNOVAR_OPERATION}" \
+        --nastring . \
+        --vcfinput \
+        --onetranscript \
+        --outfile "${prefix}"
+
+        # get values from .avinput file
+        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
+        cut -f1-5,9-13 ${avinput_file} >>  "${avinput_tsv}"
+
+        # merge the tables together
+        merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tsv}"
+
+        exit 1
         """
     else
         error "Invalid caller: ${caller}"
