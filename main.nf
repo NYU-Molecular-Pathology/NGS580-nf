@@ -3198,8 +3198,6 @@ process annotate_pairs {
 
         # merge the tables together
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tsv}"
-
-        exit 1
         """
     else
         error "Invalid caller: ${caller}"
