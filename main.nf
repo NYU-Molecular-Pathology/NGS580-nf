@@ -2683,8 +2683,12 @@ process filter_vcf_pairs {
         """
     else if( caller == 'Strelka' )
         """
-        # no filtering just yet...
-        cp "${vcf}" "${filtered_vcf}"
+        # only keep 'PASS' entries
+
+        # get the header
+        grep '^#' "${vcf}" > "${filtered_vcf}"
+        # get the 'PASS' entries
+        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
         """
     else
         error "Invalid caller: ${caller}"
@@ -3131,6 +3135,7 @@ process annotate_pairs {
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
     annovar_output_vcf = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.vcf"
     annotations_tsv = "${prefix}.annotations.tsv"
+    vcf_gt_mod = "${sample_vcf}.GTmod.vcf" // only used for Strelka
     if( caller == 'MuTect2' )
         """
         # annotate .vcf
@@ -3173,8 +3178,11 @@ process annotate_pairs {
         """
     else if( caller == "Strelka" )
         """
+        # need to add the GT field to Strelka .vcf files
+        vcf-GT-mod.py "${sample_vcf}" "${vcf_gt_mod}"
+
         # annotate .vcf
-        table_annovar.pl "${sample_vcf}" "${annovar_db_dir}" \
+        table_annovar.pl "${vcf_gt_mod}" "${annovar_db_dir}" \
         --buildver "${params.ANNOVAR_BUILD_VERSION}" \
         --remove \
         --protocol "${params.ANNOVAR_PROTOCOL}" \
