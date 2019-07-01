@@ -181,7 +181,8 @@ Channel.fromPath( file(targetsBed) ).into { targets_bed;
     targets_bed10;
     targets_bed11;
     targets_bed12;
-    targets_bed13 }
+    targets_bed13;
+    targets_bed14 }
 
 Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
     ref_fasta2;
@@ -2191,8 +2192,9 @@ samples_dd_bam3.combine(samples_pairs4) // [ sampleID, sampleBam, sampleBai, tum
     .combine(ref_fasta19) // add reference genome and targets
     .combine(ref_fai19)
     .combine(ref_dict19)
-    // .combine(targets_bed12)
-    .tap { samples_dd_bam_noHapMap_pairs_ref } // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict, targets_bed ]
+    .tap { samples_dd_bam_noHapMap_pairs_ref;
+        samples_dd_bam_noHapMap_pairs_ref2 }
+        // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict, targets_bed ]
 
 // get the unique chromosomes in the targets bed file
 //  for per-chrom paired variant calling
@@ -2572,9 +2574,38 @@ process strelka {
     """
 }
 
+process pindel {
+    publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy'
+
+    input:
+    set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) from samples_dd_bam_noHapMap_pairs_ref2.combine(targets_bed14)
+
+    script:
+    caller = "Pindel"
+    chunkLabel = "NA"
+    callerType = "NA"
+    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
+    config_file = "pindel_config.txt"
+    output_dir = "pindel"
+    insert_size = 500 // 500bp reported by wet lab for sequencing
+    """
+    # make config file for Pindel
+    printf "${tumorBam}\t${insert_size}\tTumor\n" > "${config_file}"
+    printf "${normalBam}\t${insert_size}\tNormal\n" >> "${config_file}"
+
+    mkdir "${output_dir}"
+
+    pindel \
+    --fasta "${ref_fasta}" \
+    --config-file "${config_file}" \
+    --output-prefix "${output_dir}/" \
+    --number_of_threads \${NSLOTS:-\${NTHREADS:-1}} \
+    --include "${targets_bed}"
+    """
+}
+
 
 strelka_snvs.mix(strelka_indels).set{ raw_vcfs_pairs }
-
 process normalize_vcfs_pairs {
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy'
 
