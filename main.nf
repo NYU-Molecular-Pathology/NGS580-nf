@@ -2200,7 +2200,7 @@ samples_dd_bam3.combine(samples_pairs4) // [ sampleID, sampleBam, sampleBai, tum
     .combine(ref_dict19)
     .tap { samples_dd_bam_noHapMap_pairs_ref;
         samples_dd_bam_noHapMap_pairs_ref2 }
-        // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict, targets_bed ]
+        // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict ]
 
 // get the unique chromosomes in the targets bed file
 //  for per-chrom paired variant calling
@@ -2225,7 +2225,9 @@ process line_chunk {
     split-bed-lines.py "${bedFile}" "${numTargetSplitLines}"
     """
 }
-line_chunk_ch.flatten().set { line_chunk_ch2 }
+line_chunk_ch.flatten().into {
+    line_chunk_ch2;
+    line_chunk_ch3 }
 
 
 // add the reference .vcf
@@ -2580,19 +2582,35 @@ process strelka {
     """
 }
 
+
+
+// add the split targets bed files
+samples_dd_bam_noHapMap_pairs_ref2.combine(line_chunk_ch3)
+.map { comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict, targets_bed ->
+    // get number at the end of the file basename to denote the chunk Label
+    def chunkLabel = "${targets_bed.name}".findAll(/\d*$/)[0]
+
+    return([ chunkLabel, comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict, targets_bed ])
+}.set { samples_dd_bam_noHapMap_pairs_targets }
+
 process pindel {
     publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy'
 
     input:
-    set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) from samples_dd_bam_noHapMap_pairs_ref2.combine(targets_bed14)
+    set val(chunkLabel), val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) from samples_dd_bam_noHapMap_pairs_targets
+
+    output:
+    set val("${caller}"), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${output_vcf}") into pindel_vcfs
+    file("${output_dir}")
+
 
     script:
     caller = "Pindel"
-    chunkLabel = "NA"
-    callerType = "NA"
+    callerType = "indel"
     prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     config_file = "pindel_config.txt"
-    output_dir = "output"
+    output_dir = "${prefix}.pindel_output"
+    output_vcf = "${prefix}.vcf"
     insert_size = 500 // 500bp reported by wet lab for sequencing
     """
     # make config file for Pindel
@@ -2607,11 +2625,26 @@ process pindel {
     --output-prefix "${output_dir}/" \
     --number_of_threads \${NSLOTS:-\${NTHREADS:-1}} \
     --include "${targets_bed}"
+
+    pindel2vcf \
+    --pindel_output_root "${output_dir}/" \
+    --reference "${ref_fasta}" \
+    --reference_name hg19 \
+    --reference_date 2012_03_15 \
+    --gatk_compatible \
+    --vcf "${output_vcf}"
     """
+    // Variant types reported by Pindel
+    // D = deletion
+    // SI = short insertion
+    // INV = inversion
+    // TD = tandem duplication
+    // LI = large insertion
+    // BP = unassigned breakpoints
 }
 
 
-strelka_snvs.mix(strelka_indels).set{ raw_vcfs_pairs }
+strelka_snvs.mix(strelka_indels, pindel_vcfs).set{ raw_vcfs_pairs }
 process normalize_vcfs_pairs {
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy'
 
@@ -2624,12 +2657,24 @@ process normalize_vcfs_pairs {
     script:
     prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     norm_vcf = "${prefix}.norm.vcf"
-    """
-    cat ${vcf} | \
-    bcftools norm --multiallelics -both --output-type v - | \
-    bcftools norm --fasta-ref "${ref_fasta}" --output-type v - > \
-    "${norm_vcf}"
-    """
+    if( caller == 'Pindel' )
+        // using fasta-ref with Pindel causes lowercase nucleotides to be embedded in the vcf which breaks annotation downstream
+        // Pindel outputs some exact duplicate entries that need to be removed
+        """
+        # normalize and split vcf entries, remove duplicates
+        cat ${vcf} | \
+        bcftools norm --multiallelics -both --output-type v - | \
+        bcftools norm --rm-dup both --output-type v - | \
+        cat -n | sort -k2 -k1n | uniq -f1 | sort -nk1,1 | cut -f2- > \
+        "${norm_vcf}"
+        """
+    else
+        """
+        cat ${vcf} | \
+        bcftools norm --multiallelics -both --output-type v - | \
+        bcftools norm --fasta-ref "${ref_fasta}" --output-type v - > \
+        "${norm_vcf}"
+        """
 }
 
 // get all the paired sample vcfs for downstream processing
@@ -2719,6 +2764,15 @@ process filter_vcf_pairs {
         > "${filtered_vcf}"
         """
     else if( caller == 'Strelka' )
+        """
+        # only keep 'PASS' entries
+
+        # get the header
+        grep '^#' "${vcf}" > "${filtered_vcf}"
+        # get the 'PASS' entries
+        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
+        """
+    else if( caller == 'Pindel' )
         """
         # only keep 'PASS' entries
 
@@ -2965,6 +3019,36 @@ process vcf_to_tsv_pairs {
             """
         else
             error "Invalid Strelka callerType: ${callerType}"
+    else if( caller == 'Pindel' )
+        """
+        # convert VCF to TSV
+        # NOTE: automatically filters for only PASS entries
+        gatk.sh -T VariantsToTable \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
+        -F CHROM \
+        -F POS \
+        -F ID \
+        -F REF \
+        -F ALT \
+        -F FILTER \
+        -F QUAL \
+        -F END \
+        -F HOMLEN \
+        -F SVLEN \
+        -F SVTYPE \
+        -GF AD \
+        -o "${tsv_file}"
+
+        # reformat and adjust the TSV table for consistency downstream
+        # add extra columns to the VCF TSV file for downstream
+        reformat-vcf-table.py -c Pindel -s "${tumorID}" -i "${tsv_file}" | \
+        paste-col.py --header "Sample" -v "${tumorID}"  | \
+        paste-col.py --header "Tumor" -v "${tumorID}"  | \
+        paste-col.py --header "Normal" -v "${normalID}"  | \
+        paste-col.py --header "VariantCaller" -v "${caller}" > \
+        "${reformat_tsv}"
+        """
     else
         error "Invalid caller: ${caller}"
 }
