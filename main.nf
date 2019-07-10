@@ -3927,12 +3927,13 @@ process cnvkit_plotly {
 }
 
 process snp_pileup {
+    publishDir "${params.outputDir}/cnv", mode: 'copy'
 
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(snp_vcf), file(snp_vcf_tbi) from samples_dd_bam_noHapMap_pairs2.combine(common_snp_vcf).combine(common_snp_vcf_tbi)
 
     output:
-    set val(tumorBamID), file(output_cnvsnp) into snp_pileup
+    set val(prefix), file(output_cnvsnp) into snp_pileup
 
     script:
     caller = "FACETS"
@@ -3951,6 +3952,24 @@ process snp_pileup {
     "${output_cnvsnp}" \
     "${normalBam}" \
     "${tumorBam}"
+    """
+}
+
+process facets {
+    publishDir "${params.outputDir}/cnv", mode: 'copy'
+
+    input:
+    set val(prefix), file(output_cnvsnp) from snp_pileup
+
+    output:
+    file("${output_segment}")
+    file("${output_pdf}")
+
+    script:
+    output_segment = "${prefix}.segment.csv"
+    output_pdf = "${prefix}.plot.pdf"
+    """
+    facets.R "${output_cnvsnp}" "${output_pdf}" "${output_segment}"
     """
 }
 
