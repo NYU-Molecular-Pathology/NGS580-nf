@@ -2586,7 +2586,7 @@ process pindel {
     callerType = "NA"
     prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     config_file = "pindel_config.txt"
-    output_dir = "pindel"
+    output_dir = "output"
     insert_size = 500 // 500bp reported by wet lab for sequencing
     """
     # make config file for Pindel
