@@ -265,7 +265,7 @@ def StrelkaSomaticIndel(fin, fout):
         row['TUMOR.AF'] = tumor_AF
 
         normal_TAR_values = row['NORMAL.TAR'].split(',')
-        normal_tier1RefCounts = int(tumor_TAR_values[0])
+        normal_tier1RefCounts = int(normal_TAR_values[0])
         normal_TIR_values = row['NORMAL.TIR'].split(',')
         normal_tier1AltCounts = int(normal_TIR_values[0])
         normal_AF = normal_tier1AltCounts / (( normal_tier1AltCounts + normal_tier1RefCounts ) * 1.0) # coerce to float

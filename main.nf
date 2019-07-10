@@ -128,6 +128,8 @@ params.dbsnp_ref_vcf_gz = "${params.gatk_bundle_dir}/dbsnp_138.hg19.vcf.gz"
 params.dbsnp_ref_vcf_gz_tbi = "${params.gatk_bundle_dir}/dbsnp_138.hg19.vcf.gz.tbi"
 params.cosmic_ref_vcf = "${params.ref_dir}/hg19/CosmicCodingMuts_v73.hg19.vcf"
 params.cosmic_ref_vcf_idx = "${params.ref_dir}/hg19/CosmicCodingMuts_v73.hg19.vcf.idx"
+params.common_snp_vcf = "${params.ref_dir}/hg19/common_all_20170710.vcf.gz"
+params.common_snp_vcf_tbi = "${params.ref_dir}/hg19/common_all_20170710.vcf.gz.tbi"
 
 // ~~~~~~~~~~ VALIDATION ~~~~~~~~~~ //
 // make sure reference data directory exists
@@ -291,6 +293,9 @@ Channel.fromPath( file(params.dbsnp_ref_vcf_gz_tbi) ).set { dbsnp_ref_vcf_gz_tbi
 
 Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref_vcf2 }
 Channel.fromPath( file(params.cosmic_ref_vcf_idx) ).into{ cosmic_ref_vcf_idx; cosmic_ref_vcf_idx2 }
+
+Channel.fromPath( file(params.common_snp_vcf) ).set{ common_snp_vcf }
+Channel.fromPath( file(params.common_snp_vcf_tbi) ).set{ common_snp_vcf_tbi }
 
 Channel.fromPath( file(params.microsatellites) ).set{ microsatellites }
 Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir;
@@ -2188,7 +2193,8 @@ samples_dd_bam3.combine(samples_pairs4) // [ sampleID, sampleBam, sampleBai, tum
         def comparisonID = "${tumorID}_${normalID}"
         return [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai ]
     }
-    .tap { samples_dd_bam_noHapMap_pairs }
+    .tap { samples_dd_bam_noHapMap_pairs;
+        samples_dd_bam_noHapMap_pairs2 }
     .combine(ref_fasta19) // add reference genome and targets
     .combine(ref_fai19)
     .combine(ref_dict19)
@@ -3948,6 +3954,53 @@ process cnvkit_plotly {
     """
     cnvplot.R "${cns}" "${output_html}" "${output_pdf}"
 
+    """
+}
+
+process snp_pileup {
+    publishDir "${params.outputDir}/cnv", mode: 'copy'
+
+    input:
+    set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(snp_vcf), file(snp_vcf_tbi) from samples_dd_bam_noHapMap_pairs2.combine(common_snp_vcf).combine(common_snp_vcf_tbi)
+
+    output:
+    set val(prefix), file(output_cnvsnp) into snp_pileup
+
+    script:
+    caller = "FACETS"
+    callerType = "cnv"
+    prefix = "${comparisonID}.${caller}.${callerType}"
+    output_cnvsnp = "${prefix}.snp_pileup.gz"
+
+    """
+    snp-pileup \
+    -g \
+    -q15 \
+    -Q20 \
+    -P100 \
+    -r25,0 \
+    "${snp_vcf}" \
+    "${output_cnvsnp}" \
+    "${normalBam}" \
+    "${tumorBam}"
+    """
+}
+
+process facets {
+    publishDir "${params.outputDir}/cnv", mode: 'copy'
+
+    input:
+    set val(prefix), file(output_cnvsnp) from snp_pileup
+
+    output:
+    file("${output_segment}")
+    file("${output_pdf}")
+
+    script:
+    output_segment = "${prefix}.segment.csv"
+    output_pdf = "${prefix}.plot.pdf"
+    """
+    facets.R "${output_cnvsnp}" "${output_pdf}" "${output_segment}"
     """
 }
 
