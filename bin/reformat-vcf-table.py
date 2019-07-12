@@ -323,6 +323,43 @@ def StrelkaSomaticSNV(fin, fout):
         row['SB'] = row['SNVSB']
         writer.writerow(row)
 
+def Pindel(fin, fout):
+    """
+    Reformat the lines of the Pindel structural variant tsv table
+    """
+    reader = csv.DictReader(fin, delimiter = '\t')
+    old_fieldnames = reader.fieldnames
+    new_fieldnames = [ n for n in old_fieldnames ]
+    new_fieldnames.append('FREQ')
+    new_fieldnames.append('AF')
+    new_fieldnames.append('DP')
+    new_fieldnames.append('TUMOR.AF')
+    new_fieldnames.append('TUMOR.AD.REF')
+    new_fieldnames.append('TUMOR.AD.ALT')
+    new_fieldnames.append('TUMOR.AD.TOTAL')
+    new_fieldnames.append('NORMAL.AF')
+    new_fieldnames.append('NORMAL.AD.REF')
+    new_fieldnames.append('NORMAL.AD.ALT')
+    new_fieldnames.append('NORMAL.AD.TOTAL')
+    writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = new_fieldnames)
+    writer.writeheader()
+    for row in reader:
+        tumor_ad_parts = row['TUMOR.AD'].split(',')
+        row['TUMOR.AD.REF'] = tumor_ad_parts[0]
+        row['TUMOR.AD.ALT'] = tumor_ad_parts[1]
+        row['TUMOR.AD.TOTAL'] = int(row['TUMOR.AD.REF']) + int(row['TUMOR.AD.ALT'])
+        row['TUMOR.AF'] = float(row['TUMOR.AD.ALT']) / ( float(row['TUMOR.AD.REF']) + float(row['TUMOR.AD.ALT']) )
+        row['AF'] = row['TUMOR.AF']
+        row['FREQ'] = row['TUMOR.AF']
+        row['DP'] = row['TUMOR.AD.TOTAL']
+
+        normal_ad_parts = row['NORMAL.AD'].split(',')
+        row['NORMAL.AD.REF'] = normal_ad_parts[0]
+        row['NORMAL.AD.ALT'] = normal_ad_parts[1]
+        row['NORMAL.AD.TOTAL'] = int(row['NORMAL.AD.REF']) + int(row['NORMAL.AD.ALT'])
+        row['NORMAL.AF'] = float(row['NORMAL.AD.ALT']) / ( float(row['NORMAL.AD.REF']) + float(row['NORMAL.AD.ALT']) )
+        writer.writerow(row)
+
 def main(**kwargs):
     """
     Main control function for the script
@@ -366,12 +403,13 @@ def main(**kwargs):
         StrelkaSomaticSNV(fin, fout)
         fout.close()
         fin.close()
+    elif caller == "Pindel":
+        Pindel(fin, fout)
+        fout.close()
+        fin.close()
     else:
         print("ERROR: caller not recognized: {0}".format(caller))
         sys.exit(1)
-
-
-
 
 def parse():
     """
@@ -382,7 +420,7 @@ def parse():
     parser.add_argument("-o", default = None, dest = 'output_file', help="Output file")
     parser.add_argument("-c", "--caller", dest = 'caller', help="Variant caller used", required=True,
         choices=['HaplotypeCaller', 'LoFreq', 'MuTect2', 'VarScan2',
-        'StrelkaSomaticIndel', 'StrelkaSomaticSNV'])
+        'StrelkaSomaticIndel', 'StrelkaSomaticSNV', 'Pindel'])
     parser.add_argument("-s", "--sampleID", dest = 'sampleID', help="Sample ID", required=True)
     args = parser.parse_args()
 
