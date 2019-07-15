@@ -3247,7 +3247,6 @@ process annotate_pairs {
     file("${avinput_file}")
     file("${avinput_tsv}")
     file("${annovar_output_txt}")
-    file("${annovar_output_vcf}")
     val(comparisonID) into done_annotate_pairs
 
     script:
@@ -3255,7 +3254,6 @@ process annotate_pairs {
     avinput_file = "${prefix}.avinput"
     avinput_tsv = "${prefix}.avinput.tsv"
     annovar_output_txt = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.txt"
-    annovar_output_vcf = "${prefix}.${params.ANNOVAR_BUILD_VERSION}_multianno.vcf"
     annotations_tsv = "${prefix}.annotations.tsv"
     vcf_gt_mod = "${sample_vcf}.GTmod.vcf" // only used for Strelka
     if( caller == 'MuTect2' )
@@ -3341,6 +3339,9 @@ process annotate_pairs {
 
         printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
         cut -f1-10 ${avinput_file} >>  "${avinput_tsv}"
+
+        # merge the tables together
+        merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tsv}"
         """
     else
         error "Invalid caller: ${caller}"

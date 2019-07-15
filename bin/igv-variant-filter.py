@@ -65,6 +65,15 @@ def Strelka(fin, fout):
         if unpaired_filter(row):
             writer.writerow(row)
 
+def Pindel(fin, fout):
+    reader = csv.DictReader(fin, delimiter = '\t')
+    fieldnames = reader.fieldnames
+    writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
+    writer.writeheader()
+    for row in reader:
+        if unpaired_filter(row):
+            writer.writerow(row)
+
 def main(**kwargs):
     """
     Main control function for the script
@@ -93,6 +102,10 @@ def main(**kwargs):
         fin.close()
     elif caller == "Strelka":
         Strelka(fin, fout) # TODO: create this function & filter methods for paired calling
+        fout.close()
+        fin.close()
+    elif caller == "Pindel":
+        Pindel(fin, fout) # TODO: create this function & filter methods for paired calling
         fout.close()
         fin.close()
     else:
