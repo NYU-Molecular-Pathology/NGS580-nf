@@ -348,7 +348,6 @@ def Pindel(fin, fout):
         row['TUMOR.AD.REF'] = tumor_ad_parts[0]
         row['TUMOR.AD.ALT'] = tumor_ad_parts[1]
         row['TUMOR.AD.TOTAL'] = int(row['TUMOR.AD.REF']) + int(row['TUMOR.AD.ALT'])
-        # sys.stderr.write(str(row['TUMOR.AD.REF']) + "." + str(row['TUMOR.AD.ALT']) + ':' + row['TUMOR.AD'] + '\n')
         # NOTE: sometimes, deletions result in TUMOR.AD.REF and TUMOR.AD.ALT both of value 0
         # avoid divide by zero error, just set AF to 0 in this cases
         if row['TUMOR.AD.TOTAL'] == 0:
@@ -367,6 +366,10 @@ def Pindel(fin, fout):
             row['NORMAL.AF'] = 0.0
         else:
             row['NORMAL.AF'] = float(row['NORMAL.AD.ALT']) / ( float(row['NORMAL.AD.REF']) + float(row['NORMAL.AD.ALT']) )
+
+        # fix messed up QUAL values from GATK
+        if float(row['QUAL']) < 0.0:
+            row['QUAL'] = '.' # NA value
         writer.writerow(row)
 
 def main(**kwargs):

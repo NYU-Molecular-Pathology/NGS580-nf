@@ -3049,6 +3049,9 @@ process vcf_to_tsv_pairs {
         paste-col.py --header "Normal" -v "${normalID}"  | \
         paste-col.py --header "VariantCaller" -v "${caller}" > \
         "${reformat_tsv}"
+
+        # make sure that the input and output tables have the same number of rows
+        if [ "\$(wc -l < "${tsv_file}" )" -ne "\$( wc -l < "${reformat_tsv}" )" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
         """
     else
         error "Invalid caller: ${caller}"
@@ -3321,6 +3324,9 @@ process annotate_pairs {
         """
     else if( caller == "Pindel" )
         """
+        # Pindel produces a lot of near-duplicate entries, need to take extra steps to merge tables successfully
+        # merge errors should be detected by mismatched number of table rows after merge, in R script
+
         # convert to ANNOVAR format
         convert2annovar.pl \
         -includeinfo \
@@ -3328,6 +3334,7 @@ process annotate_pairs {
         "${sample_vcf}" > \
         "${avinput_file}"
 
+        # Annotate
         table_annovar.pl "${avinput_file}" "${annovar_db_dir}" \
         --buildver "${params.ANNOVAR_BUILD_VERSION}" \
         --remove \
@@ -3337,11 +3344,17 @@ process annotate_pairs {
         --onetranscript \
         --outfile "${prefix}"
 
-        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
-        cut -f1-10 ${avinput_file} >>  "${avinput_tsv}"
+        # need to re-associate the original vcf columns with the vcf tsv for merge
+        grep -v '^##' "${sample_vcf}" | cut -f8-11 | paste "${sample_tsv}" /dev/stdin > tmp.tsv
+        grep -v '^##' "${sample_vcf}" | cut -f8-11 | paste ${annovar_output_txt} /dev/stdin > tmp.hg19_multianno.txt
 
         # merge the tables together
-        merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tsv}"
+        merge-vcf-tables-Pindel.R \
+        "${sample_vcf}" \
+        "tmp.tsv" \
+        "tmp.hg19_multianno.txt" \
+        "${avinput_file}" \
+        "${annotations_tsv}"
         """
     else
         error "Invalid caller: ${caller}"
