@@ -3247,9 +3247,6 @@ process annotate_pairs {
 
     output:
     file("${annotations_tsv}") into annotations_tables_pairs
-    file("${avinput_file}")
-    file("${avinput_tsv}")
-    file("${annovar_output_txt}")
     val(comparisonID) into done_annotate_pairs
 
     script:
