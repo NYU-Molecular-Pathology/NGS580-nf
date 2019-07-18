@@ -2625,6 +2625,7 @@ process pindel {
     --config-file "${config_file}" \
     --output-prefix "${output_dir}/" \
     --number_of_threads \${NSLOTS:-\${NTHREADS:-1}} \
+    --max_range_index 2 \
     --include "${targets_bed}"
 
     pindel2vcf \
@@ -2776,11 +2777,13 @@ process filter_vcf_pairs {
     else if( caller == 'Pindel' )
         """
         # only keep 'PASS' entries
+        # only keep SNV less than 500bp long
 
-        # get the header
-        grep '^#' "${vcf}" > "${filtered_vcf}"
-        # get the 'PASS' entries
-        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
+        gatk.sh -T SelectVariants \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
+        -select 'SVLEN < 500' \
+        > "${filtered_vcf}"
         """
     else
         error "Invalid caller: ${caller}"
