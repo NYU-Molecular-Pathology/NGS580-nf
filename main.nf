@@ -4097,9 +4097,12 @@ process snp_pileup {
     -P100 \
     -r25,0 \
     "${snp_vcf}" \
-    "${output_cnvsnp}" \
+    tmp.gz \
     "${normalBam}" \
     "${tumorBam}"
+
+    # need to remove 'chr' from the table to resolve bugs in facets
+    zcat tmp.gz | sed 's|chr||g'  | gzip - -c > "${output_cnvsnp}"
     """
 }
 
