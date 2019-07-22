@@ -459,7 +459,8 @@ process targets_zip {
     output_bgz = "targets.bed.bgz"
     output_index = "targets.bed.bgz.tbi"
     """
-    bgzip -c "${targets_bed}" > "${output_bgz}"
+    sort -V -k1,1 -k2,2 "${targets_bed}" > targets.sorted.bed
+    bgzip -c targets.sorted.bed > "${output_bgz}"
     tabix -p bed "${output_bgz}"
     """
 }
