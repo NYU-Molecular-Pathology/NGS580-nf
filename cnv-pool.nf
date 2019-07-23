@@ -4,6 +4,9 @@ params.targetsBed = "targets/targets.annotated.580.bed"
 params.targetsLabel = "580"
 params.outputLabel = "CNV-Pool"
 params.outputFileName = "${params.outputLabel}.${params.targetsLabel}"
+params.ref_fa = "${params.ref_dir}/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa"
+params.ref_fai = "${params.ref_dir}/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa.fai"
+params.ref_dict = "${params.ref_dir}/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.dict"
 
 def samplesheet = params.samplesheet
 def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
