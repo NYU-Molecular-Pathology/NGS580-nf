@@ -316,7 +316,7 @@ REMOTE:=
 PID:=
 # check for an HPC submission lock file, then try to determine the submission recipe to use
 submit:
-	@if [ -e "$(NXF_SUBMIT)" ]; then echo ">>> ERROR: An instance of the pipeline has already been submitted"; exit 1 ; \
+	@if [ -e "$(NXF_SUBMIT)" ]; then echo ">>> ERROR: Workflow locked by $(NXF_SUBMIT); has an instance of the pipeline has already been submitted?"; exit 1 ; \
 	else \
 	if grep -q 'phoenix' <<<'$(HOSTNAME)'; then echo  ">>> Submission for phoenix not yet configured";  \
 	elif grep -q 'bigpurple' <<<'$(HOSTNAME)'; then echo ">>> Running submit-bigpurple"; $(MAKE) submit-bigpurple ; \
@@ -341,8 +341,11 @@ submit-bigpurple:
 submit-bigpurple-run:
 	if [ -e "$(NXF_NODEFILE)" -a -e "$(NXF_PIDFILE)" ]; then paste "$(NXF_NODEFILE)" "$(NXF_PIDFILE)" >> $(NXF_SUBMITLOG); fi ; \
 	echo "$${SLURMD_NODENAME}" > "$(NXF_NODEFILE)" && \
-	$(MAKE) run HOSTNAME="bigpurple" LOGID="$(TIMESTAMP)" EP='-bg' && \
-	if [ -e "$(NXF_SUBMIT)" ]; then rm -f "$(NXF_SUBMIT)"; fi
+	rm_submit(){ [ -e "$(NXF_SUBMIT)" ] && rm -f "$(NXF_SUBMIT)" || : ; } ; \
+	trap rm_submit INT ; \
+	trap rm_submit EXIT ; \
+	$(MAKE) run HOSTNAME="bigpurple" LOGID="$(TIMESTAMP)"
+# EP='-bg'
 
 # issue an interupt signal to a process running on a remote server
 # e.g. Nextflow running in a qsub job on a compute node

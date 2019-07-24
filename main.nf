@@ -3,6 +3,22 @@ import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import groovy.json.JsonSlurper;
 def jsonSlurper = new JsonSlurper()
+def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
+def username = System.getProperty("user.name")
+String localhostname = java.net.InetAddress.getLocalHost().getHostName();
+Date now = new Date()
+SimpleDateFormat timestamp = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss")
+def currentDirPath = new File(System.getProperty("user.dir")).getCanonicalPath()
+Process uname_proc = 'uname'.execute()
+def uname = "${uname_proc.text.trim()}"
+def NXF_PIDFILE = ".nextflow.pid"
+if(uname == "Linux"){
+    // /proc/self only works on Linux
+    int pid = Integer.parseInt(new File("/proc/self").getCanonicalFile().getName())
+    File pid_file = new File("${NXF_PIDFILE}")
+    pid_file.write("${pid}\n")
+
+}
 
 // ~~~~~~~~~~ CONFIGURATION ~~~~~~~~~~ //
 // configure pipeline settings
@@ -75,14 +91,6 @@ def SeraCareErrorRate = params.SeraCareErrorRate
 def CNVPool = params.CNVPool
 def projectDir = params.runID
 
-// system configs
-def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
-def username = System.getProperty("user.name")
-String localhostname = java.net.InetAddress.getLocalHost().getHostName();
-Date now = new Date()
-SimpleDateFormat timestamp = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss")
-def currentDirPath = new File(System.getProperty("user.dir")).getCanonicalPath()
-
 // Enable or disable some pipeline steps here TODO: better config management for this
 disable_multiqc = true // for faster testing of the rest of the pipeline
 disable_msisensor = true // breaks on very small demo datasets
@@ -148,6 +156,13 @@ if( !ANNOVAR_DB_DIR.exists() ){
 
 // ~~~~~ START WORKFLOW ~~~~~ //
 log.info "~~~~~~~ NGS580 Pipeline ~~~~~~~"
+if(uname == "Linux"){
+    // /proc/self only works on Linux
+    int pid = Integer.parseInt(new File("/proc/self").getCanonicalFile().getName())
+    log.info "* pid:                ${pid}"
+}
+log.info "* hostname:           ${localhostname}"
+log.info "* uname:              ${uname}"
 log.info "* Launch time:        ${workflowTimestamp}"
 log.info "* Run ID:             ${runID}"
 log.info "* Samplesheet:        ${samplesheet}"
