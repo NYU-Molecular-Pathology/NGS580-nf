@@ -756,7 +756,7 @@ process sambamba_dedup {
 
     output:
     set val(sampleID), file("${bam_file}") into samples_dd_bam, samples_dd_bam2
-    set val(sampleID), file("${bam_file}"), file("${bai_file}") into samples_dd_bam3, samples_dd_bam4
+    set val(sampleID), file("${bam_file}"), file("${bai_file}") into samples_dd_bam3, samples_dd_bam4, samples_dd_bam5
     set val(sampleID), file("${log_file}") into sambamba_dedup_logs
     val(sampleID) into done_sambamba_dedup
 
@@ -3891,12 +3891,12 @@ process cnvkit {
 
 // get a copy of the channel to use with the CNV pool
 // combine against the CNV Pool file
-samples_pairs_bam_ch.combine(cnv_pool_ch)
-.map { comparisonID, tumorID, tumorBam, normalID, normalBam, cnv_pool_file ->
+samples_dd_bam5.combine(cnv_pool_ch)
+.map { sampleID, bam, bai, cnv_pool_file ->
     // remap the channel to replace the Normal with CNV Pool
     def cnv_poolID = "CNV-Pool"
-    def new_comparisonID = "${tumorID}_${cnv_poolID}"
-    return([ new_comparisonID, tumorID, tumorBam, cnv_poolID, cnv_pool_file ])
+    def new_comparisonID = "${sampleID}_${cnv_poolID}"
+    return([ new_comparisonID, sampleID, bam, cnv_poolID, cnv_pool_file ])
 }
 .set { samples_cnv_pool_ch }
 // samples_cnv_pool_ch.subscribe { println "[samples_cnv_pool_ch] ${it}" }
@@ -3906,16 +3906,16 @@ process cnvkit_pooled_reference {
     publishDir "${params.outputDir}/cnv", mode: 'copy'
 
     input:
-    set val(new_comparisonID), val(tumorID), file(tumorBam), val(cnv_poolID), file(cnv_pool_file) from samples_cnv_pool_ch
+    set val(new_comparisonID), val(sampleID), file(bam), val(cnv_poolID), file(cnv_pool_file) from samples_cnv_pool_ch
 
     output:
     file("${output_cns}")
     file("${output_finalcnr}")
-    set val(new_comparisonID), val(tumorID), val(cnv_poolID), file("${output_cnr}"), file("${output_call_cns}"), file("${segment_gainloss}") into sample_cnvs_pooledreference
+    set val(new_comparisonID), val(sampleID), val(cnv_poolID), file("${output_cnr}"), file("${output_call_cns}"), file("${segment_gainloss}") into sample_cnvs_pooledreference
 
     script:
     prefix = "${new_comparisonID}"
-    tumorBamID = "${tumorBam}".replaceFirst(/.bam$/, "")
+    tumorBamID = "${bam}".replaceFirst(/.bam$/, "")
     tmp_cns = "${tumorBamID}.cns"
     tmp_cnr = "${tumorBamID}.cnr"
     output_cns = "${prefix}.cns"
@@ -3925,7 +3925,7 @@ process cnvkit_pooled_reference {
     segment_gainloss = "${prefix}.segment-gainloss.txt"
     """
     # running cnvkit pipeline on tumor/pooled_normal reference using batch mode, required tumorBam, pooledReference.cnn.
-    cnvkit.py batch "${tumorBam}" \
+    cnvkit.py batch "${bam}" \
     -r "${cnv_pool_file}" \
     -p \${NSLOTS:-\${NTHREADS:-1}}
 
@@ -3944,7 +3944,7 @@ process cnvkit_pooled_reference {
 
 
 // only keep files with at least 1 variant for TMB analysis
-sample_cnvs.mix( sample_cnvs_pooledreference )
+sample_cnvs_pooledreference.mix( sample_cnvs )
 .filter { comparisonID, tumorID, normalID, cnr, call_cns, segment_gainloss ->
     def count = cnr.readLines().size()
     if (count <= 1) log.warn "${comparisonID} doesn't have enough lines in cnr and will not be processed"
