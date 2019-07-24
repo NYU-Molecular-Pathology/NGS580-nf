@@ -286,7 +286,7 @@ run-bigpurple-recurse: Q_JSON:=/gpfs/home/kellys04/molecpathlab/pipelines/queue-
 run-bigpurple-recurse: export NXF_DEBUG=3
 run-bigpurple-recurse: install
 	./nextflow -trace nextflow.executor run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue_json "$(Q_JSON)" $(EP)
-	$(MAKE) fix-permissions fix-group
+# $(MAKE) fix-permissions fix-group
 # --queue "$(Q)" # try using the queue JSON instead
 
 # run locally default settings
@@ -316,7 +316,7 @@ REMOTE:=
 PID:=
 # check for an HPC submission lock file, then try to determine the submission recipe to use
 submit:
-	@if [ -e "$(NXF_SUBMIT)" ]; then echo ">>> ERROR: An instance of the pipeline has already been submitted"; exit 1 ; \
+	@if [ -e "$(NXF_SUBMIT)" ]; then echo ">>> ERROR: Locked by $(NXF_SUBMIT); has an instance of the pipeline has already been submitted?"; exit 1 ; \
 	else \
 	if grep -q 'phoenix' <<<'$(HOSTNAME)'; then echo  ">>> Submission for phoenix not yet configured";  \
 	elif grep -q 'bigpurple' <<<'$(HOSTNAME)'; then echo ">>> Running submit-bigpurple"; $(MAKE) submit-bigpurple ; \
@@ -341,15 +341,23 @@ submit-bigpurple:
 submit-bigpurple-run:
 	if [ -e "$(NXF_NODEFILE)" -a -e "$(NXF_PIDFILE)" ]; then paste "$(NXF_NODEFILE)" "$(NXF_PIDFILE)" >> $(NXF_SUBMITLOG); fi ; \
 	echo "$${SLURMD_NODENAME}" > "$(NXF_NODEFILE)" && \
+	pid='' && \
+	kill_func(){ echo TRAP; kill $$pid ; wait $$pid ; [ -e "$(NXF_SUBMIT)" ] && rm -f "$(NXF_SUBMIT)" || : ; } && \
+	trap kill_func INT && \
+	trap kill_func EXIT && \
 	$(MAKE) run HOSTNAME="bigpurple" LOGID="$(TIMESTAMP)" EP='-bg' && \
-	if [ -e "$(NXF_SUBMIT)" ]; then rm -f "$(NXF_SUBMIT)"; fi
+	pid="$$(head -1  "$(NXF_PIDFILE)")" && \
+	echo "waiting for Nextflow pid:$${pid}" && wait $$pid
 
 # issue an interupt signal to a process running on a remote server
 # e.g. Nextflow running in a qsub job on a compute node
-kill: PID=$(shell head -1 "$(NXF_PIDFILE)")
-kill: REMOTE=$(shell head -1 "$(NXF_NODEFILE)")
-kill: $(NXF_NODEFILE) $(NXF_PIDFILE)
-	ssh "$(REMOTE)" 'kill $(PID)'
+# kill: PID=$(shell head -1 "$(NXF_PIDFILE)")
+# kill: REMOTE=$(shell head -1 "$(NXF_NODEFILE)")
+# kill: $(NXF_NODEFILE) $(NXF_PIDFILE)
+# 	ssh "$(REMOTE)" 'kill $(PID)'
+kill: NXF_JOB:=$(shell head -1 $(NXF_JOBFILE))
+kill: $(NXF_JOBFILE)
+	scancel "$(NXF_JOB)"
 
 # `make submit-phoenix EP='--runID 180316_NB501073_0036_AH3VFKBGX5'`
 # submit-phoenix:
