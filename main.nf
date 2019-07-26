@@ -2794,11 +2794,20 @@ process filter_vcf_pairs {
         """
         # only keep 'PASS' entries
         # only keep SNV less than 500bp long
+        # variant must have:
+        # Tumor Alt >= 5 reads
+        # Tumor Ref >= 100 reads
+        # Normal Alt < 2 reads
+        # Normal Ref >= 100 reads
 
         gatk.sh -T SelectVariants \
         -R "${ref_fasta}" \
         -V "${vcf}" \
         -select 'SVLEN < 500' \
+        -select 'vc.getGenotype("TUMOR").getAD().1 > 4' \
+        -select 'vc.getGenotype("TUMOR").getAD().0 > 99' \
+        -select 'vc.getGenotype("NORMAL").getAD().1 < 2' \
+        -select 'vc.getGenotype("NORMAL").getAD().0 > 99' \
         > "${filtered_vcf}"
         """
     else
@@ -3059,6 +3068,23 @@ process vcf_to_tsv_pairs {
         -F SVTYPE \
         -GF AD \
         -o "${tsv_file}"
+
+        ##FILTER=<ID=PASS,Description="All filters passed">
+        ##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
+        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
+        ##FORMAT=<ID=RD,Number=1,Type=Integer,Description="Reference depth, how many reads support the reference">
+        ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes, for each ALT allele, in the same order as listed">
+        ##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed">
+        ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+        ##INFO=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth; some reads may have been filtered">
+        ##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+        ##INFO=<ID=HOMLEN,Number=1,Type=Integer,Description="Length of base pair identical micro-homology at event breakpoints">
+        ##INFO=<ID=HOMSEQ,Number=.,Type=String,Description="Sequence of base pair identical micro-homology at event breakpoints">
+        ##INFO=<ID=NTLEN,Number=.,Type=Integer,Description="Number of bases inserted in place of deleted code">
+        ##INFO=<ID=PF,Number=1,Type=Integer,Description="The number of samples carry the variant">
+        ##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Difference in length between REF and ALT alleles">
+        ##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
 
         # reformat and adjust the TSV table for consistency downstream
         # add extra columns to the VCF TSV file for downstream
