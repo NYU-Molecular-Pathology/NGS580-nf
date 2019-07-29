@@ -3419,12 +3419,28 @@ process collect_annotation_tables {
     """
 }
 
+process filter_annotation_table {
+    // apply extra filter criteria here which couldnt be easily applied earlier in the pipeline
+    input:
+    file(tsv) from collected_annotation_tables
+
+    output:
+    file("${output_file}") into filtered_annotation_table
+
+    script:
+    output_file = "annotations.filtered.tsv"
+    """
+    filter-annotation-table.py -i "${tsv}" | \
+    annotation-table-drop-cols.py -o "${output_file}"
+    """
+}
+
 process update_collect_annotation_tables {
     // add labels to the table to output
     publishDir "${params.outputDir}", mode: 'copy'
 
     input:
-    file(table) from collected_annotation_tables
+    file(table) from filtered_annotation_table
 
     output:
     file("${output_file}") into (all_annotations_file_ch, all_annotations_file_ch2, all_annotations_file_ch3)
