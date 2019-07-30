@@ -1804,11 +1804,15 @@ process filter_vcf {
         """
     else if ( caller == "LoFreq" )
         """
-        # do not report if frequency is less than 1%
+        # do not report if:
+        # - frequency is less than 1%, greater than 99%
+        # - depth less than 200
         gatk.sh -T SelectVariants \
         -R "${ref_fasta}" \
         -V "${vcf}" \
         -select "AF > 0.01"  \
+        -select "AF < 0.99"  \
+        -select "DP > 199"  \
         > "${filtered_vcf}"
         """
     else if ( caller == "HaplotypeCaller" )
@@ -1930,6 +1934,20 @@ process vcf_to_tsv {
         paste-col.py --header "VariantCaller" -v "${caller}" > \
         "${reformat_tsv}"
         """
+        // ##FILTER=<ID=PASS,Description="All filters passed">
+        // ##INFO=<ID=DP,Number=1,Type=Integer,Description="Raw Depth">
+        // ##INFO=<ID=AF,Number=1,Type=Float,Description="Allele Frequency">
+        // ##INFO=<ID=SB,Number=1,Type=Integer,Description="Phred-scaled strand bias at this position">
+        // ##INFO=<ID=DP4,Number=4,Type=Integer,Description="Counts for ref-forward bases, ref-reverse, alt-forward and alt-reverse bases">
+        // ##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Indicates that the variant is an INDEL.">
+        // ##INFO=<ID=CONSVAR,Number=0,Type=Flag,Description="Indicates that the variant is a consensus variant (as opposed to a low frequency variant).">
+        // ##INFO=<ID=HRUN,Number=1,Type=Integer,Description="Homopolymer length to the right of report indel position">
+        // ##FILTER=<ID=min_snvqual_72,Description="Minimum SNV Quality (Phred) 72">
+        // ##FILTER=<ID=min_indelqual_51,Description="Minimum Indel Quality (Phred) 51">
+        // ##FILTER=<ID=min_dp_10,Description="Minimum Coverage 10">
+        // ##FILTER=<ID=sb_fdr,Description="Strand-Bias Multiple Testing Correction: fdr corr. pvalue > 0.001000">
+        // ##FILTER=<ID=min_snvqual_85,Description="Minimum SNV Quality (Phred) 85">
+        // ##FILTER=<ID=min_indelqual_64,Description="Minimum Indel Quality (Phred) 64">
     else if ( caller == "HaplotypeCaller" )
         """
         gatk.sh -T VariantsToTable \
@@ -2774,11 +2792,15 @@ process filter_vcf_pairs {
         """
     else if( caller == 'LoFreqSomatic' )
         """
-        # do not report if frequency is less than 1%
+        # do not report if:
+        # - frequency is less than 1%, greater than 99%
+        # - depth less than 200
         gatk.sh -T SelectVariants \
         -R "${ref_fasta}" \
         -V "${vcf}" \
         -select "AF > 0.01"  \
+        -select "AF < 0.99"  \
+        -select "DP > 199"  \
         > "${filtered_vcf}"
         """
     else if( caller == 'Strelka' )
@@ -2790,6 +2812,32 @@ process filter_vcf_pairs {
         # get the 'PASS' entries
         grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
         """
+        // ##FILTER=<ID=PASS,Description="All filters passed">
+        // ##INFO=<ID=QSS,Number=1,Type=Integer,Description="Quality score for any somatic snv, ie. for the ALT allele to be present at a significantly different frequency in the tumor and normal">
+        // ##INFO=<ID=TQSS,Number=1,Type=Integer,Description="Data tier used to compute QSS">
+        // ##INFO=<ID=NT,Number=1,Type=String,Description="Genotype of the normal in all data tiers, as used to classify somatic variants. One of {ref,het,hom,conflict}.">
+        // ##INFO=<ID=QSS_NT,Number=1,Type=Integer,Description="Quality score reflecting the joint probability of a somatic variant and NT">
+        // ##INFO=<ID=TQSS_NT,Number=1,Type=Integer,Description="Data tier used to compute QSS_NT">
+        // ##INFO=<ID=SGT,Number=1,Type=String,Description="Most likely somatic genotype excluding normal noise states">
+        // ##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description="Somatic mutation">
+        // ##INFO=<ID=DP,Number=1,Type=Integer,Description="Combined depth across samples">
+        // ##INFO=<ID=MQ,Number=1,Type=Float,Description="RMS Mapping Quality">
+        // ##INFO=<ID=MQ0,Number=1,Type=Integer,Description="Total Mapping Quality Zero Reads">
+        // ##INFO=<ID=ReadPosRankSum,Number=1,Type=Float,Description="Z-score from Wilcoxon rank sum test of Alt Vs. Ref read-position in the tumor">
+        // ##INFO=<ID=SNVSB,Number=1,Type=Float,Description="Somatic SNV site strand bias">
+        // ##INFO=<ID=PNOISE,Number=1,Type=Float,Description="Fraction of panel containing non-reference noise at this site">
+        // ##INFO=<ID=PNOISE2,Number=1,Type=Float,Description="Fraction of panel containing more than one non-reference noise obs at this site">
+        // ##INFO=<ID=SomaticEVS,Number=1,Type=Float,Description="Somatic Empirical Variant Score (EVS) expressing the phred-scaled probability of the call being a false positive observation.">
+        // ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth for tier1 (used+filtered)">
+        // ##FORMAT=<ID=FDP,Number=1,Type=Integer,Description="Number of basecalls filtered from original read depth for tier1">
+        // ##FORMAT=<ID=SDP,Number=1,Type=Integer,Description="Number of reads with deletions spanning this site at tier1">
+        // ##FORMAT=<ID=SUBDP,Number=1,Type=Integer,Description="Number of reads below tier1 mapping quality threshold aligned across this site">
+        // ##FORMAT=<ID=AU,Number=2,Type=Integer,Description="Number of 'A' alleles used in tiers 1,2">
+        // ##FORMAT=<ID=CU,Number=2,Type=Integer,Description="Number of 'C' alleles used in tiers 1,2">
+        // ##FORMAT=<ID=GU,Number=2,Type=Integer,Description="Number of 'G' alleles used in tiers 1,2">
+        // ##FORMAT=<ID=TU,Number=2,Type=Integer,Description="Number of 'T' alleles used in tiers 1,2">
+        // ##FILTER=<ID=LowEVS,Description="Somatic Empirical Variant Score (SomaticEVS) is below threshold">
+        // ##FILTER=<ID=LowDepth,Description="Tumor or normal sample read depth at this locus is below 2">
     else if( caller == 'Pindel' )
         """
         # only keep 'PASS' entries
@@ -2810,6 +2858,18 @@ process filter_vcf_pairs {
         -select 'vc.getGenotype("NORMAL").getAD().0 > 99' \
         > "${filtered_vcf}"
         """
+        // ##FILTER=<ID=PASS,Description="All filters passed">
+        // ##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+        // ##INFO=<ID=HOMLEN,Number=1,Type=Integer,Description="Length of base pair identical micro-homology at event breakpoints">
+        // ##INFO=<ID=PF,Number=1,Type=Integer,Description="The number of samples carry the variant">
+        // ##INFO=<ID=HOMSEQ,Number=.,Type=String,Description="Sequence of base pair identical micro-homology at event breakpoints">
+        // ##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Difference in length between REF and ALT alleles">
+        // ##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
+        // ##INFO=<ID=NTLEN,Number=.,Type=Integer,Description="Number of bases inserted in place of deleted code">
+        // ##FORMAT=<ID=PL,Number=3,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
+        // ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        // ##FORMAT=<ID=RD,Number=1,Type=Integer,Description="Reference depth, how many reads support the reference">
+        // ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Allele depth, how many reads support this allele">
     else
         error "Invalid caller: ${caller}"
 }
