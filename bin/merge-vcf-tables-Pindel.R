@@ -77,6 +77,7 @@ vcf_raw_df <- read.delim(file = vcf_file,
                          na.strings = '.',
                          sep = '\t', 
                          comment.char = '#', 
+                         colClasses = "character",
                          col.names = c("CHROM", "POS", "ID", "REF", "ALT", 
                                        "QUAL", "FILTER", "INFO","FORMAT", "NORMAL", "TUMOR"))
 
@@ -129,8 +130,6 @@ message(">>> Merging tables")
 # x <- merge(vcf_table, avinput, all = FALSE)
 # x <- rbind(avinput[, which(names(avinput) %in% names(vcf_table))], vcf_table[, which(names(vcf_table) %in% names(avinput))])
 # x[! duplicated(x, fromLast=TRUE) & seq(nrow(x)) <= nrow(vcf_table), ]
-# 
-
 
 # merge tables
 merged_df <- Reduce(function(x, y){ merge(x, y, all = TRUE) }, list(vcf_raw_df, vcf_table, avinput, annovar))
