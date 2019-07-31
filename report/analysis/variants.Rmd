@@ -1,4 +1,9 @@
 ```{r load_annotations}
+source("util/karyotype.R")
+# get base karyotype plot objects
+karyotype <- karyotype_plot()
+chrom_order <- get_chrom_order()
+
 # loads variant information from 'all_annotations.tsv' file
 annotations_file <- params$annotations_file
 annotations <- read.delim(file = annotations_file, 
@@ -13,6 +18,10 @@ save.image(file="variants.loaded.Rdata",compress = TRUE)
 annotations[["Sample"]] <- factor(x = annotations[["Sample"]], 
                                   levels = sort(unique(as.character(annotations[["Sample"]]), 
                                                        decreasing = TRUE)))
+
+# add a sorted chromosome column for karyotype
+annotations[["chromosome"]] <- factor(x = annotations[["Chr"]], 
+                                          levels = chrom_order)
 
 # add '1' column for aggregations
 annotations[["n"]] <- 1
@@ -138,13 +147,24 @@ make_mutect2_plots <- function(df){
                 plot = mutect2_af,
                 subheader = 'Tumor Allele Frequency'
             )
+            # ~~~~~~~~~~ VARIANT KARYOTYPE ~~~~~~~~~~~~~~~ # 
+            mutect2_kar <- karyotype + 
+                geom_point(data = df, 
+                           aes(x = as.numeric(chromosome),
+                               y = Start), color = "red") +
+                ggtitle("MuTect2 Variant Karotype") +
+                theme(legend.position="none")
+            
+            plots[['kar']] <- list(
+                plot = mutect2_kar,
+                subheader = 'Variant Karotype'
+            )
         }
     }
     return(plots)
 }
 
 mutect2_plots <- make_mutect2_plots(annotations[annotations[["VariantCaller"]] == 'MuTect2', ])
-
 ```
 
 ```{r mutect2_print, results='asis'}
@@ -241,6 +261,18 @@ make_lofreq_somatic_plots <- function(df){
             plots[['af']] <- list(
                 plot = lofreq_af,
                 subheader = 'Allele Frequency'
+            )
+            # ~~~~~~~~~~ VARIANT KARYOTYPE ~~~~~~~~~~~~~~~ # 
+            lofreq_kar <- karyotype + 
+                geom_point(data = df, 
+                           aes(x = as.numeric(chromosome),
+                               y = Start), color = "red") +
+                ggtitle("Lofreq Somatic Variant Karotype") +
+                theme(legend.position="none")
+            
+            plots[['kar']] <- list(
+                plot = lofreq_kar,
+                subheader = 'Variant Karotype'
             )
         }
     }
@@ -347,6 +379,18 @@ make_haplotypecaller_plots <- function(df){
                 plot = haplotypecaller_af,
                 subheader = 'Allele Frequency'
             )
+            # ~~~~~~~~~~ VARIANT KARYOTYPE ~~~~~~~~~~~~~~~ # 
+            haplotypecaller_kar <- karyotype + 
+                geom_point(data = df, 
+                           aes(x = as.numeric(chromosome),
+                               y = Start), color = "red") +
+                ggtitle("GATK HaplotypeCaller Variant Karotype") +
+                theme(legend.position="none")
+            
+            plots[['kar']] <- list(
+                plot = haplotypecaller_kar,
+                subheader = 'Variant Karotype'
+            )
         }
     }
     return(plots)
@@ -449,6 +493,18 @@ make_lofreq_plots <- function(df){
             plots[['af']] <- list(
                 plot = lofreq_af,
                 subheader = 'Allele Frequency'
+            )
+            # ~~~~~~~~~~ VARIANT KARYOTYPE ~~~~~~~~~~~~~~~ # 
+            lofreq_kar <- karyotype + 
+                geom_point(data = df, 
+                           aes(x = as.numeric(chromosome),
+                               y = Start), color = "red") +
+                ggtitle("Lofreq Variant Karotype") +
+                theme(legend.position="none")
+            
+            plots[['kar']] <- list(
+                plot = lofreq_kar,
+                subheader = 'Variant Karotype'
             )
         }
     }
@@ -567,6 +623,18 @@ make_varscan2_plots <- function(df){
             plots[['af']] <- list(
                 plot = frequency_boxplot,
                 subheader = 'Allele Frequency'
+            )
+            # ~~~~~~~~~~ VARIANT KARYOTYPE ~~~~~~~~~~~~~~~ # 
+            kar <- karyotype + 
+                geom_point(data = df, 
+                           aes(x = as.numeric(chromosome),
+                               y = Start), color = "red") +
+                ggtitle("VarScan2 Variant Karotype") +
+                theme(legend.position="none")
+            
+            plots[['kar']] <- list(
+                plot = kar,
+                subheader = 'Variant Karotype'
             )
         }
     }
@@ -698,6 +766,18 @@ make_varscan2_indel_plots <- function(df){
             plots[['af']] <- list(
                 plot = frequency_boxplot,
                 subheader = 'Allele Frequency'
+            )
+            # ~~~~~~~~~~ VARIANT KARYOTYPE ~~~~~~~~~~~~~~~ # 
+            kar <- karyotype + 
+                geom_point(data = df, 
+                           aes(x = as.numeric(chromosome),
+                               y = Start), color = "red") +
+                ggtitle("VarScan2 Variant Karotype") +
+                theme(legend.position="none")
+            
+            plots[['kar']] <- list(
+                plot = kar,
+                subheader = 'Variant Karotype'
             )
         }
     }

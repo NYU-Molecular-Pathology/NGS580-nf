@@ -322,8 +322,11 @@ Channel.fromPath( file(params.ANNOVAR_DB_DIR) ).into { annovar_db_dir;
 Channel.fromPath("${outputDirPath}").into { analysis_output; analysis_output2 }
 
 // load analysis report files
+Channel.fromPath("${reportDirPath}/util").into { report_utils; report_utils2 }
+
 Channel.fromPath("${reportDirPath}/analysis/*")
-        .set { analysis_report_files }
+        .set { analysis_report_files_base }
+analysis_report_files_base.mix(report_utils).set { analysis_report_files }
 
 // load samples report files
 Channel.fromPath("${reportDirPath}/samples/*")
