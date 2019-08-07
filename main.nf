@@ -556,7 +556,6 @@ process annotate_targets {
     --protocol "${target_ANNOVAR_PROTOCOL}" \
     --operation "${target_ANNOVAR_OPERATION}" \
     --nastring . \
-    --onetranscript \
     --outfile "${prefix}"
 
     mv "${annovar_output_txt}" "${output_file}"
@@ -1417,7 +1416,6 @@ process annotate_coverage_intervals {
     --protocol "${cov_ANNOVAR_PROTOCOL}" \
     --operation "${cov_ANNOVAR_OPERATION}" \
     --nastring . \
-    --onetranscript \
     --outfile "${prefix}"
 
     merge-interval-tables.R "${interval_table}" "${annovar_output_txt}" "${avinput_file}" "${annotations_tsv}"
@@ -3225,7 +3223,6 @@ process annotate {
         --protocol "${params.ANNOVAR_PROTOCOL}" \
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
-        --onetranscript \
         --outfile "${prefix}"
 
         # add headers to the avinput, just the first columns
@@ -3250,7 +3247,6 @@ process annotate {
         --protocol "${params.ANNOVAR_PROTOCOL}" \
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
-        --onetranscript \
         --outfile "${prefix}"
 
         printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
@@ -3273,7 +3269,6 @@ process annotate {
         --protocol "${params.ANNOVAR_PROTOCOL}" \
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
-        --onetranscript \
         --outfile "${prefix}"
 
         printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
@@ -3314,7 +3309,6 @@ process annotate_pairs {
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
         --vcfinput \
-        --onetranscript \
         --outfile "${prefix}"
 
         # get values from .avinput file
@@ -3334,7 +3328,6 @@ process annotate_pairs {
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
         --vcfinput \
-        --onetranscript \
         --outfile "${prefix}"
 
         # get values from .avinput file
@@ -3357,7 +3350,6 @@ process annotate_pairs {
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
         --vcfinput \
-        --onetranscript \
         --outfile "${prefix}"
 
         # get values from .avinput file
@@ -3386,7 +3378,6 @@ process annotate_pairs {
         --protocol "${params.ANNOVAR_PROTOCOL}" \
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
-        --onetranscript \
         --outfile "${prefix}"
 
         # need to re-associate the original vcf columns with the vcf tsv for merge
