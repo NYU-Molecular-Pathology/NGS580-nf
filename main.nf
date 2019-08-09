@@ -96,6 +96,7 @@ disable_multiqc = true // for faster testing of the rest of the pipeline
 disable_msisensor = true // breaks on very small demo datasets
 disable_delly2 = true
 disable_eval_pair_vcf = true
+disable_pindel = true
 
 // load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
 String filemapJSON = new File("filemap.json").text
@@ -2615,6 +2616,9 @@ process pindel {
 
     input:
     set val(chunkLabel), val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) from samples_dd_bam_noHapMap_pairs_targets
+
+    when:
+    disable_pindel != true
 
     output:
     set val("${caller}"), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${output_vcf}") into pindel_vcfs
