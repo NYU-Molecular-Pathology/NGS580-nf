@@ -1,6 +1,7 @@
 # Makefile to run the pipeline
 SHELL:=/bin/bash
-export NXF_VER:=19.01.0
+export NXF_VER:=19.07.0
+export NXF_ANSI_LOG=false
 # extra params to pass for Nextflow in some recipes
 EP:=
 TIMESTAMP:=$(shell date +%s)
