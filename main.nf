@@ -1191,7 +1191,13 @@ process qc_target_reads_gatk_genome {
     --omitIntervalStatistics \
     --omitLocusTable \
     --omitDepthOutputAtEachBase \
-    -ct 10 -ct 50 -ct 100 -ct 500 \
+    -ct 10 \
+    -ct 50 \
+    -ct 100 \
+    -ct 200 \
+    -ct 300 \
+    -ct 400 \
+    -ct 500 \
     --minBaseQuality 20 \
     --minMappingQuality 20 \
     --reference_sequence "${ref_fasta}" \
@@ -1227,7 +1233,13 @@ process qc_target_reads_gatk_pad500 {
     --omitIntervalStatistics \
     --omitLocusTable \
     --omitDepthOutputAtEachBase \
-    -ct 10 -ct 50 -ct 100 -ct 500 \
+    -ct 10 \
+    -ct 50 \
+    -ct 100 \
+    -ct 200 \
+    -ct 300 \
+    -ct 400 \
+    -ct 500 \
     --minBaseQuality 20 \
     --minMappingQuality 20 \
     --reference_sequence "${ref_fasta}" \
@@ -1264,7 +1276,13 @@ process qc_target_reads_gatk_pad100 {
     --omitIntervalStatistics \
     --omitLocusTable \
     --omitDepthOutputAtEachBase \
-    -ct 10 -ct 50 -ct 100 -ct 500 \
+    -ct 10 \
+    -ct 50 \
+    -ct 100 \
+    -ct 200 \
+    -ct 300 \
+    -ct 400 \
+    -ct 500 \
     --minBaseQuality 20 \
     --minMappingQuality 20 \
     --reference_sequence "${ref_fasta}" \
@@ -1303,7 +1321,13 @@ process qc_target_reads_gatk_bed {
     -rf BadCigar \
     --logging_level ERROR \
     --omitDepthOutputAtEachBase \
-    -ct 10 -ct 50 -ct 100 -ct 500 \
+    -ct 10 \
+    -ct 50 \
+    -ct 100 \
+    -ct 200 \
+    -ct 300 \
+    -ct 400 \
+    -ct 500 \
     --minBaseQuality 20 \
     --minMappingQuality 20 \
     --nBins 999 \
