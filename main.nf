@@ -4148,14 +4148,13 @@ process snp_pileup {
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(snp_vcf), file(snp_vcf_tbi) from samples_dd_bam_noHapMap_pairs2.combine(common_snp_vcf).combine(common_snp_vcf_tbi)
 
     output:
-    set val(prefix), file(output_cnvsnp) into snp_pileup
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(output_cnvsnp) into snp_pileup
 
     script:
     caller = "FACETS"
     callerType = "cnv"
     prefix = "${comparisonID}.${caller}.${callerType}"
-    output_cnvsnp = "${prefix}.snp_pileup.gz"
-
+    output_cnvsnp = "${prefix}.snp_pileup.txt"
     """
     snp-pileup \
     -g \
@@ -4169,25 +4168,60 @@ process snp_pileup {
     "${tumorBam}"
 
     # need to remove 'chr' from the table to resolve bugs in facets
-    zcat tmp.gz | sed 's|chr||g'  | gzip - -c > "${output_cnvsnp}"
+    zcat tmp.gz | sed 's|chr||g' > "${output_cnvsnp}"
     """
 }
+
+// Need to filter out the samples that did not have enough entries for FACETS analysis
+// need >1 entry (>2 lines in file)
+snp_pileup_good = Channel.create()
+snp_pileup_bad = Channel.create()
+snp_pileup.choice( snp_pileup_good, snp_pileup_bad ){ items ->
+    def caller = items[0]
+    def callerType = items[1]
+    def comparisonID = items[2]
+    def tumorID = items[3]
+    def normalID = items[4]
+    def snp_pileup_txt = items[5]
+    def output_ch = 1 // bad by default
+    def num_lines = 0 // lines counter
+    def required_lines = 2
+
+    // make sure that the gz has at least 2 lines, then stop counting
+    snp_pileup_txt.withReader { reader ->
+            while (line = reader.readLine()) {
+                if ( num_lines > required_lines ) {
+                    output_ch = 0 // output to 'good' channel
+                    break
+                    }
+                num_lines++
+            }
+        }
+    return(output_ch)
+}
+snp_pileup_bad.map { caller, callerType, comparisonID, tumorID, normalID, snp_pileup_txt ->
+    def reason = "Too few lines in snp_pileup_txt, skipping FACETS"
+    def output = [comparisonID, caller, callerType, reason, "${snp_pileup_txt}"].join('\t')
+    return(output)
+}.set { snp_pileup_bad_logs }
+
 
 process facets {
     publishDir "${params.outputDir}/cnv", mode: 'copy'
 
     input:
-    set val(prefix), file(output_cnvsnp) from snp_pileup
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(snp_pileup_txt) from snp_pileup_good
 
     output:
     file("${output_segment}")
     file("${output_pdf}")
 
     script:
+    prefix = "${comparisonID}.${caller}.${callerType}"
     output_segment = "${prefix}.segment.csv"
     output_pdf = "${prefix}.plot.pdf"
     """
-    facets.R "${output_cnvsnp}" "${output_pdf}" "${output_segment}"
+    facets.R "${snp_pileup_txt}" "${output_pdf}" "${output_segment}"
     """
 }
 
@@ -4737,7 +4771,7 @@ done_copy_samplesheet.concat(
 failed_samples.concat(samples_vcfs_tsvs_bad_logs, sample_sig_bad_logs)
     .collectFile(name: "failed.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set { failed_log_ch }
-failed_pairs.concat(pairs_vcfs_tsvs_bad_logs, annotations_tables_paired_filtered_bad_logs)
+failed_pairs.concat(pairs_vcfs_tsvs_bad_logs, annotations_tables_paired_filtered_bad_logs, snp_pileup_bad_logs)
     .collectFile(name: "failed.pairs.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set{ failed_pairs_log_ch }
 
