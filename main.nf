@@ -4206,11 +4206,51 @@ snp_pileup_bad.map { caller, callerType, comparisonID, tumorID, normalID, snp_pi
 }.set { snp_pileup_bad_logs }
 
 
+process snp_pileup_check_variance {
+    // need to check the variance of the given snp-pileup to make sure theres enough
+    // data that FACETS will not break; needs to return some numeric value
+    // bad data reurns 'NA'
+    input:
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(snp_pileup_txt) from snp_pileup_good
+
+    output:
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(snp_pileup_txt), file("${output_file}") into snp_pileup_variances
+
+    script:
+    prefix = "${comparisonID}.${caller}.${callerType}"
+    output_file = "${prefix}.variance.txt"
+    """
+    facets-check-variance.R "${snp_pileup_txt}" "${output_file}"
+    """
+}
+
+// Need to filter out samples with a non-numeric variance value
+snp_pileup_variance_good = Channel.create()
+snp_pileup_variance_bad = Channel.create()
+snp_pileup_variances.choice( snp_pileup_variance_good, snp_pileup_variance_bad ){ items ->
+    def caller = items[0]
+    def callerType = items[1]
+    def comparisonID = items[2]
+    def tumorID = items[3]
+    def normalID = items[4]
+    def snp_pileup_txt = items[5]
+    def variance_txt = items[6]
+
+    def output_ch = 1 // bad by default
+    def line = new File("${variance_txt}").withReader { line = it.readLine() }
+
+    if ( line != "NA" ){
+        output_ch = 0
+    }
+
+    return(output_ch)
+}
+
 process facets {
     publishDir "${params.outputDir}/cnv", mode: 'copy'
 
     input:
-    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(snp_pileup_txt) from snp_pileup_good
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(snp_pileup_txt), file(snp_pileup_variance) from snp_pileup_variance_good
 
     output:
     file("${output_segment}")
