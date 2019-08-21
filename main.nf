@@ -4245,6 +4245,11 @@ snp_pileup_variances.choice( snp_pileup_variance_good, snp_pileup_variance_bad )
 
     return(output_ch)
 }
+snp_pileup_variance_bad.map { caller, callerType, comparisonID, tumorID, normalID, snp_pileup_txt, variance_txt ->
+    def reason = "SNP Pileup had invalid variance value, skipping FACETS"
+    def output = [comparisonID, caller, callerType, reason, "${snp_pileup_txt}"].join('\t')
+    return(output)
+}.set { snp_pileup_variance_bad_logs }
 
 process facets {
     publishDir "${params.outputDir}/cnv", mode: 'copy'
@@ -4808,10 +4813,10 @@ done_copy_samplesheet.concat(
 
 
 // collect failed log messages
-failed_samples.concat(samples_vcfs_tsvs_bad_logs, sample_sig_bad_logs)
+failed_samples.mix(samples_vcfs_tsvs_bad_logs, sample_sig_bad_logs)
     .collectFile(name: "failed.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set { failed_log_ch }
-failed_pairs.concat(pairs_vcfs_tsvs_bad_logs, annotations_tables_paired_filtered_bad_logs, snp_pileup_bad_logs)
+failed_pairs.mix(pairs_vcfs_tsvs_bad_logs, annotations_tables_paired_filtered_bad_logs, snp_pileup_bad_logs, snp_pileup_variance_bad_logs)
     .collectFile(name: "failed.pairs.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set{ failed_pairs_log_ch }
 
