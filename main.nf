@@ -97,6 +97,7 @@ disable_msisensor = true // breaks on very small demo datasets
 disable_delly2 = true
 disable_eval_pair_vcf = true
 disable_pindel = true
+disable_varscan2 = true
 
 // load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
 String filemapJSON = new File("filemap.json").text
@@ -1701,6 +1702,9 @@ process varscan_snp {
     file("${realign_stats}")
     set val(caller), val(type), val(sampleID), file("${norm_vcf}") into varscan_snp_vcfs
 
+    when:
+    disable_varscan2 != true
+
     script:
     caller = "VarScan2"
     type = "snp"
@@ -1754,6 +1758,9 @@ process varscan_indel {
     file("${multiallelics_stats}")
     file("${realign_stats}")
     set val(caller), val(type), val(sampleID), file("${norm_vcf}") into varscan_indel_vcfs
+
+    when:
+    disable_varscan2 != true
 
     script:
     caller = "VarScan2"
