@@ -2739,11 +2739,12 @@ process filter_vcf_pairs {
     else if( caller == 'Strelka' )
         """
         # only keep 'PASS' entries
-
-        # get the header
-        grep '^#' "${vcf}" > "${filtered_vcf}"
-        # get the 'PASS' entries
-        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
+        # filter out TQSS_NT=2 https://github.com/Illumina/strelka/issues/65
+        gatk.sh -T SelectVariants \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
+        -select "TQSS_NT != 2"  \
+        > "${filtered_vcf}"
         """
     else if( caller == 'Pindel' )
         """
@@ -2812,6 +2813,9 @@ process vcf_to_tsv_pairs {
         paste-col.py --header "VariantCallerType" -v "${callerType}"  | \
         paste-col.py --header "VariantCaller" -v "${caller}" > \
         "${reformat_tsv}"
+
+        # make sure that the input and output tables have the same number of rows
+        if [ "\$(wc -l < "${tsv_file}" )" -ne "\$( wc -l < "${reformat_tsv}" )" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
         """
     else if( caller == 'LoFreqSomatic' )
         """
@@ -2865,6 +2869,9 @@ process vcf_to_tsv_pairs {
         paste-col.py --header "VariantCallerType" -v "${callerType}"  | \
         paste-col.py --header "VariantCaller" -v "${caller}" > \
         "${reformat_tsv}"
+
+        # make sure that the input and output tables have the same number of rows
+        if [ "\$(wc -l < "${tsv_file}" )" -ne "\$( wc -l < "${reformat_tsv}" )" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
         """
     else if( caller == 'Strelka' )
         if ( callerType == "snvs" )
@@ -2935,6 +2942,9 @@ process vcf_to_tsv_pairs {
             paste-col.py --header "VariantCallerType" -v "${callerType}"  | \
             paste-col.py --header "VariantCaller" -v "${caller}" > \
             "${reformat_tsv}"
+
+            # make sure that the input and output tables have the same number of rows
+            if [ "\$(wc -l < "${tsv_file}" )" -ne "\$( wc -l < "${reformat_tsv}" )" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
             """
         else if( callerType == 'indel' )
             """
@@ -3000,6 +3010,9 @@ process vcf_to_tsv_pairs {
             paste-col.py --header "VariantCallerType" -v "${callerType}"  | \
             paste-col.py --header "VariantCaller" -v "${caller}" > \
             "${reformat_tsv}"
+
+            # make sure that the input and output tables have the same number of rows
+            if [ "\$(wc -l < "${tsv_file}" )" -ne "\$( wc -l < "${reformat_tsv}" )" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
             """
         else
             error "Invalid Strelka callerType: ${callerType}"
