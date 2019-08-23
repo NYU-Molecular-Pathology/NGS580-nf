@@ -1513,6 +1513,7 @@ process update_updated_coverage_interval_tables_collected {
 
 process lofreq {
     // high sensitivity variant calling for low frequency variants
+    // NOTE: lofreq_norm_vcfs currently required to start variant channel for rest of pipeline
     publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_file}"
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy', pattern: "*${norm_vcf}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${multiallelics_stats}"
@@ -1551,54 +1552,7 @@ process lofreq {
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
     """
-    // NOTE: removed these steps; why do we need them?
-    // bgzip -c "${vcf_file}" > "${vcf_bgz_file}"
-    // bcftools index "${vcf_bgz_file}"
 }
-
-// process lofreq_filter_reformat {
-//     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
-//     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
-//     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
-//
-//     input:
-//     set val(caller), val(type), val(sampleID), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from lofreq_norm_vcfs.combine(ref_fasta14).combine(ref_fai14).combine(ref_dict14)
-//
-//     output:
-//     set val(caller), val(type), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_lofreq_vcf
-//     set val(caller), val(type), val(sampleID), file("${filtered_vcf}") into (samples_lofreq_vcf2, samples_lofreq_vcf3)
-//     file("${tsv_file}")
-//     file("${reformat_tsv}")
-//     file("${filtered_vcf}")
-//
-//     script:
-//     prefix = "${sampleID}.${caller}.${type}"
-//     filtered_vcf = "${prefix}.filtered.vcf"
-//     tsv_file = "${prefix}.tsv"
-//     reformat_tsv = "${prefix}.reformat.tsv"
-//     """
-//     # do not report if frequency is less than 1%
-//     gatk.sh -T SelectVariants \
-//     -R "${ref_fasta}" \
-//     -V "${vcf}" \
-//     -select "AF > 0.01"  \
-//     > "${filtered_vcf}"
-//
-//     gatk.sh -T VariantsToTable \
-//     -R "${ref_fasta}" \
-//     -V "${filtered_vcf}" \
-//     -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER -F DP -F AF -F SB -F INDEL -F CONSVAR -F HRUN \
-//     -o "${tsv_file}"
-//
-//     # reformat and adjust the TSV table for consistency downstream
-//     # add extra columns to the VCF TSV file for downstream
-//     reformat-vcf-table.py -c LoFreq -s "${sampleID}" -i "${tsv_file}" | \
-//     paste-col.py --header "Sample" -v "${sampleID}"  | \
-//     paste-col.py --header "VariantCallerType" -v "${type}"  | \
-//     paste-col.py --header "VariantCaller" -v "${caller}" > \
-//     "${reformat_tsv}"
-//     """
-// }
 
 process gatk_hc {
     // variant calling
@@ -1621,11 +1575,6 @@ process gatk_hc {
     file("${realign_stats}")
     file("${norm_vcf}")
     val(sampleID) into done_gatk_hc
-    // set val(caller), val(type), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into sample_vcf_hc2
-    // set val(caller), val(type), val(sampleID), file("${filtered_vcf}") into sample_vcf_hc3
-    // file("${tsv_file}")
-    // file("${reformat_tsv}")
-    // file("${filtered_vcf}")
 
     script:
     caller = "HaplotypeCaller"
@@ -1635,9 +1584,6 @@ process gatk_hc {
     norm_vcf = "${prefix}.norm.vcf"
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
-    // tsv_file = "${prefix}.tsv"
-    // reformat_tsv = "${prefix}.reformat.tsv"
-    // filtered_vcf = "${prefix}.filtered.vcf"
     """
     gatk.sh -T HaplotypeCaller \
     -dt NONE \
@@ -1656,33 +1602,6 @@ process gatk_hc {
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
     """
-    // # report if
-    // # alternate allele freq (allele depth / depth) greater than 0.05 ; 5%
-    // # more than 5 variant call supporting reads
-    // # quality reads present (reported depth >0)
-    // gatk.sh -T SelectVariants \
-    // -R "${ref_fasta}" \
-    // -V "${norm_vcf}" \
-    // --sample_name "${sampleID}" \
-    // -select "vc.getGenotype('${sampleID}').getAD().1 / vc.getGenotype('${sampleID}').getDP() > 0.05" \
-    // -select "vc.getGenotype('${sampleID}').getAD().1 > 5" \
-    // -select "vc.getGenotype('${sampleID}').getDP() > 0" \
-    // > "${filtered_vcf}"
-    //
-    // gatk.sh -T VariantsToTable \
-    // -R "${ref_fasta}" \
-    // -V "${filtered_vcf}" \
-    // -F CHROM -F POS -F ID -F REF -F ALT -F FILTER -F QUAL -F AC -F AN \
-    // -GF AD -GF DP \
-    // -o "${tsv_file}"
-    //
-    // # reformat and adjust the TSV table for consistency downstream
-    // # add extra columns to the VCF TSV file for downstream
-    // reformat-vcf-table.py -c HaplotypeCaller -s "${sampleID}" -i "${tsv_file}" | \
-    // paste-col.py --header "Sample" -v "${sampleID}" | \
-    // paste-col.py --header "VariantCallerType" -v "${type}"  | \
-    // paste-col.py --header "VariantCaller" -v "${caller}" > \
-    // "${reformat_tsv}"
 }
 
 process varscan_snp {
@@ -1802,7 +1721,7 @@ process varscan_indel {
 }
 
 // set up channel for filtering unpaired vcfs
-varscan_snp_vcfs.mix(varscan_indel_vcfs, lofreq_norm_vcfs, sample_vcf_hc)
+lofreq_norm_vcfs.mix(varscan_indel_vcfs, varscan_snp_vcfs, sample_vcf_hc)
     .combine(ref_fasta16)
     .combine(ref_fai16)
     .combine(ref_dict16)
