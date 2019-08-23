@@ -2951,7 +2951,7 @@ process vcf_to_tsv_pairs {
             if [ "\$tsv_lines" -ne "\$reformat_lines" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
 
             vcf_lines="\$(grep -v '^##' ${vcf} | wc -l)"
-            if [ "\$vcf_lines" )" -ne "\$reformat_lines" ]; then echo "ERROR: reformat table has different number of entries than vcf file!"; exit 1; fi
+            if [ "\$vcf_lines" -ne "\$reformat_lines" ]; then echo "ERROR: reformat table has different number of entries than vcf file!"; exit 1; fi
             """
         else if( callerType == 'indel' )
             """
