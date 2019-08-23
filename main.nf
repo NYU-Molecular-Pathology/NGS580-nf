@@ -2659,6 +2659,7 @@ vcfs_mutect2.mix(vcfs_lofreq_somatic_snvs_vcf_norm,
 
 process filter_vcf_pairs {
     // filter the .vcf for tumor-normal pairs
+    // https://software.broadinstitute.org/gatk/documentation/tooldocs/3.8-0/org_broadinstitute_gatk_tools_walkers_variantutils_SelectVariants.php
     tag "${caller}.${chunkLabel}"
     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
 
@@ -2744,6 +2745,7 @@ process filter_vcf_pairs {
         -R "${ref_fasta}" \
         -V "${vcf}" \
         -select "TQSS_NT != 2"  \
+        --excludeFiltered \
         > "${filtered_vcf}"
         """
     else if( caller == 'Pindel' )
@@ -2944,7 +2946,12 @@ process vcf_to_tsv_pairs {
             "${reformat_tsv}"
 
             # make sure that the input and output tables have the same number of rows
-            if [ "\$(wc -l < "${tsv_file}" )" -ne "\$( wc -l < "${reformat_tsv}" )" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
+            tsv_lines="\$(wc -l < "${tsv_file}" )"
+            reformat_lines="\$( wc -l < "${reformat_tsv}" )"
+            if [ "\$tsv_lines" -ne "\$reformat_lines" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
+
+            vcf_lines="\$(grep -v '^##' ${vcf} | wc -l)"
+            if [ "\$vcf_lines" )" -ne "\$reformat_lines" ]; then echo "ERROR: reformat table has different number of entries than vcf file!"; exit 1; fi
             """
         else if( callerType == 'indel' )
             """
