@@ -118,7 +118,7 @@ RUN conda install -c conda-forge -c bioconda \
 	r-mgcv=1.8_28 \
 	r-munsell=0.5.0 \
 	r-nlme=3.1_140 \
-	r-pillar=1.4.1 \
+	r-pillar=1.4.2 \
 	r-pkgconfig=2.0.2 \
 	r-plyr=1.8.4 \
 	r-r6=2.4.0 \

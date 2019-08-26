@@ -96,6 +96,8 @@ disable_multiqc = true // for faster testing of the rest of the pipeline
 disable_msisensor = true // breaks on very small demo datasets
 disable_delly2 = true
 disable_eval_pair_vcf = true
+disable_pindel = true
+disable_varscan2 = true
 
 // load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
 String filemapJSON = new File("filemap.json").text
@@ -556,7 +558,6 @@ process annotate_targets {
     --protocol "${target_ANNOVAR_PROTOCOL}" \
     --operation "${target_ANNOVAR_OPERATION}" \
     --nastring . \
-    --onetranscript \
     --outfile "${prefix}"
 
     mv "${annovar_output_txt}" "${output_file}"
@@ -1191,7 +1192,13 @@ process qc_target_reads_gatk_genome {
     --omitIntervalStatistics \
     --omitLocusTable \
     --omitDepthOutputAtEachBase \
-    -ct 10 -ct 50 -ct 100 -ct 500 \
+    -ct 10 \
+    -ct 50 \
+    -ct 100 \
+    -ct 200 \
+    -ct 300 \
+    -ct 400 \
+    -ct 500 \
     --minBaseQuality 20 \
     --minMappingQuality 20 \
     --reference_sequence "${ref_fasta}" \
@@ -1227,7 +1234,13 @@ process qc_target_reads_gatk_pad500 {
     --omitIntervalStatistics \
     --omitLocusTable \
     --omitDepthOutputAtEachBase \
-    -ct 10 -ct 50 -ct 100 -ct 500 \
+    -ct 10 \
+    -ct 50 \
+    -ct 100 \
+    -ct 200 \
+    -ct 300 \
+    -ct 400 \
+    -ct 500 \
     --minBaseQuality 20 \
     --minMappingQuality 20 \
     --reference_sequence "${ref_fasta}" \
@@ -1264,7 +1277,13 @@ process qc_target_reads_gatk_pad100 {
     --omitIntervalStatistics \
     --omitLocusTable \
     --omitDepthOutputAtEachBase \
-    -ct 10 -ct 50 -ct 100 -ct 500 \
+    -ct 10 \
+    -ct 50 \
+    -ct 100 \
+    -ct 200 \
+    -ct 300 \
+    -ct 400 \
+    -ct 500 \
     --minBaseQuality 20 \
     --minMappingQuality 20 \
     --reference_sequence "${ref_fasta}" \
@@ -1303,7 +1322,13 @@ process qc_target_reads_gatk_bed {
     -rf BadCigar \
     --logging_level ERROR \
     --omitDepthOutputAtEachBase \
-    -ct 10 -ct 50 -ct 100 -ct 500 \
+    -ct 10 \
+    -ct 50 \
+    -ct 100 \
+    -ct 200 \
+    -ct 300 \
+    -ct 400 \
+    -ct 500 \
     --minBaseQuality 20 \
     --minMappingQuality 20 \
     --nBins 999 \
@@ -1417,7 +1442,6 @@ process annotate_coverage_intervals {
     --protocol "${cov_ANNOVAR_PROTOCOL}" \
     --operation "${cov_ANNOVAR_OPERATION}" \
     --nastring . \
-    --onetranscript \
     --outfile "${prefix}"
 
     merge-interval-tables.R "${interval_table}" "${annovar_output_txt}" "${avinput_file}" "${annotations_tsv}"
@@ -1489,6 +1513,7 @@ process update_updated_coverage_interval_tables_collected {
 
 process lofreq {
     // high sensitivity variant calling for low frequency variants
+    // NOTE: lofreq_norm_vcfs currently required to start variant channel for rest of pipeline
     publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vcf_file}"
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy', pattern: "*${norm_vcf}"
     publishDir "${params.outputDir}/variants/${caller}/stats", mode: 'copy', pattern: "*${multiallelics_stats}"
@@ -1527,54 +1552,7 @@ process lofreq {
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
     """
-    // NOTE: removed these steps; why do we need them?
-    // bgzip -c "${vcf_file}" > "${vcf_bgz_file}"
-    // bcftools index "${vcf_bgz_file}"
 }
-
-// process lofreq_filter_reformat {
-//     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
-//     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${tsv_file}"
-//     publishDir "${params.outputDir}/variants/${caller}/tsv", mode: 'copy', pattern: "*${reformat_tsv}"
-//
-//     input:
-//     set val(caller), val(type), val(sampleID), file(vcf), file(ref_fasta), file(ref_fai), file(ref_dict) from lofreq_norm_vcfs.combine(ref_fasta14).combine(ref_fai14).combine(ref_dict14)
-//
-//     output:
-//     set val(caller), val(type), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into samples_lofreq_vcf
-//     set val(caller), val(type), val(sampleID), file("${filtered_vcf}") into (samples_lofreq_vcf2, samples_lofreq_vcf3)
-//     file("${tsv_file}")
-//     file("${reformat_tsv}")
-//     file("${filtered_vcf}")
-//
-//     script:
-//     prefix = "${sampleID}.${caller}.${type}"
-//     filtered_vcf = "${prefix}.filtered.vcf"
-//     tsv_file = "${prefix}.tsv"
-//     reformat_tsv = "${prefix}.reformat.tsv"
-//     """
-//     # do not report if frequency is less than 1%
-//     gatk.sh -T SelectVariants \
-//     -R "${ref_fasta}" \
-//     -V "${vcf}" \
-//     -select "AF > 0.01"  \
-//     > "${filtered_vcf}"
-//
-//     gatk.sh -T VariantsToTable \
-//     -R "${ref_fasta}" \
-//     -V "${filtered_vcf}" \
-//     -F CHROM -F POS -F ID -F REF -F ALT -F QUAL -F FILTER -F DP -F AF -F SB -F INDEL -F CONSVAR -F HRUN \
-//     -o "${tsv_file}"
-//
-//     # reformat and adjust the TSV table for consistency downstream
-//     # add extra columns to the VCF TSV file for downstream
-//     reformat-vcf-table.py -c LoFreq -s "${sampleID}" -i "${tsv_file}" | \
-//     paste-col.py --header "Sample" -v "${sampleID}"  | \
-//     paste-col.py --header "VariantCallerType" -v "${type}"  | \
-//     paste-col.py --header "VariantCaller" -v "${caller}" > \
-//     "${reformat_tsv}"
-//     """
-// }
 
 process gatk_hc {
     // variant calling
@@ -1597,11 +1575,6 @@ process gatk_hc {
     file("${realign_stats}")
     file("${norm_vcf}")
     val(sampleID) into done_gatk_hc
-    // set val(caller), val(type), val(sampleID), file("${filtered_vcf}"), file("${reformat_tsv}") into sample_vcf_hc2
-    // set val(caller), val(type), val(sampleID), file("${filtered_vcf}") into sample_vcf_hc3
-    // file("${tsv_file}")
-    // file("${reformat_tsv}")
-    // file("${filtered_vcf}")
 
     script:
     caller = "HaplotypeCaller"
@@ -1611,9 +1584,6 @@ process gatk_hc {
     norm_vcf = "${prefix}.norm.vcf"
     multiallelics_stats = "${prefix}.bcftools.multiallelics.stats.txt"
     realign_stats = "${prefix}.bcftools.realign.stats.txt"
-    // tsv_file = "${prefix}.tsv"
-    // reformat_tsv = "${prefix}.reformat.tsv"
-    // filtered_vcf = "${prefix}.filtered.vcf"
     """
     gatk.sh -T HaplotypeCaller \
     -dt NONE \
@@ -1632,33 +1602,6 @@ process gatk_hc {
     bcftools norm --fasta-ref "${ref_fasta}" --output-type v - 2>"${realign_stats}" > \
     "${norm_vcf}"
     """
-    // # report if
-    // # alternate allele freq (allele depth / depth) greater than 0.05 ; 5%
-    // # more than 5 variant call supporting reads
-    // # quality reads present (reported depth >0)
-    // gatk.sh -T SelectVariants \
-    // -R "${ref_fasta}" \
-    // -V "${norm_vcf}" \
-    // --sample_name "${sampleID}" \
-    // -select "vc.getGenotype('${sampleID}').getAD().1 / vc.getGenotype('${sampleID}').getDP() > 0.05" \
-    // -select "vc.getGenotype('${sampleID}').getAD().1 > 5" \
-    // -select "vc.getGenotype('${sampleID}').getDP() > 0" \
-    // > "${filtered_vcf}"
-    //
-    // gatk.sh -T VariantsToTable \
-    // -R "${ref_fasta}" \
-    // -V "${filtered_vcf}" \
-    // -F CHROM -F POS -F ID -F REF -F ALT -F FILTER -F QUAL -F AC -F AN \
-    // -GF AD -GF DP \
-    // -o "${tsv_file}"
-    //
-    // # reformat and adjust the TSV table for consistency downstream
-    // # add extra columns to the VCF TSV file for downstream
-    // reformat-vcf-table.py -c HaplotypeCaller -s "${sampleID}" -i "${tsv_file}" | \
-    // paste-col.py --header "Sample" -v "${sampleID}" | \
-    // paste-col.py --header "VariantCallerType" -v "${type}"  | \
-    // paste-col.py --header "VariantCaller" -v "${caller}" > \
-    // "${reformat_tsv}"
 }
 
 process varscan_snp {
@@ -1677,6 +1620,9 @@ process varscan_snp {
     file("${multiallelics_stats}")
     file("${realign_stats}")
     set val(caller), val(type), val(sampleID), file("${norm_vcf}") into varscan_snp_vcfs
+
+    when:
+    disable_varscan2 != true
 
     script:
     caller = "VarScan2"
@@ -1732,6 +1678,9 @@ process varscan_indel {
     file("${realign_stats}")
     set val(caller), val(type), val(sampleID), file("${norm_vcf}") into varscan_indel_vcfs
 
+    when:
+    disable_varscan2 != true
+
     script:
     caller = "VarScan2"
     type = "indel"
@@ -1772,7 +1721,7 @@ process varscan_indel {
 }
 
 // set up channel for filtering unpaired vcfs
-varscan_snp_vcfs.mix(varscan_indel_vcfs, lofreq_norm_vcfs, sample_vcf_hc)
+lofreq_norm_vcfs.mix(varscan_indel_vcfs, varscan_snp_vcfs, sample_vcf_hc)
     .combine(ref_fasta16)
     .combine(ref_fai16)
     .combine(ref_dict16)
@@ -2636,6 +2585,9 @@ process pindel {
     input:
     set val(chunkLabel), val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) from samples_dd_bam_noHapMap_pairs_targets
 
+    when:
+    disable_pindel != true
+
     output:
     set val("${caller}"), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${output_vcf}") into pindel_vcfs
     file("${output_dir}")
@@ -2725,6 +2677,7 @@ vcfs_mutect2.mix(vcfs_lofreq_somatic_snvs_vcf_norm,
 
 process filter_vcf_pairs {
     // filter the .vcf for tumor-normal pairs
+    // https://software.broadinstitute.org/gatk/documentation/tooldocs/3.8-0/org_broadinstitute_gatk_tools_walkers_variantutils_SelectVariants.php
     tag "${caller}.${chunkLabel}"
     publishDir "${params.outputDir}/variants/${caller}/filtered", mode: 'copy', pattern: "*${filtered_vcf}"
 
@@ -2809,11 +2762,13 @@ process filter_vcf_pairs {
     else if( caller == 'Strelka' )
         """
         # only keep 'PASS' entries
-
-        # get the header
-        grep '^#' "${vcf}" > "${filtered_vcf}"
-        # get the 'PASS' entries
-        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
+        # filter out TQSS_NT=2 https://github.com/Illumina/strelka/issues/65
+        gatk.sh -T SelectVariants \
+        -R "${ref_fasta}" \
+        -V "${vcf}" \
+        -select "TQSS_NT != 2"  \
+        --excludeFiltered \
+        > "${filtered_vcf}"
         """
         // ##FILTER=<ID=PASS,Description="All filters passed">
         // ##INFO=<ID=QSS,Number=1,Type=Integer,Description="Quality score for any somatic snv, ie. for the ALT allele to be present at a significantly different frequency in the tumor and normal">
@@ -2920,6 +2875,9 @@ process vcf_to_tsv_pairs {
         paste-col.py --header "VariantCallerType" -v "${callerType}"  | \
         paste-col.py --header "VariantCaller" -v "${caller}" > \
         "${reformat_tsv}"
+
+        # make sure that the input and output tables have the same number of rows
+        if [ "\$(wc -l < "${tsv_file}" )" -ne "\$( wc -l < "${reformat_tsv}" )" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
         """
     else if( caller == 'LoFreqSomatic' )
         """
@@ -2973,6 +2931,9 @@ process vcf_to_tsv_pairs {
         paste-col.py --header "VariantCallerType" -v "${callerType}"  | \
         paste-col.py --header "VariantCaller" -v "${caller}" > \
         "${reformat_tsv}"
+
+        # make sure that the input and output tables have the same number of rows
+        if [ "\$(wc -l < "${tsv_file}" )" -ne "\$( wc -l < "${reformat_tsv}" )" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
         """
     else if( caller == 'Strelka' )
         if ( callerType == "snvs" )
@@ -3043,6 +3004,14 @@ process vcf_to_tsv_pairs {
             paste-col.py --header "VariantCallerType" -v "${callerType}"  | \
             paste-col.py --header "VariantCaller" -v "${caller}" > \
             "${reformat_tsv}"
+
+            # make sure that the input and output tables have the same number of rows
+            tsv_lines="\$(wc -l < "${tsv_file}" )"
+            reformat_lines="\$( wc -l < "${reformat_tsv}" )"
+            if [ "\$tsv_lines" -ne "\$reformat_lines" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
+
+            vcf_lines="\$(grep -v '^##' ${vcf} | wc -l)"
+            if [ "\$vcf_lines" -ne "\$reformat_lines" ]; then echo "ERROR: reformat table has different number of entries than vcf file!"; exit 1; fi
             """
         else if( callerType == 'indel' )
             """
@@ -3108,6 +3077,9 @@ process vcf_to_tsv_pairs {
             paste-col.py --header "VariantCallerType" -v "${callerType}"  | \
             paste-col.py --header "VariantCaller" -v "${caller}" > \
             "${reformat_tsv}"
+
+            # make sure that the input and output tables have the same number of rows
+            if [ "\$(wc -l < "${tsv_file}" )" -ne "\$( wc -l < "${reformat_tsv}" )" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
             """
         else
             error "Invalid Strelka callerType: ${callerType}"
@@ -3285,7 +3257,6 @@ process annotate {
         --protocol "${params.ANNOVAR_PROTOCOL}" \
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
-        --onetranscript \
         --outfile "${prefix}"
 
         # add headers to the avinput, just the first columns
@@ -3310,7 +3281,6 @@ process annotate {
         --protocol "${params.ANNOVAR_PROTOCOL}" \
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
-        --onetranscript \
         --outfile "${prefix}"
 
         printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
@@ -3333,7 +3303,6 @@ process annotate {
         --protocol "${params.ANNOVAR_PROTOCOL}" \
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
-        --onetranscript \
         --outfile "${prefix}"
 
         printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
@@ -3374,7 +3343,6 @@ process annotate_pairs {
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
         --vcfinput \
-        --onetranscript \
         --outfile "${prefix}"
 
         # get values from .avinput file
@@ -3394,7 +3362,6 @@ process annotate_pairs {
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
         --vcfinput \
-        --onetranscript \
         --outfile "${prefix}"
 
         # get values from .avinput file
@@ -3417,7 +3384,6 @@ process annotate_pairs {
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
         --vcfinput \
-        --onetranscript \
         --outfile "${prefix}"
 
         # get values from .avinput file
@@ -3446,7 +3412,6 @@ process annotate_pairs {
         --protocol "${params.ANNOVAR_PROTOCOL}" \
         --operation "${params.ANNOVAR_OPERATION}" \
         --nastring . \
-        --onetranscript \
         --outfile "${prefix}"
 
         # need to re-associate the original vcf columns with the vcf tsv for merge
@@ -4205,14 +4170,13 @@ process snp_pileup {
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(snp_vcf), file(snp_vcf_tbi) from samples_dd_bam_noHapMap_pairs2.combine(common_snp_vcf).combine(common_snp_vcf_tbi)
 
     output:
-    set val(prefix), file(output_cnvsnp) into snp_pileup
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(output_cnvsnp) into snp_pileup
 
     script:
     caller = "FACETS"
     callerType = "cnv"
     prefix = "${comparisonID}.${caller}.${callerType}"
-    output_cnvsnp = "${prefix}.snp_pileup.gz"
-
+    output_cnvsnp = "${prefix}.snp_pileup.txt"
     """
     snp-pileup \
     -g \
@@ -4226,25 +4190,105 @@ process snp_pileup {
     "${tumorBam}"
 
     # need to remove 'chr' from the table to resolve bugs in facets
-    zcat tmp.gz | sed 's|chr||g'  | gzip - -c > "${output_cnvsnp}"
+    zcat tmp.gz | sed 's|chr||g' > "${output_cnvsnp}"
     """
 }
+
+// Need to filter out the samples that did not have enough entries for FACETS analysis
+// need >1 entry (>2 lines in file)
+snp_pileup_good = Channel.create()
+snp_pileup_bad = Channel.create()
+snp_pileup.choice( snp_pileup_good, snp_pileup_bad ){ items ->
+    def caller = items[0]
+    def callerType = items[1]
+    def comparisonID = items[2]
+    def tumorID = items[3]
+    def normalID = items[4]
+    def snp_pileup_txt = items[5]
+    def output_ch = 1 // bad by default
+    def num_lines = 0 // lines counter
+    def required_lines = 2
+
+    // make sure that the gz has at least 2 lines, then stop counting
+    snp_pileup_txt.withReader { reader ->
+            while (line = reader.readLine()) {
+                if ( num_lines > required_lines ) {
+                    output_ch = 0 // output to 'good' channel
+                    break
+                    }
+                num_lines++
+            }
+        }
+    return(output_ch)
+}
+snp_pileup_bad.map { caller, callerType, comparisonID, tumorID, normalID, snp_pileup_txt ->
+    def reason = "Too few lines in snp_pileup_txt, skipping FACETS"
+    def output = [comparisonID, caller, callerType, reason, "${snp_pileup_txt}"].join('\t')
+    return(output)
+}.set { snp_pileup_bad_logs }
+
+
+process snp_pileup_check_variance {
+    // need to check the variance of the given snp-pileup to make sure theres enough
+    // data that FACETS will not break; needs to return some numeric value
+    // bad data reurns 'NA'
+    input:
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(snp_pileup_txt) from snp_pileup_good
+
+    output:
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(snp_pileup_txt), file("${output_file}") into snp_pileup_variances
+
+    script:
+    prefix = "${comparisonID}.${caller}.${callerType}"
+    output_file = "${prefix}.variance.txt"
+    """
+    facets-check-variance.R "${snp_pileup_txt}" "${output_file}"
+    """
+}
+
+// Need to filter out samples with a non-numeric variance value
+snp_pileup_variance_good = Channel.create()
+snp_pileup_variance_bad = Channel.create()
+snp_pileup_variances.choice( snp_pileup_variance_good, snp_pileup_variance_bad ){ items ->
+    def caller = items[0]
+    def callerType = items[1]
+    def comparisonID = items[2]
+    def tumorID = items[3]
+    def normalID = items[4]
+    def snp_pileup_txt = items[5]
+    def variance_txt = items[6]
+
+    def output_ch = 1 // bad by default
+    def line = new File("${variance_txt}").withReader { line = it.readLine() }
+
+    if ( line != "NA" ){
+        output_ch = 0
+    }
+
+    return(output_ch)
+}
+snp_pileup_variance_bad.map { caller, callerType, comparisonID, tumorID, normalID, snp_pileup_txt, variance_txt ->
+    def reason = "SNP Pileup had invalid variance value, skipping FACETS"
+    def output = [comparisonID, caller, callerType, reason, "${snp_pileup_txt}"].join('\t')
+    return(output)
+}.set { snp_pileup_variance_bad_logs }
 
 process facets {
     publishDir "${params.outputDir}/cnv", mode: 'copy'
 
     input:
-    set val(prefix), file(output_cnvsnp) from snp_pileup
+    set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(snp_pileup_txt), file(snp_pileup_variance) from snp_pileup_variance_good
 
     output:
     file("${output_segment}")
     file("${output_pdf}")
 
     script:
+    prefix = "${comparisonID}.${caller}.${callerType}"
     output_segment = "${prefix}.segment.csv"
     output_pdf = "${prefix}.plot.pdf"
     """
-    facets.R "${output_cnvsnp}" "${output_pdf}" "${output_segment}"
+    facets.R "${snp_pileup_txt}" "${output_pdf}" "${output_segment}"
     """
 }
 
@@ -4791,10 +4835,10 @@ done_copy_samplesheet.concat(
 
 
 // collect failed log messages
-failed_samples.concat(samples_vcfs_tsvs_bad_logs, sample_sig_bad_logs)
+failed_samples.mix(samples_vcfs_tsvs_bad_logs, sample_sig_bad_logs)
     .collectFile(name: "failed.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set { failed_log_ch }
-failed_pairs.concat(pairs_vcfs_tsvs_bad_logs, annotations_tables_paired_filtered_bad_logs)
+failed_pairs.mix(pairs_vcfs_tsvs_bad_logs, annotations_tables_paired_filtered_bad_logs, snp_pileup_bad_logs, snp_pileup_variance_bad_logs)
     .collectFile(name: "failed.pairs.tsv", storeDir: "${params.outputDir}", newLine: true)
     .set{ failed_pairs_log_ch }
 

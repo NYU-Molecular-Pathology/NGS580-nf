@@ -306,8 +306,12 @@ def StrelkaSomaticSNV(fin, fout):
         tumor_alt_counts_colname = "TUMOR." + alt_nucleotide + "U"
         tumor_ref_counts = int(row[tumor_ref_counts_colname].split(',')[0])
         tumor_alt_counts = int(row[tumor_alt_counts_colname].split(',')[0])
-        tumor_AF = tumor_alt_counts / ((tumor_alt_counts + tumor_ref_counts) * 1.0) # coerce to float
-
+        tumor_depth = ((tumor_alt_counts + tumor_ref_counts) * 1.0) # coerce to float
+        # sometimes Strelka outputs 0% AF variants; https://github.com/Illumina/strelka/issues/65
+        if tumor_depth > 0.0:
+            tumor_AF = tumor_alt_counts / tumor_depth
+        else:
+            tumor_AF = 0.0
         row['AF'] = tumor_AF
         row['FREQ'] = tumor_AF
         row['TUMOR.AF'] = tumor_AF
@@ -316,9 +320,12 @@ def StrelkaSomaticSNV(fin, fout):
         normal_alt_counts_colname = "NORMAL." + alt_nucleotide + "U"
         normal_ref_counts = int(row[normal_ref_counts_colname].split(',')[0])
         normal_alt_counts = int(row[normal_alt_counts_colname].split(',')[0])
-        normal_AF = normal_alt_counts / ((normal_alt_counts + normal_ref_counts) * 1.0) # coerce to float
+        normal_depth = ((normal_alt_counts + normal_ref_counts) * 1.0) # coerce to float
+        if normal_depth > 0.0:
+            normal_AF = normal_alt_counts / normal_depth
+        else:
+            normal_AF = 0.0
         row['NORMAL.AF'] = normal_AF
-
         row['QUAL'] = row['QSS']
         row['SB'] = row['SNVSB']
         writer.writerow(row)
