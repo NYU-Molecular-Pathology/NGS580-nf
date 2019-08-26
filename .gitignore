@@ -73,3 +73,4 @@ nextflow.html.*
 trace.txt.*
 data/*
 samples.cnv.tsv
+.trace.hash.txt

@@ -575,22 +575,41 @@ $(NXFWORKFILES):
 
 ## ~~~ remove 'work' subdirs that are not in the latest trace file (e.g. most previous run) ~~~ ##
 # subdirs in the 'work' dir
+TRACE_PATTERN_FILE:=.trace.hash.txt
 NXFWORKSUBDIRSRM:=
 FIND_NXFWORKSUBDIRSRM:=
 # regex from the hashes of tasks in the tracefile to match against work subdirs
 HASHPATTERN:=
 ifneq ($(FIND_NXFWORKSUBDIRSRM),)
-NXFWORKSUBDIRSRM:=$(shell find "$(workDir)/" -maxdepth 2 -mindepth 2)
-HASHPATTERN:=$(shell python -c 'import csv; reader = csv.DictReader(open("$(TRACEFILE)"), delimiter = "\t"); print("|".join([row["hash"] for row in reader]))')
+NXFWORKSUBDIRSRM:=$(shell find "$(workDir)/" -maxdepth 2 -mindepth 2 )
+# HASHPATTERN:=$(shell python -c 'import csv; reader = csv.DictReader(open("$(TRACEFILE)"), delimiter = "\t"); print("|".join([row["hash"] for row in reader]))')
 endif
 finalize-work-rm:
 	@echo ">>> Removing subdirs in Nextflow work directory '$(workDir)' which are not included in Nextflow trace file '$(TRACEFILE)'..."
-	$(MAKE) finalize-work-rm-recurse FIND_NXFWORKSUBDIRSRM=1
+	$(MAKE) $(TRACE_PATTERN_FILE) finalize-work-rm-recurse FIND_NXFWORKSUBDIRSRM=1
+
+# need to write out hashes to file because it gets too long to use as CLI arg
+$(TRACE_PATTERN_FILE):
+	@echo ">>> Making trace hash file: $(TRACE_PATTERN_FILE)"
+	@python -c 'import csv; \
+	reader = csv.DictReader(open("$(TRACEFILE)"), delimiter = "\t"); \
+	fout = open("$(TRACE_PATTERN_FILE)", "w"); \
+	fout.write("\n".join([row["hash"] for row in reader])) ; fout.close(); \
+	'
+
 finalize-work-rm-recurse: $(NXFWORKSUBDIRSRM)
-# remove the subdir if its not listed in the trace hashes
+
 $(NXFWORKSUBDIRSRM):
-	@if [ ! "$$(echo '$@' | grep -q -E "$(HASHPATTERN)"; echo $$? )" -eq 0 ]; then \
+	@pattern="$$(echo $(@) | sed -e 's|$(workDir)/||g' | cut -c 1-9)" ; \
+	if [ ! "$$( grep -q $${pattern} '$(TRACE_PATTERN_FILE)'; echo $$?)" -eq 0 ]; then \
 	echo ">>> Removing subdir: $@" ; \
 	rm -rf "$@" ; \
 	fi
-.PHONY: $(NXFWORKSUBDIRSRM)
+
+# remove the subdir if its not listed in the trace hashes
+# $(NXFWORKSUBDIRSRM):
+# 	@if [ ! "$$(echo '$@' | grep -q -E "$(HASHPATTERN)"; echo $$? )" -eq 0 ]; then \
+# 	echo ">>> Removing subdir: $@" ; \
+# 	rm -rf "$@" ; \
+# 	fi
+.PHONY: $(NXFWORKSUBDIRSRM) $(TRACE_PATTERN_FILE)
