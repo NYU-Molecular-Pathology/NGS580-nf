@@ -330,6 +330,14 @@ submit:
 submit-bigpurple:
 	@touch "$(NXF_SUBMIT)" && \
 	printf "#!/bin/bash\n \
+	set -x \n \
+	get_pid(){ head -1 $(NXF_PIDFILE); } ; \n \
+	rm_submit(){ echo '>>> trap: rm_submit' ; [ -e $(NXF_SUBMIT) ] && rm -f $(NXF_SUBMIT) || : ; } ; \n \
+	wait_pid(){ local pid=\$$1 ; while kill -0 \$$pid; do echo waiting for process \$$pid to end ; sleep 1 ; done ; } ; \n \
+	nxf_kill(){ rm_submit ; echo '>>> trap: nxf_kill' && pid=\$$(get_pid) && kill \$$pid && wait_pid \$$pid ; } ; \n \
+	trap nxf_kill HUP ; \n \
+	trap nxf_kill INT ; \n \
+	trap nxf_kill EXIT ; \n \
 	make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)" | \
 	sbatch -D "$(ABSDIR)" -o "$(SUBLOG)" -J "$(SUBJOBNAME)" -p "$(SUBQ)" $(SUBTIME) --ntasks-per-node=1 -c "$(SUBTHREADS)" --mem "$(SUBMEM)" --export=HOSTNAME /dev/stdin | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
 # sbatch -D "$(ABSDIR)" -o "$(SUBLOG)" -J "$(SUBJOBNAME)" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)"' | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
@@ -342,11 +350,17 @@ submit-bigpurple:
 submit-bigpurple-run:
 	if [ -e "$(NXF_NODEFILE)" -a -e "$(NXF_PIDFILE)" ]; then paste "$(NXF_NODEFILE)" "$(NXF_PIDFILE)" >> $(NXF_SUBMITLOG); fi ; \
 	echo "$${SLURMD_NODENAME}" > "$(NXF_NODEFILE)" && \
-	rm_submit(){ [ -e "$(NXF_SUBMIT)" ] && rm -f "$(NXF_SUBMIT)" || : ; } ; \
-	trap rm_submit INT ; \
-	trap rm_submit EXIT ; \
 	$(MAKE) run HOSTNAME="bigpurple" LOGID="$(TIMESTAMP)"
+
 # EP='-bg'
+# rm_submit(){ echo '>>> trap: rm_submit' ; [ -e "$(NXF_SUBMIT)" ] && rm -f "$(NXF_SUBMIT)" || : ; } ; \
+# trap rm_submit HUP ; \
+# trap rm_submit INT ; \
+# trap rm_submit EXIT ; \
+# nxf_kill(){ echo '>>> trap: nxf_kill'; pid="$$(head -1 "$(NXF_PIDFILE)")" && echo "killing pid: $$pid" && kill $$pid && wait $$pid ; } ; \
+trap nxf_kill HUP ; \
+trap nxf_kill INT ; \
+trap nxf_kill EXIT ; \
 
 # issue an interupt signal to a process running on a remote server
 # e.g. Nextflow running in a qsub job on a compute node
