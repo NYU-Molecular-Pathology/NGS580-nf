@@ -74,3 +74,4 @@ trace.txt.*
 data/*
 samples.cnv.tsv
 .trace.hash.txt
+submit.bigpurple.sh

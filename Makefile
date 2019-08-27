@@ -315,6 +315,7 @@ NXF_SUBMIT:=.nextflow.submitted
 NXF_SUBMITLOG:=.nextflow.submitted.log
 REMOTE:=
 PID:=
+SUBSCRIPT:=submit.bigpurple.sh
 # check for an HPC submission lock file, then try to determine the submission recipe to use
 submit:
 	@if [ -e "$(NXF_SUBMIT)" ]; then echo ">>> ERROR: Workflow locked by $(NXF_SUBMIT); has an instance of the pipeline has already been submitted?"; exit 1 ; \
@@ -324,24 +325,51 @@ submit:
 	else echo ">>> ERROR: could not automatically determine 'submit' recipe to use, please consult the Makefile"; exit 1 ; fi ; \
 	fi
 
-# submit on Big Purple using SLURM
-# set a submission lock file
+# generate a SLURM sbatch script to start the pipeline in a SLURM job
+# sets a submission lock file
 # NOTE: Nextflow locks itself from concurrent instances but need to lock against multiple 'make submit'
-submit-bigpurple:
-	@touch "$(NXF_SUBMIT)" && \
-	printf "#!/bin/bash\n \
-	set -x \n \
-	get_pid(){ head -1 $(NXF_PIDFILE); } ; \n \
-	rm_submit(){ echo '>>> trap: rm_submit' ; [ -e $(NXF_SUBMIT) ] && rm -f $(NXF_SUBMIT) || : ; } ; \n \
-	wait_pid(){ local pid=\$$1 ; while kill -0 \$$pid; do echo waiting for process \$$pid to end ; sleep 1 ; done ; } ; \n \
-	nxf_kill(){ rm_submit ; echo '>>> trap: nxf_kill' && pid=\$$(get_pid) && kill \$$pid && wait_pid \$$pid ; } ; \n \
-	trap nxf_kill HUP ; \n \
-	trap nxf_kill INT ; \n \
-	trap nxf_kill EXIT ; \n \
-	make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)" | \
-	sbatch -D "$(ABSDIR)" -o "$(SUBLOG)" -J "$(SUBJOBNAME)" -p "$(SUBQ)" $(SUBTIME) --ntasks-per-node=1 -c "$(SUBTHREADS)" --mem "$(SUBMEM)" --export=HOSTNAME /dev/stdin | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
-# sbatch -D "$(ABSDIR)" -o "$(SUBLOG)" -J "$(SUBJOBNAME)" -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" --export=HOSTNAME --wrap='bash -c "make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)"' | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
-# srun -D "$$PWD" --output "$(LOGDIRABS)/slurm-%j.out" --input none -p "$(SUBQ)" --ntasks-per-node=1 -c "$(SUBTHREADS)" bash -c 'make submit-bigpurple-run $(SUBEP)'
+# catches 'scancel' commands and propagates them up to Nextflow for clean shutdown
+$(SUBSCRIPT):
+	@printf '' > $(SUBSCRIPT)
+	@chmod +x $(SUBSCRIPT)
+	@echo '#!/bin/bash -x' >> $(SUBSCRIPT)
+	@echo '#SBATCH -D $(ABSDIR)' >> $(SUBSCRIPT)
+	@echo '#SBATCH -o $(SUBLOG)' >> $(SUBSCRIPT)
+	@echo '#SBATCH -J $(SUBJOBNAME)' >> $(SUBSCRIPT)
+	@echo '#SBATCH -p $(SUBQ)' >> $(SUBSCRIPT)
+	@echo '#SBATCH $(SUBTIME)' >> $(SUBSCRIPT)
+	@echo '#SBATCH --ntasks-per-node=1' >> $(SUBSCRIPT)
+	@echo '#SBATCH -c $(SUBTHREADS)' >> $(SUBSCRIPT)
+	@echo '#SBATCH --mem $(SUBMEM)' >> $(SUBSCRIPT)
+	@echo '#SBATCH --export=HOSTNAME' >> $(SUBSCRIPT)
+	@echo 'touch $(NXF_SUBMIT)' >> $(SUBSCRIPT)
+	@echo 'get_pid(){ head -1 $(NXF_PIDFILE); }' >> $(SUBSCRIPT)
+	@echo 'rm_submit(){ echo ">>> trap: rm_submit" ; [ -e $(NXF_SUBMIT) ] && rm -f $(NXF_SUBMIT) || : ; }' >> $(SUBSCRIPT)
+	@echo 'wait_pid(){ local pid=$$1 ; while kill -0 $$pid; do echo waiting for process $$pid to end ; sleep 1 ; done ; }' >> $(SUBSCRIPT)
+	@echo 'nxf_kill(){ rm_submit ; echo ">>> trap: nxf_kill" && pid=$$(get_pid) && kill $$pid && wait_pid $$pid ; }' >> $(SUBSCRIPT)
+	@echo 'trap nxf_kill HUP' >> $(SUBSCRIPT)
+	@echo 'trap nxf_kill INT' >> $(SUBSCRIPT)
+	@echo 'trap nxf_kill EXIT' >> $(SUBSCRIPT)
+	@echo 'make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)' >> $(SUBSCRIPT)
+.PHONY: $(SUBSCRIPT)
+
+# submit on Big Purple using SLURM
+submit-bigpurple: $(SUBSCRIPT)
+	@sbatch $(SUBSCRIPT) | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
+
+# submit-bigpurple2:
+# @touch "$(NXF_SUBMIT)" && \
+# 	printf "#!/bin/bash\n \
+# 	set -x \n \
+# 	get_pid(){ head -1 $(NXF_PIDFILE); } ; \n \
+# 	rm_submit(){ echo '>>> trap: rm_submit' ; [ -e $(NXF_SUBMIT) ] && rm -f $(NXF_SUBMIT) || : ; } ; \n \
+# 	wait_pid(){ local pid=\$$1 ; while kill -0 \$$pid; do echo waiting for process \$$pid to end ; sleep 1 ; done ; } ; \n \
+# 	nxf_kill(){ rm_submit ; echo '>>> trap: nxf_kill' && pid=\$$(get_pid) && kill \$$pid && wait_pid \$$pid ; } ; \n \
+# 	trap nxf_kill HUP ; \n \
+# 	trap nxf_kill INT ; \n \
+# 	trap nxf_kill EXIT ; \n \
+# 	make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)" | \
+# 	sbatch -D "$(ABSDIR)" -o "$(SUBLOG)" -J "$(SUBJOBNAME)" -p "$(SUBQ)" $(SUBTIME) --ntasks-per-node=1 -c "$(SUBTHREADS)" --mem "$(SUBMEM)" --export=HOSTNAME /dev/stdin | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
 
 # run inside a SLURM sbatch
 # store old pid and node entries in a backup file in case things get messy
