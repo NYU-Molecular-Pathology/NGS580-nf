@@ -357,20 +357,6 @@ $(SUBSCRIPT):
 submit-bigpurple: $(SUBSCRIPT)
 	@sbatch $(SUBSCRIPT) | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
 
-# submit-bigpurple2:
-# @touch "$(NXF_SUBMIT)" && \
-# 	printf "#!/bin/bash\n \
-# 	set -x \n \
-# 	get_pid(){ head -1 $(NXF_PIDFILE); } ; \n \
-# 	rm_submit(){ echo '>>> trap: rm_submit' ; [ -e $(NXF_SUBMIT) ] && rm -f $(NXF_SUBMIT) || : ; } ; \n \
-# 	wait_pid(){ local pid=\$$1 ; while kill -0 \$$pid; do echo waiting for process \$$pid to end ; sleep 1 ; done ; } ; \n \
-# 	nxf_kill(){ rm_submit ; echo '>>> trap: nxf_kill' && pid=\$$(get_pid) && kill \$$pid && wait_pid \$$pid ; } ; \n \
-# 	trap nxf_kill HUP ; \n \
-# 	trap nxf_kill INT ; \n \
-# 	trap nxf_kill EXIT ; \n \
-# 	make submit-bigpurple-run TIMESTAMP=$(TIMESTAMP) $(SUBEP)" | \
-# 	sbatch -D "$(ABSDIR)" -o "$(SUBLOG)" -J "$(SUBJOBNAME)" -p "$(SUBQ)" $(SUBTIME) --ntasks-per-node=1 -c "$(SUBTHREADS)" --mem "$(SUBMEM)" --export=HOSTNAME /dev/stdin | tee >(sed 's|[^[:digit:]]*\([[:digit:]]*\).*|\1|' > '$(NXF_JOBFILE)')
-
 # run inside a SLURM sbatch
 # store old pid and node entries in a backup file in case things get messy
 # need to manually set the HOSTNAME here because it changes inside SLURM job
@@ -380,16 +366,6 @@ submit-bigpurple-run:
 	echo "$${SLURMD_NODENAME}" > "$(NXF_NODEFILE)" && \
 	$(MAKE) run HOSTNAME="bigpurple" LOGID="$(TIMESTAMP)"
 
-# EP='-bg'
-# rm_submit(){ echo '>>> trap: rm_submit' ; [ -e "$(NXF_SUBMIT)" ] && rm -f "$(NXF_SUBMIT)" || : ; } ; \
-# trap rm_submit HUP ; \
-# trap rm_submit INT ; \
-# trap rm_submit EXIT ; \
-# nxf_kill(){ echo '>>> trap: nxf_kill'; pid="$$(head -1 "$(NXF_PIDFILE)")" && echo "killing pid: $$pid" && kill $$pid && wait $$pid ; } ; \
-trap nxf_kill HUP ; \
-trap nxf_kill INT ; \
-trap nxf_kill EXIT ; \
-
 # issue an interupt signal to a process running on a remote server
 # e.g. Nextflow running in a qsub job on a compute node
 kill: PID=$(shell head -1 "$(NXF_PIDFILE)")
@@ -397,33 +373,15 @@ kill: REMOTE=$(shell head -1 "$(NXF_NODEFILE)")
 kill: $(NXF_NODEFILE) $(NXF_PIDFILE)
 	ssh "$(REMOTE)" 'kill $(PID)'
 
-# `make submit-phoenix EP='--runID 180316_NB501073_0036_AH3VFKBGX5'`
-# submit-phoenix:
-# 	@qsub_logdir="logs" ; \
-# 	mkdir -p "$${qsub_logdir}" ; \
-# 	job_name="NGS580-nf" ; \
-# 	echo 'make run-phoenix-qsub EP="$(EP)"' | qsub -wd "$$PWD" -o :$${qsub_logdir}/ -e :$${qsub_logdir}/ -j y -N "$$job_name" -q all.q
-#
-# # parent Nextflow process to be run as a qsub job on phoenix
-# run-phoenix-qsub: install
-# 	@output_file="pid.txt" ; \
-# 	module unload java && module load java/1.8 && \
-# 	JOBINFO="$${JOB_ID:-none}\t$${JOB_NAME:-none}\t$${HOSTNAME:-none}\t$${USER:-none}" ; \
-# 	./nextflow run main.nf -profile phoenix $(RESUME) -with-dag flowchart.dot $(EP) & \
-# 	pid="$$!" ; \
-# 	INFOSTR="$${pid}\t$${JOBINFO}\t$$(date +%s)" ; \
-# 	printf "$${INFOSTR}\n" ; \
-# 	printf "$${INFOSTR}\n" >> $${output_file} ; \
-# 	wait $${pid}
-
+# location to files for making HapMap pool
 HAPMAP_POOL_SHEET:=samples.hapmap.tsv
 hapmap-pool: $(HAPMAP_POOL_SHEET)
 	./nextflow run hapmap-pool.nf -profile hapmap_pool $(RESUME)
 
+# location for files for making CNV Pool
 CNV_POOL_SHEET:=samples.cnv.tsv
 cnv-pool: $(CNV_POOL_SHEET)
 	./nextflow run cnv-pool.nf -profile cnv_pool $(RESUME)
-
 
 # save a record of the most recent Nextflow run completion
 PRE:=
