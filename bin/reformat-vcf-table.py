@@ -311,10 +311,11 @@ def StrelkaSomaticSNV(fin, fout):
         if tumor_depth > 0.0:
             tumor_AF = tumor_alt_counts / tumor_depth
         else:
-            tumor_AF = 0.0
+            tumor_AF = 0.0 # mark as 0 and remove later with post-filter
         row['AF'] = tumor_AF
         row['FREQ'] = tumor_AF
         row['TUMOR.AF'] = tumor_AF
+        row['DP'] = row['TUMOR.DP'] # Seems to report total depth as DP; change to tumor depth
 
         normal_ref_counts_colname = "NORMAL." + ref_nucleotide + "U"
         normal_alt_counts_colname = "NORMAL." + alt_nucleotide + "U"

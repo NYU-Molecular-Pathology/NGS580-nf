@@ -71,7 +71,7 @@ def StrelkaSomaticIndel(row):
     # AF not encoded in .vcf
     tumorAlleleFrequency = float(row['AF'])
     passAF = True
-    if tumorAlleleFrequency > somatic_frequency_min_tumor:
+    if tumorAlleleFrequency < somatic_frequency_min_tumor:
         passAF = False
 
     funcRefGene = row['Func.refGene']
@@ -87,7 +87,7 @@ def StrelkaSomaticIndel(row):
 def StrelkaSomaticSNV(row):
     tumorAlleleFrequency = float(row['AF'])
     passAF = True
-    if tumorAlleleFrequency > somatic_frequency_min_tumor:
+    if tumorAlleleFrequency < somatic_frequency_min_tumor:
         passAF = False
 
     funcRefGene = row['Func.refGene']
