@@ -1779,7 +1779,7 @@ process filter_vcf {
         --sample_name "${sampleID}" \
         -select "vc.getGenotype('${sampleID}').getAD().1 / vc.getGenotype('${sampleID}').getDP() > 0.05" \
         -select "vc.getGenotype('${sampleID}').getAD().1 > 5" \
-        -select "vc.getGenotype('${sampleID}').getDP() > 0" \
+        -select "vc.getGenotype('${sampleID}').getDP() > 100" \
         > "${filtered_vcf}"
         """
     else
@@ -2299,8 +2299,6 @@ process mutect2 {
     tsv_file = "${prefix}.tsv"
     reformat_tsv = "${prefix}.reformat.tsv"
     """
-
-
     # variant calling
     gatk.sh -T MuTect2 \
     -dt NONE \
@@ -2347,12 +2345,12 @@ process lofreq_somatic {
     output:
     file("${final_snvs_vcf_gz}")
     file("${final_indels_vcf_gz}")
-    file("${final_minus_dbsnp_snvs_vcf_gz}")
-    file("${final_minus_dbsnp_indels_vcf_gz}")
+    // file("${final_minus_dbsnp_snvs_vcf_gz}")
+    // file("${final_minus_dbsnp_indels_vcf_gz}")
     set val("${caller}"), val("snvs"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${final_snvs_vcf_norm}") into vcfs_lofreq_somatic_snvs_vcf_norm
     set val("${caller}"), val("indels"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${final_indels_vcf_norm}") into vcfs_lofreq_somatic_indels_vcf_norm
-    set val("${caller}"), val("snvs-minus-dbsnp"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${final_minus_dbsnp_snvs_vcf_norm}") into vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm
-    set val("${caller}"), val("indels-minus-dbsnp"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${final_minus_dbsnp_snvs_vcf_norm}") into vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm
+    // set val("${caller}"), val("snvs-minus-dbsnp"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${final_minus_dbsnp_snvs_vcf_norm}") into vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm
+    // set val("${caller}"), val("indels-minus-dbsnp"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${final_minus_dbsnp_snvs_vcf_norm}") into vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm
 
     script:
     caller = "LoFreqSomatic"
@@ -2669,10 +2667,11 @@ process normalize_vcfs_pairs {
 }
 
 // get all the paired sample vcfs for downstream processing
-vcfs_mutect2.mix(vcfs_lofreq_somatic_snvs_vcf_norm,
+vcfs_mutect2.mix(
+    vcfs_lofreq_somatic_snvs_vcf_norm,
     vcfs_lofreq_somatic_indels_vcf_norm,
-    vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm,
-    vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm,
+    // vcfs_lofreq_somatic_snvs_minus_dbsnp_vcf_norm,
+    // vcfs_lofreq_somatic_indels_minus_dbsnp_vcf_norm,
     norm_vcfs_pairs).set { vcfs_pairs }
 
 process filter_vcf_pairs {
