@@ -406,7 +406,7 @@ record:
 record-recurse:
 	@echo ">>> Recording logs to $(RECDIR)" && \
 	mkdir -p "$(RECDIR)" && \
-	cp -a *.html trace.txt .nextflow.log main.nf nextflow.config "$(RECDIR)/" ; \
+	cp -a *.html trace.txt .nextflow.log main.nf nextflow.config config.json "$(RECDIR)/" ; \
 	for item in $(ALL_LOGS); do cp -a "$${item}" "$(RECDIR)/"; done ; \
 	if [ ! -z "$(TASKDIR)" -a -d "$(TASKDIR)" ]; then \
 	echo ">>> Copying task dir: $(TASKDIR)" && \
