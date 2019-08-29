@@ -4406,9 +4406,9 @@ annotations_tables_paired_filtered.choice( annotations_tables_paired_filtered_go
     long tumor_count = Files.lines(tumor_tsv).count()
     long normal_count = Files.lines(normal_tsv).count()
 
-    // good if either has >1 lines
-    if (tumor_count > 1) output_ch = 0
-    if (normal_count > 1) output_ch = 0
+    // good if either has >2 lines; 1 header and one entry
+    if (tumor_count > 2) output_ch = 0
+    if (normal_count > 2) output_ch = 0
 
     return(output_ch)
 }
