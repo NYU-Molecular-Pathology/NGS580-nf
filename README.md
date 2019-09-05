@@ -6,7 +6,7 @@ __NOTE:__ Details listed here may change during development
 
 ## Overview
 
-This pipeline is designed to run target exome analysis on Illumina Next-Gen sequencing genomic data, in support of the NGS580 cancer diagnostic panel for NYU's Molecular Pathology Department.
+This pipeline is designed to run targeted exome analysis on Illumina Next-Gen sequencing genomic data, in support of the NGS580 cancer diagnostic panel for NYU's Molecular Pathology Department.
 
 This pipeline starts from paired-end fastq data (`.fastq.gz`), and is meant to accompany the output from the Illumina demultiplexing pipeline listed here: https://github.com/NYU-Molecular-Pathology/demux-nf.
 
