@@ -1764,7 +1764,7 @@ process filter_vcf {
         -V "${vcf}" \
         -select "AF > 0.01"  \
         -select "AF < 0.99"  \
-        -select "DP > 199"  \
+        -select "DP > 100"  \
         > "${filtered_vcf}"
         """
     else if ( caller == "HaplotypeCaller" )
@@ -2755,7 +2755,7 @@ process filter_vcf_pairs {
         -V "${vcf}" \
         -select "AF > 0.01"  \
         -select "AF < 0.99"  \
-        -select "DP > 199"  \
+        -select "DP > 100"  \
         > "${filtered_vcf}"
         """
     else if( caller == 'Strelka' )

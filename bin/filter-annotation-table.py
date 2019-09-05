@@ -10,7 +10,7 @@ import argparse
 
 lofreq_min_frequency = 0.02
 lofreq_max_frequency = 0.99
-depth_min = 200
+depth_min = 100
 somatic_frequency_min_tumor = 0.05 # 5% tumor AF
 somatic_frequency_min_normal = 0.02 # 2% normal AF
 Func_refGene_exclude = [
