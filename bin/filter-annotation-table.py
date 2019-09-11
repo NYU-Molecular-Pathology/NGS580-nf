@@ -20,6 +20,7 @@ Func_refGene_exclude = [
 ]
 
 def HaplotypeCaller(row):
+    return(True)
     funcRefGene = row['Func.refGene']
     passFuncRefGene = True
     if funcRefGene in Func_refGene_exclude:
@@ -31,6 +32,7 @@ def HaplotypeCaller(row):
         return(False)
 
 def LoFreq(row):
+    return(True)
     # depth = float(row['DP'])
     # alleleFrequency = float(row['AF'])
     #
@@ -64,10 +66,12 @@ def MuTect2(row):
     return(True)
 
 def VarScan2(row):
+    return(True)
     # do not include VarScan2 output right now
     return(False)
 
 def StrelkaSomaticIndel(row):
+    return(True)
     # AF not encoded in .vcf
     tumorAlleleFrequency = float(row['AF'])
     passAF = True
@@ -85,6 +89,7 @@ def StrelkaSomaticIndel(row):
         return(False)
 
 def StrelkaSomaticSNV(row):
+    return(True)
     tumorAlleleFrequency = float(row['AF'])
     passAF = True
     if tumorAlleleFrequency < somatic_frequency_min_tumor:
@@ -101,6 +106,7 @@ def StrelkaSomaticSNV(row):
         return(False)
 
 def Pindel(row):
+    return(True)
     funcRefGene = row['Func.refGene']
     passFuncRefGene = True
     if funcRefGene in Func_refGene_exclude:
@@ -124,6 +130,7 @@ def Pindel(row):
         return(False)
 
 def LoFreqSomatic(row):
+    return(True)
     # tumorAlleleFrequency = float(row['AF'])
     # passMinAF = True
     # passMaxAF = True

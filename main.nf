@@ -1759,13 +1759,15 @@ process filter_vcf {
         # do not report if:
         # - frequency is less than 1%, greater than 99%
         # - depth less than 200
-        gatk.sh -T SelectVariants \
-        -R "${ref_fasta}" \
-        -V "${vcf}" \
-        -select "AF > 0.01"  \
-        -select "AF < 0.99"  \
-        -select "DP > 100"  \
-        > "${filtered_vcf}"
+        # gatk.sh -T SelectVariants \
+        # -R "${ref_fasta}" \
+        # -V "${vcf}" \
+        # -select "AF > 0.01"  \
+        # -select "AF < 0.99"  \
+        # -select "DP > 100"  \
+        # > "${filtered_vcf}"
+
+        cp "${vcf}" "${filtered_vcf}"
         """
     else if ( caller == "HaplotypeCaller" )
         """
@@ -1773,14 +1775,16 @@ process filter_vcf {
         # alternate allele freq (allele depth / depth) greater than 0.05 ; 5%
         # more than 5 variant call supporting reads
         # quality reads present (reported depth >0)
-        gatk.sh -T SelectVariants \
-        -R "${ref_fasta}" \
-        -V "${vcf}" \
-        --sample_name "${sampleID}" \
-        -select "vc.getGenotype('${sampleID}').getAD().1 / vc.getGenotype('${sampleID}').getDP() > 0.05" \
-        -select "vc.getGenotype('${sampleID}').getAD().1 > 5" \
-        -select "vc.getGenotype('${sampleID}').getDP() > 100" \
-        > "${filtered_vcf}"
+        # gatk.sh -T SelectVariants \
+        # -R "${ref_fasta}" \
+        # -V "${vcf}" \
+        # --sample_name "${sampleID}" \
+        # -select "vc.getGenotype('${sampleID}').getAD().1 / vc.getGenotype('${sampleID}').getDP() > 0.05" \
+        # -select "vc.getGenotype('${sampleID}').getAD().1 > 5" \
+        # -select "vc.getGenotype('${sampleID}').getDP() > 100" \
+        # > "${filtered_vcf}"
+
+        cp "${vcf}" "${filtered_vcf}"
         """
     else
         error "Invalid caller: ${caller}"
@@ -2696,9 +2700,9 @@ process filter_vcf_pairs {
         # only keep 'PASS' entries
 
         # get the header
-        grep '^#' "${vcf}" > "${filtered_vcf}"
+        # grep '^#' "${vcf}" > "${filtered_vcf}"
         # get the 'PASS' entries
-        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
+        # grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
 
         # old method
         # gatk.sh -T SelectVariants \
@@ -2744,30 +2748,36 @@ process filter_vcf_pairs {
         # FORMAT	GT:AD:AF:ALT_F1R2:ALT_F2R1:FOXOG:PGT:PID:QSS:REF_F1R2:REF_F2R1
         # TUMOR	0/1:1333,17:0.013:7:10:0.588:0|1:2946342_A_G:40125,535:641:689
         # NORMAL	0/0:137,0:0.00:0:0:.:0|1:2946342_A_G:3959,0:53:80
+
+        cp "${vcf}" "${filtered_vcf}"
         """
     else if( caller == 'LoFreqSomatic' )
         """
         # do not report if:
         # - frequency is less than 1%, greater than 99%
         # - depth less than 200
-        gatk.sh -T SelectVariants \
-        -R "${ref_fasta}" \
-        -V "${vcf}" \
-        -select "AF > 0.01"  \
-        -select "AF < 0.99"  \
-        -select "DP > 100"  \
-        > "${filtered_vcf}"
+        # gatk.sh -T SelectVariants \
+        # -R "${ref_fasta}" \
+        # -V "${vcf}" \
+        # -select "AF > 0.01"  \
+        # -select "AF < 0.99"  \
+        # -select "DP > 100"  \
+        # > "${filtered_vcf}"
+
+        cp "${vcf}" "${filtered_vcf}"
         """
     else if( caller == 'Strelka' )
         """
         # only keep 'PASS' entries
         # filter out TQSS_NT=2 https://github.com/Illumina/strelka/issues/65
-        gatk.sh -T SelectVariants \
-        -R "${ref_fasta}" \
-        -V "${vcf}" \
-        -select "TQSS_NT != 2"  \
-        --excludeFiltered \
-        > "${filtered_vcf}"
+        # gatk.sh -T SelectVariants \
+        # -R "${ref_fasta}" \
+        # -V "${vcf}" \
+        # -select "TQSS_NT != 2"  \
+        # --excludeFiltered \
+        # > "${filtered_vcf}"
+
+        cp "${vcf}" "${filtered_vcf}"
         """
         // ##FILTER=<ID=PASS,Description="All filters passed">
         // ##INFO=<ID=QSS,Number=1,Type=Integer,Description="Quality score for any somatic snv, ie. for the ALT allele to be present at a significantly different frequency in the tumor and normal">
@@ -2805,15 +2815,17 @@ process filter_vcf_pairs {
         # Normal Alt < 2 reads
         # Normal Ref >= 100 reads
 
-        gatk.sh -T SelectVariants \
-        -R "${ref_fasta}" \
-        -V "${vcf}" \
-        -select 'SVLEN < 500' \
-        -select 'vc.getGenotype("TUMOR").getAD().1 > 4' \
-        -select 'vc.getGenotype("TUMOR").getAD().0 > 99' \
-        -select 'vc.getGenotype("NORMAL").getAD().1 < 2' \
-        -select 'vc.getGenotype("NORMAL").getAD().0 > 99' \
-        > "${filtered_vcf}"
+        # gatk.sh -T SelectVariants \
+        # -R "${ref_fasta}" \
+        # -V "${vcf}" \
+        # -select 'SVLEN < 500' \
+        # -select 'vc.getGenotype("TUMOR").getAD().1 > 4' \
+        # -select 'vc.getGenotype("TUMOR").getAD().0 > 99' \
+        # -select 'vc.getGenotype("NORMAL").getAD().1 < 2' \
+        # -select 'vc.getGenotype("NORMAL").getAD().0 > 99' \
+        # > "${filtered_vcf}"
+
+        cp "${vcf}" "${filtered_vcf}"
         """
         // ##FILTER=<ID=PASS,Description="All filters passed">
         // ##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
