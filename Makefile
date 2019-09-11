@@ -235,7 +235,7 @@ LOGID:=$(TIMESTAMP)
 LOGFILEBASE:=log.$(LOGID).out
 LOGFILE:=$(LOGDIR)/$(LOGFILEBASE)
 # start run with logging
-run:
+run: backup
 	@log_file="$(LOGDIR)/nextflow.$(LOGID).stdout.log" ; \
 	echo ">>> Running with stdout log file: $(LOGFILE)" ; \
 	$(MAKE) run-recurse 2>&1 | tee -a "$(LOGFILE)" ; \
@@ -415,6 +415,14 @@ record-recurse:
 	fi ; \
 	echo ">>> Copied execution reports and logs to: $(RECDIR)"
 
+# backup the analysis output
+BACKUP_DIR:=$(publishDir)-backup/$(TIMESTAMP_str)
+$(BACKUP_DIR):
+	mkdir -p "$(BACKUP_DIR)"
+backup:
+	if [ -d "$(publishDir)" ] ; then \
+	$(MAKE) $(BACKUP_DIR) BACKUP_DIR=$(BACKUP_DIR) ; \
+	mv "$(publishDir)" "$(BACKUP_DIR)" ; fi
 
 
 # fix group executable permissions
