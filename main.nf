@@ -3457,8 +3457,7 @@ process filter_annotation_table {
     script:
     output_file = "annotations.filtered.tsv"
     """
-    filter-annotation-table.py -i "${tsv}" | \
-    annotation-table-drop-cols.py -o "${output_file}"
+    filter-annotation-table.py -i "${tsv}" -o "${output_file}"
     """
 }
 
@@ -3538,7 +3537,10 @@ process split_annotation_table_paired {
     output_paired = "annotations.paired.tsv"
     output_unpaired = "annotations.unpaired.tsv"
     """
-    split-annotation-table-pairs.py "annotations.tsv" "${output_paired}" "${output_unpaired}"
+    split-annotation-table-pairs.py "annotations.tsv" "${output_paired}.tmp" "${output_unpaired}.tmp"
+
+    annotation-table-drop-cols.py -i "${output_paired}.tmp" -o "${output_paired}" --type paired
+    annotation-table-drop-cols.py -i "${output_unpaired}.tmp" -o "${output_unpaired}" --type unpaired
 
     # make sure that the output table number of records matches the input
     num_original_annotations="\$(( \$(wc -l < annotations.tsv) -1 ))"
