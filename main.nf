@@ -1752,7 +1752,11 @@ process filter_vcf {
 
         # skip filtering of VarScan2 because it reports the 'FREQ' as a % in the .vcf; "100%", etc.
         # TODO: come up with a filtering method for this
-        cp "${vcf}" "${filtered_vcf}"
+
+        # get the header
+        grep '^#' "${vcf}" > "${filtered_vcf}"
+        # get the 'PASS' entries
+        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
         """
     else if ( caller == "LoFreq" )
         """
@@ -1767,7 +1771,10 @@ process filter_vcf {
         # -select "DP > 100"  \
         # > "${filtered_vcf}"
 
-        cp "${vcf}" "${filtered_vcf}"
+        # get the header
+        grep '^#' "${vcf}" > "${filtered_vcf}"
+        # get the 'PASS' entries
+        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
         """
     else if ( caller == "HaplotypeCaller" )
         """
@@ -1784,7 +1791,10 @@ process filter_vcf {
         # -select "vc.getGenotype('${sampleID}').getDP() > 100" \
         # > "${filtered_vcf}"
 
-        cp "${vcf}" "${filtered_vcf}"
+        # get the header
+        grep '^#' "${vcf}" > "${filtered_vcf}"
+        # get the 'PASS' entries
+        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
         """
     else
         error "Invalid caller: ${caller}"
@@ -2749,7 +2759,10 @@ process filter_vcf_pairs {
         # TUMOR	0/1:1333,17:0.013:7:10:0.588:0|1:2946342_A_G:40125,535:641:689
         # NORMAL	0/0:137,0:0.00:0:0:.:0|1:2946342_A_G:3959,0:53:80
 
-        cp "${vcf}" "${filtered_vcf}"
+        # get the header
+        grep '^#' "${vcf}" > "${filtered_vcf}"
+        # get the 'PASS' entries
+        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
         """
     else if( caller == 'LoFreqSomatic' )
         """
@@ -2764,7 +2777,10 @@ process filter_vcf_pairs {
         # -select "DP > 100"  \
         # > "${filtered_vcf}"
 
-        cp "${vcf}" "${filtered_vcf}"
+        # get the header
+        grep '^#' "${vcf}" > "${filtered_vcf}"
+        # get the 'PASS' entries
+        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
         """
     else if( caller == 'Strelka' )
         """
@@ -2777,7 +2793,10 @@ process filter_vcf_pairs {
         # --excludeFiltered \
         # > "${filtered_vcf}"
 
-        cp "${vcf}" "${filtered_vcf}"
+        # get the header
+        grep '^#' "${vcf}" > "${filtered_vcf}"
+        # get the 'PASS' entries
+        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
         """
         // ##FILTER=<ID=PASS,Description="All filters passed">
         // ##INFO=<ID=QSS,Number=1,Type=Integer,Description="Quality score for any somatic snv, ie. for the ALT allele to be present at a significantly different frequency in the tumor and normal">
