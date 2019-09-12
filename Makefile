@@ -421,8 +421,10 @@ $(BACKUP_DIR):
 	mkdir -p "$(BACKUP_DIR)"
 backup:
 	if [ -d "$(publishDir)" ] ; then \
+	$(MAKE) record RECDIR="$(publishDir)/logs" ; \
 	$(MAKE) $(BACKUP_DIR) BACKUP_DIR=$(BACKUP_DIR) ; \
-	mv "$(publishDir)" "$(BACKUP_DIR)" ; fi
+	mv "$(publishDir)" "$(BACKUP_DIR)" ; \
+	fi
 
 
 # fix group executable permissions
