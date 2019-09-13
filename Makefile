@@ -239,7 +239,8 @@ run: backup
 	@log_file="$(LOGDIR)/nextflow.$(LOGID).stdout.log" ; \
 	echo ">>> Running with stdout log file: $(LOGFILE)" ; \
 	$(MAKE) run-recurse 2>&1 | tee -a "$(LOGFILE)" ; \
-	echo ">>> Run completed at $$(date +"%Y-%m-%d %H:%M:%S"), stdout log file: $(LOGFILE)"
+	echo ">>> Run completed at $$(date +"%Y-%m-%d %H:%M:%S"), stdout log file: $(LOGFILE)" ; \
+	$(MAKE) record RECDIR="$(publishDir)/logs"
 
 # try to automatically determine which 'run' recipe to use based on hostname
 run-recurse:
@@ -332,7 +333,7 @@ submit:
 $(SUBSCRIPT):
 	@printf '' > $(SUBSCRIPT)
 	@chmod +x $(SUBSCRIPT)
-	@echo '#!/bin/bash -x' >> $(SUBSCRIPT)
+	@echo '#!/bin/bash' >> $(SUBSCRIPT)
 	@echo '#SBATCH -D $(ABSDIR)' >> $(SUBSCRIPT)
 	@echo '#SBATCH -o $(SUBLOG)' >> $(SUBSCRIPT)
 	@echo '#SBATCH -J $(SUBJOBNAME)' >> $(SUBSCRIPT)
@@ -417,12 +418,11 @@ record-recurse:
 
 # backup the analysis output
 BACKUP_DIR:=$(publishDir)-backup/$(TIMESTAMP_str)
-$(BACKUP_DIR):
-	mkdir -p "$(BACKUP_DIR)"
 backup:
 	if [ -d "$(publishDir)" ] ; then \
-	$(MAKE) $(BACKUP_DIR) BACKUP_DIR=$(BACKUP_DIR) ; \
-	mv "$(publishDir)" "$(BACKUP_DIR)" ; fi
+	mkdir -p "$(BACKUP_DIR)" ; \
+	mv "$(publishDir)" "$(BACKUP_DIR)" ; \
+	fi
 
 
 # fix group executable permissions

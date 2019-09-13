@@ -3457,20 +3457,19 @@ process filter_annotation_table {
     script:
     output_file = "annotations.filtered.tsv"
     """
-    filter-annotation-table.py -i "${tsv}" | \
-    annotation-table-drop-cols.py -o "${output_file}"
+    filter-annotation-table.py -i "${tsv}" -o "${output_file}"
     """
 }
 
 process update_collect_annotation_tables {
-    // add labels to the table to output
-    publishDir "${params.outputDir}", mode: 'copy'
+    // add workflow labels to the annotation table
+    // publishDir "${params.outputDir}", mode: 'copy'
 
     input:
     file(table) from filtered_annotation_table
 
     output:
-    file("${output_file}") into (all_annotations_file_ch, all_annotations_file_ch2, all_annotations_file_ch3)
+    file("${output_file}") into (all_annotations_file_ch, all_annotations_file_ch2, all_annotations_file_ch3, all_annotations_file_ch4)
     val('') into done_update_collect_annotation_tables
 
     script:
@@ -3486,7 +3485,7 @@ process update_collect_annotation_tables {
     """
 }
 
-process split_annotation_table {
+process split_annotation_table_caller {
     // create a separate annotation table file for each variant caller
     publishDir "${params.outputDir}/annotations", mode: 'copy'
 
@@ -3498,7 +3497,7 @@ process split_annotation_table {
 
     script:
     """
-    split-annotation-table.py ".annotations.tsv"
+    split-annotation-table-callers.py ".annotations.tsv"
     """
 }
 
@@ -3517,6 +3516,38 @@ process extract_hapmap_pool_annotations {
     """
     head -1 "${tsv}" > "${output_file}"
     grep -i 'HapMap-Pool' "${tsv}" >> "${output_file}" || :
+    """
+}
+
+process split_annotation_table_paired {
+    // Split the annotations table into separate files
+    // based on variant callers
+    // and whether the variant caller is designated at being used for
+    // "paired" or "unpaired" variant calling (tumor normal pairs)
+    publishDir "${params.outputDir}", mode: 'copy'
+
+    input:
+    file("annotations.tsv") from all_annotations_file_ch4
+
+    output:
+    file("${output_paired}")
+    file("${output_unpaired}")
+
+    script:
+    output_paired = "annotations.paired.tsv"
+    output_unpaired = "annotations.unpaired.tsv"
+    """
+    split-annotation-table-pairs.py "annotations.tsv" "${output_paired}.tmp" "${output_unpaired}.tmp"
+
+    annotation-table-drop-cols.py -i "${output_paired}.tmp" -o "${output_paired}" --type paired
+    annotation-table-drop-cols.py -i "${output_unpaired}.tmp" -o "${output_unpaired}" --type unpaired
+
+    # make sure that the output table number of records matches the input
+    num_original_annotations="\$(( \$(wc -l < annotations.tsv) -1 ))"
+    num_paired_annotations="\$(( \$(wc -l < "${output_paired}") -1 ))"
+    num_unpaired_annotations="\$(( \$(wc -l < "${output_unpaired}") -1 ))"
+    num_total_annotations="\$(( \$num_paired_annotations + \$num_unpaired_annotations ))"
+    if [ \$num_total_annotations -ne \$num_original_annotations ]; then echo "ERROR: annotation table has different number of rows!"; exit 1; fi
     """
 }
 
@@ -4590,7 +4621,7 @@ process update_collect_seracare_annotation_tables {
     file("${output_file}") into collected_updated_seracare_variants
 
     script:
-    output_file = "${all_seracare_annotations_file}"
+    output_file = "${all_seracare_annotations_file}" // annotations.SeraCare.tsv
     """
     paste-col.py -i "${table}" --header "Run" -v "${runID}" | \
     paste-col.py --header "Time" -v "${workflowTimestamp}" | \
@@ -4601,7 +4632,7 @@ process update_collect_seracare_annotation_tables {
     "${output_file}"
     """
 }
-collected_updated_seracare_variants.mix(seracare_selected_tsv2).set { seracare_pool_items }
+collected_updated_seracare_variants.mix(seracare_selected_tsv2).set { seracare_pool_items } // to report
 
 
 
