@@ -7,7 +7,12 @@ import csv
 import sys
 import argparse
 
-drop_cols = [
+drop_cols_all = [
+'FREQ',
+'NLOD',
+'TLOD',
+'NORMAL.AD',
+'TUMOR.AD',
 'FILTER',
 'INDEL',
 'ID',
@@ -52,7 +57,48 @@ drop_cols = [
 'NORMAL.TOR',
 'TUMOR.TAR',
 'TUMOR.TIR',
-'TUMOR.TOR'
+'TUMOR.TOR',
+'CLNDSDBID',
+'CLNDSDB',
+'CLNACC',
+'CLNDBN',
+'CLINSIG',
+'1000g2015aug_all',
+'avsnp150',
+'ExAC_ALL',
+'snp138',
+'cosmic70',
+'Chr',
+'Start',
+'End',
+'Ref',
+'Alt',
+'SB'
+]
+
+drop_cols_paired = [
+'Sample',
+'AD.REF',
+'AD.ALT',
+'AF.ALT',
+'AF.REF'
+]
+
+drop_cols_unpaired = [
+'NORMAL.AD',
+'NORMAL.DP',
+'NORMAL.AF',
+'TUMOR.AD',
+'TUMOR.DP',
+'TUMOR.AF',
+'TUMOR.AD.REF',
+'TUMOR.AD.ALT',
+'TUMOR.AD.TOTAL',
+'NORMAL.AD.REF',
+'NORMAL.AD.ALT',
+'NORMAL.AD.TOTAL',
+'Tumor',
+'Normal'
 ]
 
 def main(**kwargs):
@@ -61,6 +107,7 @@ def main(**kwargs):
     """
     input_file = kwargs.pop('input_file', None)
     output_file = kwargs.pop('output_file', None)
+    type = kwargs.pop('type', 'all')
 
     # open input/output filehandles
     if input_file:
@@ -78,17 +125,24 @@ def main(**kwargs):
     old_fieldnames = reader.fieldnames
 
     # remove the unwanted cols from fieldnames
-    new_fieldnames = [ f for f in old_fieldnames if f not in drop_cols ]
-    # for fieldname in old_fieldnames:
-    #     if fieldname not in drop_cols:
-    #         new_fieldnames.append(fieldname)
+    new_fieldnames = [ f for f in old_fieldnames if f not in drop_cols_all ]
+    if type == 'paired':
+        new_fieldnames = [ f for f in new_fieldnames if f not in drop_cols_paired ]
+    if type == 'unpaired':
+        new_fieldnames = [ f for f in new_fieldnames if f not in drop_cols_unpaired ]
 
     writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = new_fieldnames)
     writer.writeheader()
 
     for row in reader:
-        for key in drop_cols:
+        for key in drop_cols_all:
             row.pop(key, None)
+        if type == 'paired':
+            for key in drop_cols_paired:
+                row.pop(key, None)
+        if type == 'unpaired':
+            for key in drop_cols_unpaired:
+                row.pop(key, None)
         writer.writerow(row)
 
     fout.close()
@@ -102,6 +156,9 @@ def parse():
     parser = argparse.ArgumentParser(description='Remove extraneous columns from the annotation table')
     parser.add_argument("-i", default = None, dest = 'input_file', help="Input file")
     parser.add_argument("-o", default = None, dest = 'output_file', help="Output file")
+    parser.add_argument("--type", default = 'all', dest = 'type',
+        choices=['paired', 'unpaired', 'all'],
+        help="Type of table to apply extra column filters on ('paired' or 'unpaired')")
     args = parser.parse_args()
     main(**vars(args))
 
