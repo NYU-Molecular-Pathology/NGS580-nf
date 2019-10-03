@@ -287,8 +287,8 @@ run-bigpurple:
 run-bigpurple-recurse: Q_JSON:=/gpfs/home/kellys04/molecpathlab/pipelines/queue-stats/slurm.json
 run-bigpurple-recurse: export NXF_DEBUG=3
 run-bigpurple-recurse: install
-	./nextflow -trace nextflow.executor run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue_json "$(Q_JSON)" $(EP)
-	$(MAKE) fix-permissions fix-group
+	./nextflow -trace nextflow.executor run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue_json "$(Q_JSON)" $(EP) && \
+	$(MAKE) finalize-work-rm fix-permissions fix-group -j $(SUBTHREADS)
 # --queue "$(Q)" # try using the queue JSON instead
 
 # run locally default settings
@@ -606,7 +606,8 @@ $(TRACE_PATTERN_FILE):
 	'
 
 finalize-work-rm-recurse: $(NXFWORKSUBDIRSRM)
-
+# if the 9 digits of the work subdir hash is not in the trace.txt file 'hash' column, delete it
+# since that means it was not part of the most recent pipeline run
 $(NXFWORKSUBDIRSRM):
 	@pattern="$$(echo $(@) | sed -e 's|$(workDir)/||g' | cut -c 1-9)" ; \
 	if [ ! "$$( grep -q $${pattern} '$(TRACE_PATTERN_FILE)'; echo $$?)" -eq 0 ]; then \
