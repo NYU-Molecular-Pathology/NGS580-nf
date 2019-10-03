@@ -288,8 +288,8 @@ run-bigpurple-recurse: Q_JSON:=/gpfs/home/kellys04/molecpathlab/pipelines/queue-
 run-bigpurple-recurse: export NXF_DEBUG=3
 run-bigpurple-recurse: install
 	./nextflow -trace nextflow.executor run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue_json "$(Q_JSON)" $(EP) && \
-	$(MAKE) finalize-work-rm fix-permissions fix-group -j $(SUBTHREADS)
-# --queue "$(Q)" # try using the queue JSON instead
+	$(MAKE) finalize-work-rm -j $(SUBTHREADS) > work.rm.txt && \
+	$(MAKE) fix-permissions fix-group
 
 # run locally default settings
 run-local: install
