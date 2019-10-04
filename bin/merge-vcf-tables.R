@@ -40,6 +40,14 @@ all_equal <- function(...){
     return(all(TF))
 }
 
+dataframe_difference <- function(larger_df, smaller_df){
+    # https://stackoverflow.com/questions/17427916/r-selecting-all-rows-from-a-data-frame-that-dont-appear-in-another
+    # dataframe_difference(merged_df, avinput)
+    cols_to_use <- names(smaller_df)[which(names(larger_df) %in% names(smaller_df))]
+    x <- rbind(larger_df[, cols_to_use], smaller_df)
+    return(x[! duplicated(x, fromLast=TRUE) & seq(nrow(x)) <= nrow(larger_df), ])
+}
+
 # ~~~~~~ RUN ~~~~~~ #
 args <- commandArgs(TRUE)
 # vcf_tsv_file <- "NC-HAPMAP.updated.tsv"
@@ -94,6 +102,7 @@ message(sprintf(">>> merged_df: Number of rows: %s", nrow(merged_df)))
 # check that all df's have the same number of rows
 if(! all_equal(nrow(annovar), nrow(avinput), nrow(vcf_table), nrow(merged_df)) ) {
     print("ERROR: Dataframes have unequal numbers of rows after merging")
+    dataframe_difference(merged_df, avinput)
     quit(status = 1)
 }
 
