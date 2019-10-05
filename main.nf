@@ -33,6 +33,8 @@ params.configFile = "config.json"
 params.reportDir = "report"
 params.outputDir = "output"
 params.ref_dir = "ref"
+params.nxf_success = ".nextflow.success"
+params.nxf_failed = ".nextflow.failed"
 
 // default config values
 def defaultParams = [:]
@@ -5103,10 +5105,16 @@ workflow.onComplete {
 
     def status = "NA"
 
+    def log_message = "[${workflow.exitStatus}] [${workflowTimestamp}] [${workflow.complete.format('dd-MMM-yyyy HH:mm:ss')}] [${workflow.duration}] [${workflow.runName}] [${workflow.sessionId}] [${workflow.scriptId ?: '-'}] [${workflow.nextflow.version}]\n"
+
     if(workflow.success) {
         status = "SUCCESS"
+        nxf_success_log = new File(params.nxf_success)
+        nxf_success_log.append(log_message)
     } else {
         status = "FAILED"
+        nxf_failed_log = new File(params.nxf_failed)
+        nxf_failed_log.append(log_message)
     }
 
     def msg = """
