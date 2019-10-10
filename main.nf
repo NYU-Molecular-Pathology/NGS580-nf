@@ -2385,6 +2385,7 @@ process lofreq_somatic {
     """
     # paired tumor-normal somatic variant calling with LoFreq
     lofreq somatic \
+    --call-indels \
     -n "${normalBam}" \
     -t "${tumorBam}" \
     -f "${ref_fasta}" \
