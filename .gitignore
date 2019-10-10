@@ -76,3 +76,4 @@ samples.cnv.tsv
 .trace.hash.txt
 submit.bigpurple.sh
 nxf-tmp*
+.nextflow.completion.log
