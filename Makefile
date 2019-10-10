@@ -234,6 +234,11 @@ LOGDIRABS:=$(shell python -c 'import os; print(os.path.realpath("$(LOGDIR)"))')
 LOGID:=$(TIMESTAMP)
 LOGFILEBASE:=log.$(LOGID).out
 LOGFILE:=$(LOGDIR)/$(LOGFILEBASE)
+# git version 2.16.0
+GIT_CURRENT_BRANCH:=$(shell git rev-parse --abbrev-ref HEAD)
+GIT_CURRENT_COMMIT:=$(shell git rev-parse --short HEAD)
+GIT_CURRENT_TAG:=$(shell git describe --tags)
+GIT_RECENT_TAG:=$(shell git describe --tags --abbrev=0)
 # start run with logging
 run: backup
 	@log_file="$(LOGDIR)/nextflow.$(LOGID).stdout.log" ; \
@@ -287,7 +292,15 @@ run-bigpurple:
 run-bigpurple-recurse: Q_JSON:=/gpfs/home/kellys04/molecpathlab/pipelines/queue-stats/slurm.json
 run-bigpurple-recurse: export NXF_DEBUG=3
 run-bigpurple-recurse: install
-	./nextflow -trace nextflow.executor run main.nf -profile bigPurple $(RESUME) -with-dag flowchart.dot --queue_json "$(Q_JSON)" $(EP) && \
+	./nextflow -trace nextflow.executor run main.nf \
+	-profile bigPurple $(RESUME) \
+	-with-dag flowchart.dot \
+	--queue_json "$(Q_JSON)" \
+	--GIT_CURRENT_BRANCH "$(GIT_CURRENT_BRANCH)" \
+	--GIT_CURRENT_COMMIT "$(GIT_CURRENT_COMMIT)" \
+	--GIT_CURRENT_TAG "$(GIT_CURRENT_TAG)" \
+	--GIT_RECENT_TAG "$(GIT_RECENT_TAG)" \
+	$(EP) && \
 	$(MAKE) finalize-work-rm -j $(SUBTHREADS) > work.rm.txt && \
 	$(MAKE) fix-permissions fix-group
 
