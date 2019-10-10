@@ -64,6 +64,22 @@ save.image('args.Rdata')
 message(">>> Loading variant tables to be merged")
 
 annovar <- read.ANNOVAR.vcf_txt(file = annovar_txt_file)
+
+save.image('loaded.Rdata')
+
+# need to convert all nucleotides to upper case; 
+# some masked nucleotides from .vcf can be lower case, 
+# but get converted to upper case in vcf .tsv table by GATK
+any_masked_nucleotides_annovar <- any(grepl(pattern = 't|c|a|g',
+                                            x = c(annovar[["Ref"]],
+                                                  annovar[["Alt"]]) ))
+
+if(any_masked_nucleotides_annovar) {
+    message(">>> Detected lower-case masked nucleotides in annovar, converting to upper-case nucleotides")
+    annovar[["Ref"]] <- toupper(annovar[["Ref"]])
+    annovar[["Alt"]] <- toupper(annovar[["Alt"]])
+}
+
 save.image('loaded.Rdata')
 
 vcf_table <- read.delim(file = vcf_tsv_file, 
@@ -80,13 +96,33 @@ avinput <- read.delim(file = avinput_file,
                       colClasses = "character")
 save.image('loaded.Rdata')
 
+# need to convert all nucleotides to upper case; 
+# some masked nucleotides from .vcf can be lower case, 
+# but get converted to upper case in vcf .tsv table by GATK
+any_masked_nucleotides_avinput <- any(grepl(pattern = 't|c|a|g',
+                                    x = c(avinput[["REF"]],
+                                          avinput[["ALT"]],
+                                          avinput[["Ref"]],
+                                          avinput[["Alt"]]) ))
+
+if(any_masked_nucleotides_avinput) {
+    message(">>> Detected lower-case masked nucleotides in avinput, converting to upper-case nucleotides")
+    avinput[["REF"]] <- toupper(avinput[["REF"]])
+    avinput[["ALT"]] <- toupper(avinput[["ALT"]])
+    avinput[["Ref"]] <- toupper(avinput[["Ref"]])
+    avinput[["Alt"]] <- toupper(avinput[["Alt"]])
+}
+
+save.image('loaded.Rdata')
+
+
 message(sprintf(">>> annovar: Number of rows: %s", nrow(annovar)))
 message(sprintf(">>> avinput: Number of rows: %s", nrow(avinput)))
 message(sprintf(">>> vcf_table: Number of rows: %s", nrow(vcf_table)))
 
 # check that all df's have the same number of rows
 if(! all_equal(nrow(annovar), nrow(avinput), nrow(vcf_table)) ) {
-    print("ERROR: Loaded dataframes have unequal numbers of rows")
+    message(">>> ERROR: Loaded dataframes have unequal numbers of rows")
     quit(status = 1)
 }
 
@@ -101,8 +137,11 @@ message(sprintf(">>> merged_df: Number of rows: %s", nrow(merged_df)))
 
 # check that all df's have the same number of rows
 if(! all_equal(nrow(annovar), nrow(avinput), nrow(vcf_table), nrow(merged_df)) ) {
-    print("ERROR: Dataframes have unequal numbers of rows after merging")
-    dataframe_difference(merged_df, avinput)
+    message(">>> ERROR: Dataframes have unequal numbers of rows after merging")
+    message(">>> Discrepant rows:")
+    print(dataframe_difference(merged_df, avinput))
+    message(">>> Rows with possible errors:")
+    print(merged_df[merged_df[["POS"]] %in% dataframe_difference(merged_df, avinput)[["POS"]], names(dataframe_difference(merged_df, avinput)) ])
     quit(status = 1)
 }
 
