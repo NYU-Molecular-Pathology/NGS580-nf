@@ -456,9 +456,39 @@ USERGROUP:=molecpathlab
 fix-group:
 	@find . ! -group "$(USERGROUP)" -exec chgrp "$(USERGROUP)" {} \;
 
+OLD_UNPAIRED:=none
+OLD_PAIRED:=none
+NEW_UNPAIRED:=output/annotations.unpaired.tsv
+NEW_PAIRED:=output/annotations.paired.tsv
+COMPARE_DIR:=compare
+COMPARE_OUTPUT:=$(COMPARE_DIR)/$(TIMESTAMP_str)
+COMPARE_OUTPUT_DIR:=$(COMPARE_OUTPUT)/output
+COMPARE_STDOUTLOG:=$(COMPARE_OUTPUT)/.nextflow.stdout.log
+COMPARE_NXF_LOG:=$(COMPARE_OUTPUT)/.nextflow.log
+COMPARE_WORKDIR:=$(COMPARE_OUTPUT)/work
+COMPARE_TRACE:=$(COMPARE_OUTPUT)/trace.txt
+COMPARE_TIMELINE:=$(COMPARE_OUTPUT)/timeline.html
+COMPARE_REPORT:=$(COMPARE_OUTPUT)/nextflow.html
+$(COMPARE_OUTPUT):
+	mkdir -p "$(COMPARE_OUTPUT)"
+compare: install $(COMPARE_OUTPUT)
+	./nextflow \
+	-log "$(COMPARE_NXF_LOG)" \
+	run compare.nf \
+	-profile compare_bigpurple \
+	-with-report "$(COMPARE_REPORT)" \
+	-with-timeline "$(COMPARE_TIMELINE)" \
+	-work-dir "$(COMPARE_WORKDIR)" \
+	-with-trace "$(COMPARE_TRACE)" \
+	--outputDir "$(COMPARE_OUTPUT_DIR)" \
+	--old_unpaired_annotations "$(OLD_UNPAIRED)" \
+	--new_unpaired_annotations "$(NEW_UNPAIRED)" \
+	--old_paired_annotations "$(OLD_PAIRED)" \
+	--new_paired_annotations "$(NEW_PAIRED)" \
+	| tee "$(COMPARE_STDOUTLOG)"
 
 
-
+.PHONY: compare
 
 # ~~~~~ CLEANUP ~~~~~ #
 # commands to clean out items in the current directory after running the pipeline

@@ -1,0 +1,167 @@
+---
+title: "NGS580 Analysis Report"
+author: '`r Sys.info()[["user"]] `'
+date: '`r format(Sys.time(), "%B %d, %Y")`'
+output:
+  pdf_document:
+    keep_tex: yes
+    number_sections: yes
+    toc: yes
+    df_print: kable
+  html_document:
+    css: styles.css
+    df_print: paged
+    keep_md: yes
+    number_sections: yes
+    toc: yes
+params:
+  old_unpaired_annot: old_unpaired_annot.tsv
+  new_unpaired_annot: new_unpaired_annot.tsv
+  old_paired_annot: old_paired_annot.tsv
+  new_paired_annot: new_paired_annot.tsv
+---
+```{r setup, include=FALSE}
+# This is the main parent report file, loads and compiles all child documents for the report
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(fig.height = 12)
+knitr::opts_chunk$set(fig.width = 12)
+old_unpaired_annot_file <- params$old_unpaired_annot
+new_unpaired_annot_file <- params$new_unpaired_annot
+old_paired_annot_file <- params$old_paired_annot
+new_paired_annot_file <- params$new_paired_annot
+source("overlap.R")
+```
+
+# Annotation Overlap
+
+## Overall Overlap
+
+Comparison of all variant annotations between old and new annotation lists
+
+```{r load_data}
+old_unpaired_annot <- read.delim(file = old_unpaired_annot_file, 
+                                  header = TRUE, 
+                                  sep = '\t', 
+                                  check.names = FALSE)
+new_unpaired_annot <- read.delim(file = new_unpaired_annot_file, 
+                                  header = TRUE, 
+                                  sep = '\t', 
+                                  check.names = FALSE)
+old_paired_annot <- read.delim(file = old_paired_annot_file, 
+                                  header = TRUE, 
+                                  sep = '\t', 
+                                  check.names = FALSE)
+new_paired_annot <- read.delim(file = new_paired_annot_file, 
+                                  header = TRUE, 
+                                  sep = '\t', 
+                                  check.names = FALSE)
+
+save.image(file="loaded.Rdata",compress = TRUE)
+```
+
+```{r separate}
+# separate based on variant callers
+unpaired_variants <- list()
+unpaired_caller_types <- rbind(
+    old_unpaired_annot[, c("VariantCaller", "VariantCallerType")],
+    new_unpaired_annot[, c("VariantCaller", "VariantCallerType")]
+)
+unpaired_caller_types <- unpaired_caller_types[!duplicated(unpaired_caller_types),]
+
+for(i in seq(nrow(unpaired_caller_types))){
+    vc <- as.character(unpaired_caller_types[i, "VariantCaller"])
+    vct <- as.character(unpaired_caller_types[i, "VariantCallerType"])
+    
+    unpaired_variants[[vc]] <- list()
+    unpaired_variants[[vc]][[vct]] <- list()
+    
+    unpaired_variants[[vc]][[vct]][["old"]] <- old_unpaired_annot[
+        which(old_unpaired_annot[["VariantCaller"]] == vc & old_unpaired_annot[["VariantCallerType"]] == vct ) ,]
+    unpaired_variants[[vc]][[vct]][["old"]][['VariantID']] <- sprintf(
+        "%s:%s:%s>%s:%s", 
+        unpaired_variants[[vc]][[vct]][["old"]][['CHROM']], 
+        unpaired_variants[[vc]][[vct]][["old"]][['POS']], 
+        unpaired_variants[[vc]][[vct]][["old"]][['REF']], 
+        unpaired_variants[[vc]][[vct]][["old"]][['ALT']],
+        unpaired_variants[[vc]][[vct]][["old"]][['Sample']]
+    )
+    
+    unpaired_variants[[vc]][[vct]][["new"]] <- new_unpaired_annot[
+        which(new_unpaired_annot[["VariantCaller"]] == vc & new_unpaired_annot[["VariantCallerType"]] == vct ) ,]
+    unpaired_variants[[vc]][[vct]][["new"]][['VariantID']] <- sprintf(
+        "%s:%s:%s>%s:%s", 
+        unpaired_variants[[vc]][[vct]][["new"]][['CHROM']], 
+        unpaired_variants[[vc]][[vct]][["new"]][['POS']], 
+        unpaired_variants[[vc]][[vct]][["new"]][['REF']], 
+        unpaired_variants[[vc]][[vct]][["new"]][['ALT']],
+        unpaired_variants[[vc]][[vct]][["new"]][['Sample']]
+    )
+    unpaired_variants[[vc]][[vct]][["overlap"]] <- create_overlaps(
+        variant_list = list(
+            new = unpaired_variants[[vc]][[vct]][["new"]][['VariantID']],
+            old = unpaired_variants[[vc]][[vct]][["old"]][['VariantID']]
+        )
+    )
+    
+}
+
+paired_variants <- list()
+paired_caller_types <- rbind(
+    old_paired_annot[, c("VariantCaller", "VariantCallerType")],
+    new_paired_annot[, c("VariantCaller", "VariantCallerType")]
+)
+paired_caller_types <- paired_caller_types[!duplicated(paired_caller_types),]
+
+for(i in seq(nrow(paired_caller_types))){
+    vc <- as.character(paired_caller_types[i, "VariantCaller"])
+    vct <- as.character(paired_caller_types[i, "VariantCallerType"])
+    paired_variants[[vc]] <- list()
+    paired_variants[[vc]][[vct]] <- list()
+    paired_variants[[vc]][[vct]][["old"]] <- old_paired_annot[
+        which(old_paired_annot[["VariantCaller"]] == vc & old_paired_annot[["VariantCallerType"]] == vct )
+        ,]
+    paired_variants[[vc]][[vct]][["new"]] <- new_paired_annot[
+        which(new_paired_annot[["VariantCaller"]] == vc & new_paired_annot[["VariantCallerType"]] == vct )
+        ,]
+    
+    paired_variants[[vc]][[vct]][["old"]][['VariantID']] <- sprintf(
+        "%s:%s:%s:%s:%s:%s", 
+        paired_variants[[vc]][[vct]][["old"]][['CHROM']], 
+        paired_variants[[vc]][[vct]][["old"]][['POS']], 
+        paired_variants[[vc]][[vct]][["old"]][['REF']], 
+        paired_variants[[vc]][[vct]][["old"]][['ALT']],
+        paired_variants[[vc]][[vct]][["old"]][['Tumor']],
+        paired_variants[[vc]][[vct]][["old"]][['Normal']]
+    )
+    paired_variants[[vc]][[vct]][["new"]][['VariantID']] <- sprintf(
+        "%s:%s:%s:%s:%s:%s", 
+        paired_variants[[vc]][[vct]][["new"]][['CHROM']], 
+        paired_variants[[vc]][[vct]][["new"]][['POS']], 
+        paired_variants[[vc]][[vct]][["new"]][['REF']], 
+        paired_variants[[vc]][[vct]][["new"]][['ALT']],
+        paired_variants[[vc]][[vct]][["new"]][['Tumor']],
+        paired_variants[[vc]][[vct]][["new"]][['Normal']]
+    )
+    
+    paired_variants[[vc]][[vct]][["overlap"]] <- create_overlaps(
+        variant_list = list(
+            new = paired_variants[[vc]][[vct]][["new"]][['VariantID']],
+            old = paired_variants[[vc]][[vct]][["old"]][['VariantID']]
+        )
+    )
+}
+save.image(file="separated.Rdata",compress = TRUE)
+```
+
+```{r}
+
+
+
+```
+
+# System Information 
+
+```{r sysinfo}
+sessionInfo()
+save.image(file="final.Rdata",compress = TRUE)
+```

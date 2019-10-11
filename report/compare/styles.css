@@ -1,0 +1,35 @@
+/* custom line between sections */
+.section-rule {
+color: lightgray;
+}
+
+/* color the active TOC element purple */
+.list-group-item.active, .list-group-item.active:focus, .list-group-item.active:hover {
+    background-color: indigo;
+}
+
+/*
+#header h1 {
+    color: purple; 
+    border-bottom: 1px solid purple;
+    padding-bottom: 15px;
+}
+*/
+
+/* color the active pill buttons purple with white text */
+
+.nav-pills > li.active > a, .nav-pills > li.active > a:focus {
+color: white;
+background-color: indigo;
+}
+/* color the inactive pill button text purple */
+
+.nav-pills > li.active > a:hover {
+background-color: indigo;
+color:white;
+}
+
+.nav>li>a {
+color: indigo;
+background-color: lightgray;
+}

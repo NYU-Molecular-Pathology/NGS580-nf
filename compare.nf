@@ -1,0 +1,73 @@
+params.old_unpaired_annotations = null
+params.new_unpaired_annotations = null
+params.old_paired_annotations = null
+params.new_paired_annotations = null
+params.outputDir = "output"
+params.reportDir = "report"
+def old_unpaired_annotations = new File("${params.old_unpaired_annotations}")
+def new_unpaired_annotations = new File("${params.new_unpaired_annotations}")
+def old_paired_annotations = new File("${params.old_paired_annotations}")
+def new_paired_annotations = new File("${params.new_paired_annotations}")
+def reportDirPath = new File(params.reportDir).getCanonicalPath()
+def outputDirPath = new File(params.outputDir).getCanonicalPath()
+def workflowTimestamp = "${workflow.start.format('yyyy-MM-dd-HH-mm-ss')}"
+
+if( ! old_unpaired_annotations.exists() | ! new_unpaired_annotations.exists() | ! old_paired_annotations.exists() | ! new_paired_annotations.exists() | "${params.old_unpaired_annotations}" == "${params.new_unpaired_annotations}" | "${params.old_paired_annotations}" == "${params.new_paired_annotations}" ){
+    log.error "Invalid files; old_unpaired_annotations: ${params.old_unpaired_annotations} , new_unpaired_annotations: ${params.new_unpaired_annotations}, new_paired_annotations: ${new_paired_annotations} , old_paired_annotations: ${old_paired_annotations}"
+    exit 1
+}
+
+log.info "~~~~~~~ NGS580 Annotation Comparison ~~~~~~~"
+log.info "* Launch time:        ${workflowTimestamp}"
+log.info "* Project dir:        ${workflow.projectDir}"
+log.info "* Launch dir:         ${workflow.launchDir}"
+log.info "* Work dir:           ${workflow.workDir.toUriString()}"
+log.info "* Output dir:         ${outputDirPath}"
+log.info "* Profile:            ${workflow.profile ?: '-'}"
+log.info "* Script name:        ${workflow.scriptName ?: '-'}"
+log.info "* Script ID:          ${workflow.scriptId ?: '-'}"
+log.info "* Container engine:   ${workflow.containerEngine?:'-'}"
+log.info "* Workflow session:   ${workflow.sessionId}"
+log.info "* Nextflow run name:  ${workflow.runName}"
+log.info "* Nextflow version:   ${workflow.nextflow.version}, build ${workflow.nextflow.build} (${workflow.nextflow.timestamp})"
+log.info "* Launch command:\n${workflow.commandLine}\n"
+
+Channel.fromPath("${reportDirPath}/compare/*")
+        .into { report_files; report_files2 }
+Channel.fromPath("${old_unpaired_annotations}").set{ old_unpaired_annotations_ch }
+Channel.fromPath("${new_unpaired_annotations}").set{ new_unpaired_annotations_ch }
+Channel.fromPath("${old_paired_annotations}").set{ old_paired_annotations_ch }
+Channel.fromPath("${new_paired_annotations}").set{ new_paired_annotations_ch }
+
+
+process compare_report {
+    publishDir "${outputDirPath}", mode: 'copy'
+    stageInMode "copy"
+
+    input:
+    set file(old_unpaired_annot), file(new_unpaired_annot), file(old_paired_annot), file(new_paired_annot) from old_unpaired_annotations_ch.combine(new_unpaired_annotations_ch)
+                                                .combine(old_paired_annotations_ch)
+                                                .combine(new_paired_annotations_ch)
+    file(report_items: '*') from report_files.collect()
+
+    output:
+    file("${html_output}")
+
+    script:
+    html_output = "comparison.html"
+    """
+    R --vanilla <<E0F
+    rmarkdown::render(
+        input = "compare.Rmd",
+    params = list(
+        old_unpaired_annot = "${old_unpaired_annot}",
+        new_unpaired_annot = "${new_unpaired_annot}",
+        old_paired_annot = "${old_paired_annot}",
+        new_paired_annot = "${new_paired_annot}"
+    ),
+    output_format = "html_document",
+    output_file = "${html_output}"
+    )
+    E0F
+    """
+}

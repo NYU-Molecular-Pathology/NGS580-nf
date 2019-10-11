@@ -77,3 +77,4 @@ samples.cnv.tsv
 submit.bigpurple.sh
 nxf-tmp*
 .nextflow.completion.log
+compare/
