@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# Module for overlap functions
+# Module for overlap functions, used to overlap lists of variants
 
 ## Functions to get elements from Venndiagram object in R
 Intersect <- function (x) {
@@ -74,9 +74,7 @@ create_overlaps <- function(variant_list, col_name = "VariantID"){
         }
     })
     colnames(mat) <- new_names
-    # save.image("loaded.Rdata")
-    # write.table(x = mat, file = output_matrix, quote = F,sep = "\t", row.names = F)
-    
+
     # convert the matrix to a long format dataframe
     # NOTE: this can get slow for large numbers of combinations...
     overlap_df <- data.frame()
@@ -105,29 +103,33 @@ create_overlaps <- function(variant_list, col_name = "VariantID"){
     return(overlap_df)
 }
 
+aggregate_overlaps <- function(overlap_df, col_name = "VariantID"){
+    # create an aggregate table of the overlaps, for plotting
+    # add dummy variable for aggregating
+    overlap_df[["n"]] <- 1
+    
+    # add dummy variable for plotting
+    overlap_df[["all"]] <- '.'
+    
+    # get total number of variants
+    total_num_unpaired_variants <- length(unique(as.character(overlap_df[[col_name]])))
+    
+    # # aggregate on the percent of entries in each grouping
+    overlap_aggr <- aggregate(n ~ comb, 
+                              data = overlap_df,
+                              FUN = sum)
+    
+    overlap_pcnt <- aggregate(n ~ comb, 
+                              data = overlap_df, 
+                              FUN = function(x){
+                                  return( round( (sum(x) / total_num_unpaired_variants) * 100, digits = 1) )
+                              })
+    names(overlap_pcnt) <- c("comb", "pcnt")
+    overlap_aggr <- merge(overlap_aggr, overlap_pcnt)
+    overlap_aggr[["all"]] <- '.'
+    return(overlap_aggr)
+}
 
-
-# add dummy variable for aggregating
-# overlap_df[['n']] <- 1
-
-# add dummy variable for plotting
-# overlap_df[['all']] <- '.'
-
-# write.table(x = overlap_df, file = output_table, quote = FALSE, sep = '\t', row.names = FALSE)
-
-# get total number of variants
-# total_num_variants <- length(unique(as.character(overlap_df[["VariantID"]])))
-# 
-# # aggregate on the percent of entries in each grouping
-# overlap_aggr <- aggregate(n ~ comb, data = overlap_df, FUN = sum)
-# overlap_pcnt <- aggregate(n ~ comb, data = overlap_df, FUN = function(x){
-#     return( round( (sum(x) / total_num_variants) * 100, digits = 1) )
-# })
-# names(overlap_pcnt) <- c("comb", "pcnt")
-# overlap_aggr <- merge(overlap_aggr, overlap_pcnt)
-# overlap_aggr[["all"]] <- '.'
-# 
-# write.table(x = overlap_aggr, file = output_aggr_table, quote = FALSE, sep = '\t', row.names = FALSE)
 # 
 # pdf(file = output_plot)
 # ggplot(data = overlap_aggr, aes(x = all, y = pcnt, fill = comb)) +

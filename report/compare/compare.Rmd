@@ -29,7 +29,25 @@ old_unpaired_annot_file <- params$old_unpaired_annot
 new_unpaired_annot_file <- params$new_unpaired_annot
 old_paired_annot_file <- params$old_paired_annot
 new_paired_annot_file <- params$new_paired_annot
+library("ggplot2")
+library("knitr")
 source("overlap.R")
+
+overlap_barplot <- function(overlap_aggr_df, plot_title = "Plot Title"){
+    p <- ggplot(data = overlap_aggr_df, 
+               aes(x = all, y = pcnt, fill = comb)) +
+            geom_bar(stat = "identity", position="stack") +
+            theme_bw() +
+            ggtitle(plot_title) +
+            theme(
+                panel.grid.minor.x = element_blank(),
+                panel.grid.major.x = element_blank(),
+                axis.ticks = element_blank(),
+                axis.text.x = element_blank(),
+                axis.title.x = element_blank()
+            )
+    return(p)
+}
 ```
 
 # Annotation Overlap
@@ -62,6 +80,7 @@ save.image(file="loaded.Rdata",compress = TRUE)
 ```{r separate}
 # separate based on variant callers
 unpaired_variants <- list()
+# get unique set of callers and caller types
 unpaired_caller_types <- rbind(
     old_unpaired_annot[, c("VariantCaller", "VariantCallerType")],
     new_unpaired_annot[, c("VariantCaller", "VariantCallerType")]
@@ -75,8 +94,10 @@ for(i in seq(nrow(unpaired_caller_types))){
     unpaired_variants[[vc]] <- list()
     unpaired_variants[[vc]][[vct]] <- list()
     
+    # filter out for only the matching variants from each dataset
     unpaired_variants[[vc]][[vct]][["old"]] <- old_unpaired_annot[
         which(old_unpaired_annot[["VariantCaller"]] == vc & old_unpaired_annot[["VariantCallerType"]] == vct ) ,]
+    # create unique variant ID for each entry
     unpaired_variants[[vc]][[vct]][["old"]][['VariantID']] <- sprintf(
         "%s:%s:%s>%s:%s", 
         unpaired_variants[[vc]][[vct]][["old"]][['CHROM']], 
@@ -96,6 +117,8 @@ for(i in seq(nrow(unpaired_caller_types))){
         unpaired_variants[[vc]][[vct]][["new"]][['ALT']],
         unpaired_variants[[vc]][[vct]][["new"]][['Sample']]
     )
+    
+    # create the overlap table
     unpaired_variants[[vc]][[vct]][["overlap"]] <- create_overlaps(
         variant_list = list(
             new = unpaired_variants[[vc]][[vct]][["new"]][['VariantID']],
@@ -103,6 +126,11 @@ for(i in seq(nrow(unpaired_caller_types))){
         )
     )
     
+    # create aggregate table
+    unpaired_variants[[vc]][[vct]][["overlap_aggr"]] <- aggregate_overlaps(unpaired_variants[[vc]][[vct]][["overlap"]])
+    
+    # make plot
+    unpaired_variants[[vc]][[vct]][["overlap_aggr_plot"]] <- overlap_barplot(unpaired_variants[[vc]][[vct]][["overlap_aggr"]])
 }
 
 paired_variants <- list()
@@ -149,14 +177,39 @@ for(i in seq(nrow(paired_caller_types))){
             old = paired_variants[[vc]][[vct]][["old"]][['VariantID']]
         )
     )
+    
+    paired_variants[[vc]][[vct]][["overlap_aggr"]] <- aggregate_overlaps(paired_variants[[vc]][[vct]][["overlap"]])
+    
+    # make plot
+    paired_variants[[vc]][[vct]][["overlap_aggr_plot"]] <- overlap_barplot(paired_variants[[vc]][[vct]][["overlap_aggr"]])
 }
 save.image(file="separated.Rdata",compress = TRUE)
 ```
 
-```{r}
+# Unpaired Variants
 
+```{r results='asis'}
+for (vc in names(unpaired_variants)){
+    for(vct in names(unpaired_variants[[vc]])){
+        cat(sprintf("## %s.%s\n\n", vc, vct))
+        # print(unpaired_variants[[vc]][[vct]][["overlap_aggr"]])
+        print(unpaired_variants[[vc]][[vct]][["overlap_aggr_plot"]])
+        cat("\n\n")
+    }
+}
+```
 
+# Paired Variants
 
+```{r results='asis'}
+for (vc in names(paired_variants)){
+    for(vct in names(paired_variants[[vc]])){
+        cat(sprintf("## %s.%s\n\n", vc, vct))
+        # print(paired_variants[[vc]][[vct]][["overlap_aggr"]])
+        print(paired_variants[[vc]][[vct]][["overlap_aggr_plot"]])
+        cat("\n\n")
+    }
+}
 ```
 
 # System Information 
