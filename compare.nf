@@ -39,15 +39,31 @@ Channel.fromPath("${new_unpaired_annotations}").set{ new_unpaired_annotations_ch
 Channel.fromPath("${old_paired_annotations}").set{ old_paired_annotations_ch }
 Channel.fromPath("${new_paired_annotations}").set{ new_paired_annotations_ch }
 
+Channel.from(new File("${old_unpaired_annotations}").getCanonicalPath()).set{ old_unpaired_annotations_path_ch }
+Channel.from(new File("${new_unpaired_annotations}").getCanonicalPath()).set{ new_unpaired_annotations_path_ch }
+Channel.from(new File("${old_paired_annotations}").getCanonicalPath()).set{ old_paired_annotations_path_ch }
+Channel.from(new File("${new_paired_annotations}").getCanonicalPath()).set{ new_paired_annotations_path_ch }
+
 
 process compare_report {
     publishDir "${outputDirPath}", mode: 'copy'
     stageInMode "copy"
 
     input:
-    set file(old_unpaired_annot), file(new_unpaired_annot), file(old_paired_annot), file(new_paired_annot) from old_unpaired_annotations_ch.combine(new_unpaired_annotations_ch)
+    set file(old_unpaired_annot),
+        file(new_unpaired_annot),
+        file(old_paired_annot),
+        file(new_paired_annot),
+        val(old_unpaired_annot_path),
+        val(new_unpaired_annot_path),
+        val(old_paired_annot_path),
+        val(new_paired_annot_path) from old_unpaired_annotations_ch.combine(new_unpaired_annotations_ch)
                                                 .combine(old_paired_annotations_ch)
                                                 .combine(new_paired_annotations_ch)
+                                                .combine(old_unpaired_annotations_path_ch)
+                                                .combine(new_unpaired_annotations_path_ch)
+                                                .combine(old_paired_annotations_path_ch)
+                                                .combine(new_paired_annotations_path_ch)
     file(report_items: '*') from report_files.collect()
 
     output:
@@ -63,7 +79,11 @@ process compare_report {
         old_unpaired_annot = "${old_unpaired_annot}",
         new_unpaired_annot = "${new_unpaired_annot}",
         old_paired_annot = "${old_paired_annot}",
-        new_paired_annot = "${new_paired_annot}"
+        new_paired_annot = "${new_paired_annot}",
+        old_unpaired_annot_path = "${old_unpaired_annot_path}",
+        new_unpaired_annot_path = "${new_unpaired_annot_path}",
+        old_paired_annot_path = "${old_paired_annot_path}",
+        new_paired_annot_path = "${new_paired_annot_path}"
     ),
     output_format = "html_document",
     output_file = "${html_output}"

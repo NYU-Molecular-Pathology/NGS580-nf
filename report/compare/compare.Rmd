@@ -19,42 +19,52 @@ params:
   new_unpaired_annot: new_unpaired_annot.tsv
   old_paired_annot: old_paired_annot.tsv
   new_paired_annot: new_paired_annot.tsv
+  old_unpaired_annot_path: old_unpaired_annot.tsv
+  new_unpaired_annot_path: new_unpaired_annot.tsv
+  old_paired_annot_path: old_paired_annot.tsv
+  new_paired_annot_path: new_paired_annot.tsv
 ---
 ```{r setup, include=FALSE}
 # This is the main parent report file, loads and compiles all child documents for the report
-knitr::opts_chunk$set(echo = FALSE)
-knitr::opts_chunk$set(fig.height = 12)
-knitr::opts_chunk$set(fig.width = 12)
-old_unpaired_annot_file <- params$old_unpaired_annot
-new_unpaired_annot_file <- params$new_unpaired_annot
-old_paired_annot_file <- params$old_paired_annot
-new_paired_annot_file <- params$new_paired_annot
 library("ggplot2")
 library("knitr")
 source("overlap.R")
 
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(fig.height = 12)
+knitr::opts_chunk$set(fig.width = 12)
+
+# actual files to be read in
+old_unpaired_annot_file <- params$old_unpaired_annot
+new_unpaired_annot_file <- params$new_unpaired_annot
+old_paired_annot_file <- params$old_paired_annot
+new_paired_annot_file <- params$new_paired_annot
+
+# original source paths to the files; Nextflow stages the files so this might not be the same as the original file
+old_unpaired_annot_path <- params$old_unpaired_annot_path
+new_unpaired_annot_path <- params$new_unpaired_annot_path
+old_paired_annot_path <- params$old_paired_annot_path
+new_paired_annot_path <- params$new_paired_annot_path
+
+
+
 overlap_barplot <- function(overlap_aggr_df, plot_title = "Plot Title"){
     p <- ggplot(data = overlap_aggr_df, 
-               aes(x = all, y = pcnt, fill = comb)) +
-            geom_bar(stat = "identity", position="stack") +
-            theme_bw() +
-            ggtitle(plot_title) +
-            theme(
-                panel.grid.minor.x = element_blank(),
-                panel.grid.major.x = element_blank(),
-                axis.ticks = element_blank(),
-                axis.text.x = element_blank(),
-                axis.title.x = element_blank()
-            )
+                aes(x = all, y = pcnt, fill = comb)) +
+        geom_bar(stat = "identity", position="stack") +
+        coord_flip() +
+        theme_bw() +
+        ggtitle(plot_title) +
+        theme(
+            panel.grid.minor.x = element_blank(),
+            panel.grid.major.x = element_blank(),
+            axis.ticks = element_blank(),
+            axis.text.x = element_blank(),
+            axis.title.x = element_blank()
+        )
     return(p)
 }
 ```
-
-# Annotation Overlap
-
-## Overall Overlap
-
-Comparison of all variant annotations between old and new annotation lists
 
 ```{r load_data}
 old_unpaired_annot <- read.delim(file = old_unpaired_annot_file, 
@@ -185,6 +195,67 @@ for(i in seq(nrow(paired_caller_types))){
 }
 save.image(file="separated.Rdata",compress = TRUE)
 ```
+
+```{r metrics}
+annot_metrics_unpaired <- function(df){
+    df[["n"]] <- 1
+    df <- aggregate(n ~ VariantCaller + VariantCallerType + Sample, data = df, FUN = sum)
+    return(df)
+}
+annot_metrics_paired <- function(df){
+    df[["n"]] <- 1
+    df <- aggregate(n ~ VariantCaller + VariantCallerType + Tumor + Normal, data = df, FUN = sum)
+    return(df)
+}
+metrics <- list()
+metrics[["unpaired"]] <- list()
+metrics[["unpaired"]][["old"]] <- annot_metrics_unpaired(old_unpaired_annot)
+metrics[["unpaired"]][["new"]] <- annot_metrics_unpaired(new_unpaired_annot)
+metrics[["paired"]] <- list()
+metrics[["paired"]][["old"]] <- annot_metrics_paired(old_paired_annot)
+metrics[["paired"]][["new"]] <- annot_metrics_paired(new_paired_annot)
+
+```
+
+# Metrics
+
+## Old Unpaired Annotations
+
+```{r}
+metrics[["unpaired"]][["old"]]
+```
+
+- `r old_unpaired_annot_path`
+
+
+## New Unpaired Annotations
+
+```{r}
+metrics[["unpaired"]][["new"]]
+```
+
+- `r new_unpaired_annot_path`
+
+## Old Paired Annotations
+
+```{r}
+metrics[["paired"]][["old"]]
+```
+
+- `r old_paired_annot_path`
+
+## New Paired Annotations
+
+```{r}
+metrics[["paired"]][["new"]]
+```
+- `r new_paired_annot_path`
+
+# Annotation Overlap
+
+## Overall Overlap
+
+Comparison of all variant annotations between old and new annotation lists
 
 # Unpaired Variants
 
