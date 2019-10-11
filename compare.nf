@@ -50,10 +50,10 @@ process compare_report {
     stageInMode "copy"
 
     input:
-    set file(old_unpaired_annot),
-        file(new_unpaired_annot),
-        file(old_paired_annot),
-        file(new_paired_annot),
+    set file("old.unpaired.annot.tsv"),
+        file("new.unpaired.annot.tsv"),
+        file("old.paired.annot.tsv"),
+        file("new.paired.annot.tsv"),
         val(old_unpaired_annot_path),
         val(new_unpaired_annot_path),
         val(old_paired_annot_path),
@@ -68,6 +68,11 @@ process compare_report {
 
     output:
     file("${html_output}")
+    file("old.unpaired.annot.tsv")
+    file("new.unpaired.annot.tsv")
+    file("old.paired.annot.tsv")
+    file("new.paired.annot.tsv")
+    file("*.tsv")
 
     script:
     html_output = "comparison.html"
@@ -76,10 +81,10 @@ process compare_report {
     rmarkdown::render(
         input = "compare.Rmd",
     params = list(
-        old_unpaired_annot = "${old_unpaired_annot}",
-        new_unpaired_annot = "${new_unpaired_annot}",
-        old_paired_annot = "${old_paired_annot}",
-        new_paired_annot = "${new_paired_annot}",
+        old_unpaired_annot = "old.unpaired.annot.tsv",
+        new_unpaired_annot = "new.unpaired.annot.tsv",
+        old_paired_annot = "old.paired.annot.tsv",
+        new_paired_annot = "new.paired.annot.tsv",
         old_unpaired_annot_path = "${old_unpaired_annot_path}",
         new_unpaired_annot_path = "${new_unpaired_annot_path}",
         old_paired_annot_path = "${old_paired_annot_path}",

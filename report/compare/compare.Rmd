@@ -10,7 +10,7 @@ output:
     df_print: kable
   html_document:
     css: styles.css
-    df_print: paged
+    df_print: kable
     keep_md: yes
     number_sections: yes
     toc: yes
@@ -28,6 +28,7 @@ params:
 # This is the main parent report file, loads and compiles all child documents for the report
 library("ggplot2")
 library("knitr")
+library("DT")
 source("overlap.R")
 
 knitr::opts_chunk$set(echo = FALSE)
@@ -46,7 +47,13 @@ new_unpaired_annot_path <- params$new_unpaired_annot_path
 old_paired_annot_path <- params$old_paired_annot_path
 new_paired_annot_path <- params$new_paired_annot_path
 
-
+# output files
+old_unpaired_unique_prefix <- "old.unpaired.uniq"
+new_unpaired_unique_prefix <- "new.unpaired.uniq"
+unpaired_common_prefix <- "unpaired.common"
+old_paired_unique_prefix <- "old.paired.uniq"
+new_paired_unique_prefix <- "new.paired.uniq"
+paired_common_prefix <- "paired.common"
 
 overlap_barplot <- function(overlap_aggr_df, plot_title = "Plot Title"){
     p <- ggplot(data = overlap_aggr_df, 
@@ -64,6 +71,7 @@ overlap_barplot <- function(overlap_aggr_df, plot_title = "Plot Title"){
         )
     return(p)
 }
+save.image(file="setup.Rdata",compress = TRUE)
 ```
 
 ```{r load_data}
@@ -87,7 +95,7 @@ new_paired_annot <- read.delim(file = new_paired_annot_file,
 save.image(file="loaded.Rdata",compress = TRUE)
 ```
 
-```{r separate}
+```{r separate_unpaired}
 # separate based on variant callers
 unpaired_variants <- list()
 # get unique set of callers and caller types
@@ -96,17 +104,20 @@ unpaired_caller_types <- rbind(
     new_unpaired_annot[, c("VariantCaller", "VariantCallerType")]
 )
 unpaired_caller_types <- unpaired_caller_types[!duplicated(unpaired_caller_types),]
+unpaired_variants_aggr <- data.frame()
 
 for(i in seq(nrow(unpaired_caller_types))){
     vc <- as.character(unpaired_caller_types[i, "VariantCaller"])
     vct <- as.character(unpaired_caller_types[i, "VariantCallerType"])
     
+    # initialize list
     unpaired_variants[[vc]] <- list()
     unpaired_variants[[vc]][[vct]] <- list()
     
     # filter out for only the matching variants from each dataset
     unpaired_variants[[vc]][[vct]][["old"]] <- old_unpaired_annot[
         which(old_unpaired_annot[["VariantCaller"]] == vc & old_unpaired_annot[["VariantCallerType"]] == vct ) ,]
+    
     # create unique variant ID for each entry
     unpaired_variants[[vc]][[vct]][["old"]][['VariantID']] <- sprintf(
         "%s:%s:%s>%s:%s", 
@@ -131,24 +142,82 @@ for(i in seq(nrow(unpaired_caller_types))){
     # create the overlap table
     unpaired_variants[[vc]][[vct]][["overlap"]] <- create_overlaps(
         variant_list = list(
-            new = unpaired_variants[[vc]][[vct]][["new"]][['VariantID']],
-            old = unpaired_variants[[vc]][[vct]][["old"]][['VariantID']]
+            new = unique(unpaired_variants[[vc]][[vct]][["new"]][['VariantID']]),
+            old = unique(unpaired_variants[[vc]][[vct]][["old"]][['VariantID']])
         )
     )
     
     # create aggregate table
     unpaired_variants[[vc]][[vct]][["overlap_aggr"]] <- aggregate_overlaps(unpaired_variants[[vc]][[vct]][["overlap"]])
+    unpaired_variants[[vc]][[vct]][["overlap_aggr"]][["VariantCaller"]] <- vc
+    unpaired_variants[[vc]][[vct]][["overlap_aggr"]][["VariantCallerType"]] <- vct
+    unpaired_variants[[vc]][[vct]][["overlap_aggr"]][["vc.vct"]] <- sprintf("%s.%s", vc, vct)
+    
+    if(nrow(unpaired_variants_aggr) < 1){
+        unpaired_variants_aggr <- unpaired_variants[[vc]][[vct]][["overlap_aggr"]]
+    } else {
+        unpaired_variants_aggr <- rbind(unpaired_variants_aggr, 
+                                        unpaired_variants[[vc]][[vct]][["overlap_aggr"]])
+    }
     
     # make plot
     unpaired_variants[[vc]][[vct]][["overlap_aggr_plot"]] <- overlap_barplot(unpaired_variants[[vc]][[vct]][["overlap_aggr"]])
+    
+    # save output tables
+    uniq_variantIDs <- unpaired_variants[[vc]][[vct]][["overlap"]][
+        unpaired_variants[[vc]][[vct]][["overlap"]][["comb"]] == "old", ][["VariantID"]]
+    output_filename <- sprintf("%s.%s.%s.tsv", old_unpaired_unique_prefix, vc, vct)
+    write.table(
+        x = unpaired_variants[[vc]][[vct]][["old"]][
+        which(unpaired_variants[[vc]][[vct]][["old"]][['VariantID']] %in% uniq_variantIDs), 
+        ], 
+        file = output_filename, 
+        quote = FALSE, 
+        sep = '\t', 
+        na = '.', 
+        row.names = FALSE, 
+        col.names = TRUE
+        )
+    
+    uniq_variantIDs <- unpaired_variants[[vc]][[vct]][["overlap"]][
+        unpaired_variants[[vc]][[vct]][["overlap"]][["comb"]] == "new", ][["VariantID"]]
+    output_filename <- sprintf("%s.%s.%s.tsv", new_unpaired_unique_prefix, vc, vct)
+    write.table(
+        x = unpaired_variants[[vc]][[vct]][["new"]][
+        which(unpaired_variants[[vc]][[vct]][["new"]][['VariantID']] %in% uniq_variantIDs), 
+        ], 
+        file = output_filename, 
+        quote = FALSE, 
+        sep = '\t', 
+        na = '.', 
+        row.names = FALSE, 
+        col.names = TRUE
+        )
 }
 
+unpaired_variants_aggr_plot <- ggplot(data = unpaired_variants_aggr, 
+                aes(x = vc.vct, y = pcnt, fill = comb)) +
+        geom_bar(stat = "identity", position="stack") +
+        coord_flip() +
+        theme_bw() +
+        ggtitle("Plot Title") +
+        theme(
+            panel.grid.minor.x = element_blank(),
+            panel.grid.major.x = element_blank(),
+            axis.title.y = element_blank()
+        )
+
+save.image(file="separated.Rdata",compress = TRUE)
+```
+
+```{r separate_paired}
 paired_variants <- list()
 paired_caller_types <- rbind(
     old_paired_annot[, c("VariantCaller", "VariantCallerType")],
     new_paired_annot[, c("VariantCaller", "VariantCallerType")]
 )
 paired_caller_types <- paired_caller_types[!duplicated(paired_caller_types),]
+paired_variants_aggr <- data.frame()
 
 for(i in seq(nrow(paired_caller_types))){
     vc <- as.character(paired_caller_types[i, "VariantCaller"])
@@ -183,16 +252,71 @@ for(i in seq(nrow(paired_caller_types))){
     
     paired_variants[[vc]][[vct]][["overlap"]] <- create_overlaps(
         variant_list = list(
-            new = paired_variants[[vc]][[vct]][["new"]][['VariantID']],
-            old = paired_variants[[vc]][[vct]][["old"]][['VariantID']]
+            new = unique(paired_variants[[vc]][[vct]][["new"]][['VariantID']]),
+            old = unique(paired_variants[[vc]][[vct]][["old"]][['VariantID']])
         )
     )
     
     paired_variants[[vc]][[vct]][["overlap_aggr"]] <- aggregate_overlaps(paired_variants[[vc]][[vct]][["overlap"]])
+    paired_variants[[vc]][[vct]][["overlap_aggr"]][["VariantCaller"]] <- vc
+    paired_variants[[vc]][[vct]][["overlap_aggr"]][["VariantCallerType"]] <- vct
+    paired_variants[[vc]][[vct]][["overlap_aggr"]][["vc.vct"]] <- sprintf("%s.%s", vc, vct)
+    
+    if(nrow(paired_variants_aggr) < 1){
+        paired_variants_aggr <- paired_variants[[vc]][[vct]][["overlap_aggr"]]
+    } else {
+        paired_variants_aggr <- rbind(paired_variants_aggr, paired_variants[[vc]][[vct]][["overlap_aggr"]])
+    }
     
     # make plot
     paired_variants[[vc]][[vct]][["overlap_aggr_plot"]] <- overlap_barplot(paired_variants[[vc]][[vct]][["overlap_aggr"]])
+    
+    # save output tables
+    uniq_variantIDs <- as.character(
+        paired_variants[[vc]][[vct]][["overlap"]][
+        paired_variants[[vc]][[vct]][["overlap"]][["comb"]] == "old", ][["VariantID"]])
+    output_filename <- sprintf("%s.%s.%s.tsv", old_paired_unique_prefix, vc, vct)
+    write.table(
+        x = paired_variants[[vc]][[vct]][["old"]][
+        which(paired_variants[[vc]][[vct]][["old"]][['VariantID']] %in% uniq_variantIDs), 
+        ], 
+        file = output_filename, 
+        quote = FALSE, 
+        sep = '\t', 
+        na = '.', 
+        row.names = FALSE, 
+        col.names = TRUE
+        )
+    
+    uniq_variantIDs <- as.character(
+        paired_variants[[vc]][[vct]][["overlap"]][
+        paired_variants[[vc]][[vct]][["overlap"]][["comb"]] == "new", ][["VariantID"]])
+    output_filename <- sprintf("%s.%s.%s.tsv", new_paired_unique_prefix, vc, vct)
+    write.table(
+        x = paired_variants[[vc]][[vct]][["new"]][
+        which(paired_variants[[vc]][[vct]][["new"]][['VariantID']] %in% uniq_variantIDs), 
+        ], 
+        file = output_filename, 
+        quote = FALSE, 
+        sep = '\t', 
+        na = '.', 
+        row.names = FALSE, 
+        col.names = TRUE
+        )
 }
+
+paired_variants_aggr_plot <- ggplot(data = paired_variants_aggr, 
+                aes(x = vc.vct, y = pcnt, fill = comb)) +
+        geom_bar(stat = "identity", position="stack") +
+        coord_flip() +
+        theme_bw() +
+        ggtitle("Plot Title") +
+        theme(
+            panel.grid.minor.x = element_blank(),
+            panel.grid.major.x = element_blank(),
+            axis.title.y = element_blank()
+        )
+
 save.image(file="separated.Rdata",compress = TRUE)
 ```
 
@@ -215,6 +339,7 @@ metrics[["paired"]] <- list()
 metrics[["paired"]][["old"]] <- annot_metrics_paired(old_paired_annot)
 metrics[["paired"]][["new"]] <- annot_metrics_paired(new_paired_annot)
 
+save.image(file="metrics.Rdata",compress = TRUE)
 ```
 
 # Metrics
@@ -222,7 +347,9 @@ metrics[["paired"]][["new"]] <- annot_metrics_paired(new_paired_annot)
 ## Old Unpaired Annotations
 
 ```{r}
-metrics[["unpaired"]][["old"]]
+DT::datatable(data = metrics[["unpaired"]][["old"]],
+              # options = list(pageLength = nrow(reads_df)),
+              class = 'cell-border stripe')
 ```
 
 - `r old_unpaired_annot_path`
@@ -231,7 +358,8 @@ metrics[["unpaired"]][["old"]]
 ## New Unpaired Annotations
 
 ```{r}
-metrics[["unpaired"]][["new"]]
+DT::datatable(data = metrics[["unpaired"]][["new"]],
+              class = 'cell-border stripe')
 ```
 
 - `r new_unpaired_annot_path`
@@ -239,7 +367,8 @@ metrics[["unpaired"]][["new"]]
 ## Old Paired Annotations
 
 ```{r}
-metrics[["paired"]][["old"]]
+DT::datatable(data = metrics[["paired"]][["old"]],
+              class = 'cell-border stripe')
 ```
 
 - `r old_paired_annot_path`
@@ -247,7 +376,8 @@ metrics[["paired"]][["old"]]
 ## New Paired Annotations
 
 ```{r}
-metrics[["paired"]][["new"]]
+DT::datatable(data = metrics[["paired"]][["new"]],
+              class = 'cell-border stripe')
 ```
 - `r new_paired_annot_path`
 
@@ -260,27 +390,21 @@ Comparison of all variant annotations between old and new annotation lists
 # Unpaired Variants
 
 ```{r results='asis'}
-for (vc in names(unpaired_variants)){
-    for(vct in names(unpaired_variants[[vc]])){
-        cat(sprintf("## %s.%s\n\n", vc, vct))
-        # print(unpaired_variants[[vc]][[vct]][["overlap_aggr"]])
-        print(unpaired_variants[[vc]][[vct]][["overlap_aggr_plot"]])
-        cat("\n\n")
-    }
-}
+unpaired_variants_aggr_plot
+```
+
+```{r}
+unpaired_variants_aggr
 ```
 
 # Paired Variants
 
 ```{r results='asis'}
-for (vc in names(paired_variants)){
-    for(vct in names(paired_variants[[vc]])){
-        cat(sprintf("## %s.%s\n\n", vc, vct))
-        # print(paired_variants[[vc]][[vct]][["overlap_aggr"]])
-        print(paired_variants[[vc]][[vct]][["overlap_aggr_plot"]])
-        cat("\n\n")
-    }
-}
+paired_variants_aggr_plot
+```
+
+```{r}
+paired_variants_aggr
 ```
 
 # System Information 
