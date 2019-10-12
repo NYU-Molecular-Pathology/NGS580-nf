@@ -516,8 +516,11 @@ clean-old-stdout-logs:
 clean-old-failed-logs:
 	find . -maxdepth 1 -mindepth 1 -type f -name "failed.*.tsv" | sort -r | tail -n +2 | xargs rm -f
 
+clean-tmp:
+	rm -f nxf-tmp.*
+
 # clean all files produced by previous pipeline runs
-clean: clean-logs clean-traces clean-reports clean-flowcharts clean-old-stdout-logs clean-old-failed-logs
+clean: clean-logs clean-traces clean-reports clean-flowcharts clean-old-stdout-logs clean-old-failed-logs clean-tmp
 
 # clean all files produced by all pipeline runs
 clean-all: clean clean-output clean-work
