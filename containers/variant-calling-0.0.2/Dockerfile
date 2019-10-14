@@ -1,25 +1,13 @@
 # NGS580 container for variant calling and downstream processing
 FROM broadinstitute/gatk3:3.8-0
 
-# ~~~~~ BASIC SETUP ~~~~~ #
-# mount point for for NYULMC phoenix (Singluarity)
-RUN mkdir /ifs
+# https://unix.stackexchange.com/questions/508724/failed-to-fetch-jessie-backports-repository
+RUN echo "deb [check-valid-until=no] http://cdn-fastly.deb.debian.org/debian jessie main" > /etc/apt/sources.list.d/jessie.list
+RUN echo "deb [check-valid-until=no] http://archive.debian.org/debian jessie-backports main" > /etc/apt/sources.list.d/jessie-backports.list
+RUN sed -i '/deb http:\/\/deb.debian.org\/debian jessie-updates main/d' /etc/apt/sources.list
+RUN apt-get -o Acquire::Check-Valid-Until=false update
 
-# location for misc data
-RUN mkdir /data
-
-# location for misc scripts
-RUN mkdir /opt/bin
-ENV PATH="/opt/bin:/opt:${PATH}"
-
-# GATK shortcut script
-ADD gatk.sh /usr/gatk.sh
-RUN chmod +x /usr/gatk.sh
-ENV PATH="/usr:${PATH}"
-
-RUN apt-get update && \
-\
-apt-get install -y wget \
+RUN apt-get install -y wget \
 bzip2 \
 libcairo2-dev
 
@@ -35,25 +23,23 @@ RUN conda config --add channels bioconda
 
 # ~~~~~ SAMTOOLS, etc. ~~~~~ #
 RUN conda install -y -c bioconda -c r \
-samtools==1.3 \
-bcftools==1.3 \
+samtools=1.3 \
+bcftools=1.3 \
 htslib=1.7 \
 vcflib=1.0.0 \
 lofreq=2.1.2 \
 r=3.3.2 \
 r-base=3.3.2 \
-r-ggplot2==2.2.1
+r-ggplot2=2.2.1 \
+r-curl=2.3 \
+r-gsalib=2.1 \
+r-gplots=3.0.1 \
+r-reshape=0.8.6 \
+r-plyr=1.8.4
 # comes with R 3.1.1 by default
 
-# ~~~~~ ANNOVAR ~~~~~ #
-RUN cd /opt/ && \
-wget http://www.openbioinformatics.org/annovar/download/0wgxR2rIVP/annovar.revision150617.tar.gz && \
-tar -vzxf annovar.revision150617.tar.gz && \
-rm -f annovar.revision150617.tar.gz
-# location to mount reference database dir:
-RUN mkdir /opt/annovar/db
-# easy script for annotating:
-ENV PATH="/opt/annovar:${PATH}"
-
-# ~~~~~ R Libs ~~~~~ #
-RUN Rscript -e "install.packages(c('curl', 'ggplot2', 'gsalib', 'gplots', 'reshape', 'plyr'), repos='http://cran.us.r-project.org', dependencies = TRUE)"
+# wrapper script for pipeline compatibility
+RUN echo '#!/bin/bash' > /usr/gatk.sh
+RUN echo 'java -jar $(dirname $0)/GenomeAnalysisTK.jar "$@"' >> /usr/gatk.sh
+RUN chmod +x /usr/gatk.sh
+ENV PATH="/usr:${PATH}"
