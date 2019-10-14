@@ -79,3 +79,4 @@ nxf-tmp*
 .nextflow.completion.log
 compare/
 samples.hapmap.tsv
+containers/staging/*

@@ -132,4 +132,6 @@ docker-build:
 
 docker-test:
 	@$(MAKE) check-Docker-image || { echo ">>> Docker image does not exist, building...";  $(MAKE) docker-build; }
-	@docker run --rm -ti "$(DOCKERTAG)" bash
+	@docker run --rm -ti \
+	--volume "$(CURDIR)/staging:/staging" \
+	"$(DOCKERTAG)" bash

@@ -17,8 +17,11 @@ process make_ref {
     file("msisensor/hg19/microsatellites.list")
     file("contaminants/trimmomatic.fa")
     file("gatk-bundle/1000G_phase1.indels.hg19.vcf")
+    file("gatk-bundle/1000G_phase1.indels.hg19.vcf.idx")
     file("gatk-bundle/Mills_and_1000G_gold_standard.indels.hg19.vcf")
+    file("gatk-bundle/Mills_and_1000G_gold_standard.indels.hg19.vcf.idx")
     file("gatk-bundle/dbsnp_138.hg19.vcf")
+    file("gatk-bundle/dbsnp_138.hg19.vcf.idx")
     file("hg19/CosmicCodingMuts_v73.hg19.vcf")
     file("iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa.fai")
 
