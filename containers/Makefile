@@ -40,29 +40,29 @@ clean-vagrant:
 
 # ~~~~~ BUILD ALL ~~~~~ #
 # TODO: update or remove these because I do not think they actually work anymore
-build-all-Docker: check-Docker
-	for item in $$(find . -maxdepth 2 -mindepth 2 -type f -name "Dockerfile" -exec dirname {} \; | cut -d '/' -f2- | xargs); \
-	do \
-	make -f Docker.makefile build VAR=$$item ; \
-	done
-
-pull-all-Docker: check-Docker
-	for item in $$(find . -maxdepth 2 -mindepth 2 -type f -name "Dockerfile" -exec dirname {} \; | cut -d '/' -f2- | xargs); \
-	do \
-	make -f Docker.makefile pull VAR=$$item ; \
-	done
-
-convert-all-Docker: check-Docker
-	for item in $$(find . -maxdepth 2 -mindepth 2 -type f -name "Dockerfile" -exec dirname {} \; | cut -d '/' -f2- | xargs); \
-	do \
-	make -f Singularity.makefile convert-Docker VAR=$$item ; \
-	done
-
-build-all-Singularity:
-	for item in $$(find . -maxdepth 2 -mindepth 2 -type f -name "Singularity.*" -exec dirname {} \; | cut -d '/' -f2- | xargs); \
-	do \
-	make -f Singularity.makefile build VAR=$$item ; \
-	done
+# build-all-Docker: check-Docker
+# 	for item in $$(find . -maxdepth 2 -mindepth 2 -type f -name "Dockerfile" -exec dirname {} \; | cut -d '/' -f2- | xargs); \
+# 	do \
+# 	make -f Docker.makefile build VAR=$$item ; \
+# 	done
+#
+# pull-all-Docker: check-Docker
+# 	for item in $$(find . -maxdepth 2 -mindepth 2 -type f -name "Dockerfile" -exec dirname {} \; | cut -d '/' -f2- | xargs); \
+# 	do \
+# 	make -f Docker.makefile pull VAR=$$item ; \
+# 	done
+#
+# convert-all-Docker: check-Docker
+# 	for item in $$(find . -maxdepth 2 -mindepth 2 -type f -name "Dockerfile" -exec dirname {} \; | cut -d '/' -f2- | xargs); \
+# 	do \
+# 	make -f Singularity.makefile convert-Docker VAR=$$item ; \
+# 	done
+#
+# build-all-Singularity:
+# 	for item in $$(find . -maxdepth 2 -mindepth 2 -type f -name "Singularity.*" -exec dirname {} \; | cut -d '/' -f2- | xargs); \
+# 	do \
+# 	make -f Singularity.makefile build VAR=$$item ; \
+# 	done
 
 # ~~~~~ SINGULARITY ~~~~~ #
 SINGULARITYFILE:=$(VAR)/Singularity.$(VAR)
