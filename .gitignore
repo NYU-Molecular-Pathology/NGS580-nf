@@ -78,3 +78,4 @@ submit.bigpurple.sh
 nxf-tmp*
 .nextflow.completion.log
 compare/
+samples.hapmap.tsv

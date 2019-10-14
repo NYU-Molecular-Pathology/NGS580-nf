@@ -82,7 +82,7 @@ process cnv_pooledreference {
     publishDir "${params.outputDir}", mode: 'copy'
 
     input:
-    set file("*.cnn"), file(ref_fasta), file(ref_fai), file(ref_dict) from cnn_ref_ch
+    set file("*"), file(ref_fasta), file(ref_fai), file(ref_dict) from cnn_ref_ch
 
     output:
     file("${output_file}")

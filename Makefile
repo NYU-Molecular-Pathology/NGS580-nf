@@ -397,13 +397,19 @@ kill: $(NXF_NODEFILE) $(NXF_PIDFILE)
 
 # location to files for making HapMap pool
 HAPMAP_POOL_SHEET:=samples.hapmap.tsv
+HAPMAP_POOL_PROFILE:=hapmap_pool
 hapmap-pool: $(HAPMAP_POOL_SHEET)
-	./nextflow run hapmap-pool.nf -profile hapmap_pool $(RESUME)
+	./nextflow run hapmap-pool.nf \
+	-profile "$(HAPMAP_POOL_PROFILE)" \
+	$(RESUME)
 
 # location for files for making CNV Pool
 CNV_POOL_SHEET:=samples.cnv.tsv
+CNV_POOL_PROFILE:=cnv_pool
 cnv-pool: $(CNV_POOL_SHEET)
-	./nextflow run cnv-pool.nf -profile cnv_pool $(RESUME)
+	./nextflow run cnv-pool.nf \
+	-profile "$(CNV_POOL_PROFILE)" \
+	$(RESUME)
 
 # save a record of the most recent Nextflow run completion
 PRE:=
