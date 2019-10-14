@@ -251,7 +251,7 @@ run: backup
 run-recurse:
 	@if grep -q 'phoenix' <<<'$(HOSTNAME)'; then echo  ">>> Running run-phoenix"; $(MAKE) run-phoenix ; \
 	elif grep -q 'bigpurple' <<<'$(HOSTNAME)'; then echo ">>> Running run-bigpurple"; $(MAKE) run-bigpurple ; \
-	else echo ">>> ERROR: could not automatically determine 'run' recipe to use, please consult the Makefile"; exit 1 ; fi ;
+	else $(MAKE) run-local ; fi ;
 
 # run on phoenix in current session
 run-phoenix: install
@@ -306,7 +306,15 @@ run-bigpurple-recurse: install
 
 # run locally default settings
 run-local: install
-	./nextflow run main.nf -profile local $(RESUME) -with-dag flowchart.dot $(EP)
+	./nextflow run main.nf \
+	-profile local \
+	$(RESUME) \
+	-with-dag flowchart.dot \
+	--GIT_CURRENT_BRANCH "$(GIT_CURRENT_BRANCH)" \
+	--GIT_CURRENT_COMMIT "$(GIT_CURRENT_COMMIT)" \
+	--GIT_CURRENT_TAG "$(GIT_CURRENT_TAG)" \
+	--GIT_RECENT_TAG "$(GIT_RECENT_TAG)" \
+	$(EP)
 
 # run on Power server
 run-power: install
