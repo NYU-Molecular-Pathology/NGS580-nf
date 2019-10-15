@@ -1,6 +1,0 @@
-package:
-  name: annovar
-  version: "150617"
-
-source:
-  url: http://www.openbioinformatics.org/annovar/download/0wgxR2rIVP/annovar.revision150617.tar.gz
