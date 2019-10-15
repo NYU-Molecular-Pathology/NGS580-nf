@@ -11,7 +11,6 @@ process make_ref {
     file("iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa")
     file("iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.dict")
     file("iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa.fai")
-
     file("BWA/hg19")
     file("Illumina/hg19/chrom.sizes")
     file("msisensor/hg19/microsatellites.list")
@@ -22,8 +21,12 @@ process make_ref {
     file("gatk-bundle/Mills_and_1000G_gold_standard.indels.hg19.vcf.idx")
     file("gatk-bundle/dbsnp_138.hg19.vcf")
     file("gatk-bundle/dbsnp_138.hg19.vcf.idx")
+    file("gatk-bundle/dbsnp_138.hg19.vcf.gz")
+    file("gatk-bundle/dbsnp_138.hg19.vcf.gz.tbi")
     file("hg19/CosmicCodingMuts_v73.hg19.vcf")
-    file("iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa.fai")
+    file("hg19/CosmicCodingMuts_v73.hg19.vcf.idx")
+    file("hg19/common_all_20170710.vcf.gz.tbi")
+    file("hg19/common_all_20170710.vcf.gz")
 
     script:
     """
