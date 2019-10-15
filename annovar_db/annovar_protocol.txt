@@ -1,2 +1,0 @@
-refGene,cosmic70,clinvar_20170905
-refGene,1000g2015aug_all,clinvar_20170905,intervar_20170202,dbnsfp33a,esp6500siv2_all,kaviar_20150923,gnomad_exome,gnomad_genome,avsnp150,fathmm,eigen

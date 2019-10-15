@@ -71,7 +71,7 @@ Nextflow pipelines have been included for downloading required reference data, i
 make setup
 ```
 
-## HapMap Pool .bam
+### HapMap Pool .bam
 
 A negative control HapMap pool .bam file can be prepared using the following command:
 
@@ -81,9 +81,11 @@ make hapmap-pool
 
 - Requires `samples.hapmap.tsv` file specifying the .bam files to be combined (example included at `example/samples.hapmap.tsv`).
 
-This file is typically built from multiple HapMap samples previously aligned by this pipeline.
+This file is typically built from multiple HapMap samples previously aligned by this pipeline. For demonstration purposes, you can provide any .bam and .bai files.
 
-## CNV Pool
+The HapMap Pool files to be used in the pipeline should be set under the `HapMapBam` and `HapMapBai` keys of `config.json`.
+
+### CNV Pool
 
 A control normal sample .cnn file for CNV calling can be prepared using the following command:
 
@@ -93,7 +95,9 @@ make cnv-pool
 
 - Requires `samples.cnv.tsv` file specifying the .bam files to be used (example included at `example/samples.cnv.tsv`)
 
-This file is typically built from specially chosen normal tissue sequencing samples previously aligned by this pipeline.
+This file is typically built from .bam files of specially chosen normal tissue sequencing samples previously aligned by this pipeline. For demonstration purposes, you can create the .cnn file from any desired .bam file. Note that the targets .bed file used to create the .cnn file must match the targets used in the rest of the pipeline.
+
+The .cnn file to be used in the pipeline should be set under the `CNVPool` key in `config.json`.
 
 ## Containers
 
