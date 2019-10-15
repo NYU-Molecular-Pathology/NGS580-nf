@@ -135,6 +135,14 @@ or
 make config RUNID=my_run_ID FASTQDIRS='/path/to/fastqs1 /path/to/fastqs2'
 ```
 
+or
+
+```
+cp .config.json config.json
+```
+
+and then simply edit the new `config.json` and update the items to match your pipeline settings. 
+
 Once created, the `config.json` file can be updated manually as needed. The template and default values can be viewed in the included `.config.json` file.
 
 - `config.json` should be generated automatically if you used `make deploy`
