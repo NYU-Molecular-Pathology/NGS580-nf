@@ -18,6 +18,9 @@ rm -f Miniconda3-4.4.10-Linux-x86_64.sh
 ENV PATH="/conda/bin:${PATH}"
 
 # ~~~~~ R ~~~~~ #
+# NOTE: conda breaks itself now after it updates libraries so have to install everything at once
+# this causes problems trying to install conda-forge::r-plotly=4.7.1
+# https://github.com/conda/conda/issues/6007
 RUN conda install -y -c r \
 r=3.4.3 \
 r-base=3.4.3 \
@@ -26,6 +29,5 @@ r-reshape2=1.4.3 \
 r-knitr=1.18 \
 r-rmarkdown=1.8 \
 r-ggplot2=2.2.1 \
-r-dt=0.2
-RUN conda install -y -c conda-forge \
+r-dt=0.2 \
 r-plotly=4.7.1

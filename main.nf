@@ -1102,6 +1102,10 @@ recalibrated_bases_table2.combine(ref_fasta9)
 process gatk_AnalyzeCovariates {
     // re-align and recalibrate alignments for later variant calling
     publishDir "${params.outputDir}/alignments/stats", mode: 'copy'
+    // sometimes this breaks on small datasets
+    // https://gatkforums.broadinstitute.org/gatk/discussion/4213/analyzecovariates-error
+    // currently not used in any downstream process so ignore if it fails to run
+    errorStrategy = "ignore"
 
     input:
     set val(sampleID), file(table1), file(table2), file(ra_bam_file), file(ra_bai_file), file(ref_fasta), file(ref_fai), file(ref_dict) from recalibrated_bases_table2_comb
@@ -1109,7 +1113,6 @@ process gatk_AnalyzeCovariates {
     output:
     file("${csv_file}")
     file("${pdf_file}")
-    val(sampleID) into done_gatk_AnalyzeCovariates
 
     script:
     prefix = "${sampleID}"
@@ -4901,7 +4904,6 @@ done_copy_samplesheet.concat(
     done_gatk_IndelRealigner,
     done_gatk_BaseRecalibrator,
     done_gatk_BaseRecalibratorBQSR,
-    done_gatk_AnalyzeCovariates,
     done_gatk_PrintReads,
     done_lofreq,
     done_gatk_hc,

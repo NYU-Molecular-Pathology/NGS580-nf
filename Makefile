@@ -166,6 +166,7 @@ config-add-fastqdirs:
 	fi
 
 # generate a samplesheet for the analysis based on the configs
+# use this for .fastq.gz files split by lane: NAMEMODE=LaneSplit
 NAMEMODE:=noLaneSplit
 SAMPLESHEET_OUTPUT:=samples.analysis.tsv
 samplesheet:
