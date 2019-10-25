@@ -768,8 +768,7 @@ process update_samtools_flagstat_table {
     paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" | \
     paste-col.py --header "GitBranch" -v "${params.GIT_CURRENT_BRANCH}" | \
-    paste-col.py --header "GitCommit" -v "${params.GIT_CURRENT_COMMIT}" | \
-    paste-col.py --header "GitTag" -v "${params.GIT_RECENT_TAG}" > \
+    paste-col.py --header "GitTag" -v "${params.GIT_CURRENT_TAG}" > \
     "${output_file}"
     """
 }
@@ -849,8 +848,7 @@ process update_sambamba_dedup_log_table{
     paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" | \
     paste-col.py --header "GitBranch" -v "${params.GIT_CURRENT_BRANCH}" | \
-    paste-col.py --header "GitCommit" -v "${params.GIT_CURRENT_COMMIT}" | \
-    paste-col.py --header "GitTag" -v "${params.GIT_RECENT_TAG}" > \
+    paste-col.py --header "GitTag" -v "${params.GIT_CURRENT_TAG}" > \
     "${output_file}"
     """
 }
@@ -917,8 +915,7 @@ process update_samtools_dedup_flagstat_table {
     paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" | \
     paste-col.py --header "GitBranch" -v "${params.GIT_CURRENT_BRANCH}" | \
-    paste-col.py --header "GitCommit" -v "${params.GIT_CURRENT_COMMIT}" | \
-    paste-col.py --header "GitTag" -v "${params.GIT_RECENT_TAG}" > \
+    paste-col.py --header "GitTag" -v "${params.GIT_CURRENT_TAG}" > \
     "${output_file}"
     """
 }
@@ -1402,8 +1399,7 @@ process update_updated_coverage_tables_collected {
     paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" | \
     paste-col.py --header "GitBranch" -v "${params.GIT_CURRENT_BRANCH}" | \
-    paste-col.py --header "GitCommit" -v "${params.GIT_CURRENT_COMMIT}" | \
-    paste-col.py --header "GitTag" -v "${params.GIT_RECENT_TAG}" > \
+    paste-col.py --header "GitTag" -v "${params.GIT_CURRENT_TAG}" > \
     "${output_file}"
     """
 }
@@ -1510,8 +1506,7 @@ process update_updated_coverage_interval_tables_collected {
     paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" | \
     paste-col.py --header "GitBranch" -v "${params.GIT_CURRENT_BRANCH}" | \
-    paste-col.py --header "GitCommit" -v "${params.GIT_CURRENT_COMMIT}" | \
-    paste-col.py --header "GitTag" -v "${params.GIT_RECENT_TAG}" > \
+    paste-col.py --header "GitTag" -v "${params.GIT_CURRENT_TAG}" > \
     "${output_file}"
     """
 }
@@ -3537,8 +3532,7 @@ process update_collect_annotation_tables {
     paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" | \
     paste-col.py --header "GitBranch" -v "${params.GIT_CURRENT_BRANCH}" | \
-    paste-col.py --header "GitCommit" -v "${params.GIT_CURRENT_COMMIT}" | \
-    paste-col.py --header "GitTag" -v "${params.GIT_RECENT_TAG}" > \
+    paste-col.py --header "GitTag" -v "${params.GIT_CURRENT_TAG}" > \
     "${output_file}"
     """
 }
@@ -3905,8 +3899,7 @@ process update_update_signatures_weights_collected {
     paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" | \
     paste-col.py --header "GitBranch" -v "${params.GIT_CURRENT_BRANCH}" | \
-    paste-col.py --header "GitCommit" -v "${params.GIT_CURRENT_COMMIT}" | \
-    paste-col.py --header "GitTag" -v "${params.GIT_RECENT_TAG}" > \
+    paste-col.py --header "GitTag" -v "${params.GIT_CURRENT_TAG}" > \
     "${output_file}"
     """
 }
@@ -4231,8 +4224,7 @@ process update_cnvkit_extract_trusted_genes_collected {
     paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" | \
     paste-col.py --header "GitBranch" -v "${params.GIT_CURRENT_BRANCH}" | \
-    paste-col.py --header "GitCommit" -v "${params.GIT_CURRENT_COMMIT}" | \
-    paste-col.py --header "GitTag" -v "${params.GIT_RECENT_TAG}" > \
+    paste-col.py --header "GitTag" -v "${params.GIT_CURRENT_TAG}" > \
     "${output_file}"
     """
  }
@@ -4582,8 +4574,7 @@ process update_snp_overlap_collected {
     paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" | \
     paste-col.py --header "GitBranch" -v "${params.GIT_CURRENT_BRANCH}" | \
-    paste-col.py --header "GitCommit" -v "${params.GIT_CURRENT_COMMIT}" | \
-    paste-col.py --header "GitTag" -v "${params.GIT_RECENT_TAG}" > \
+    paste-col.py --header "GitTag" -v "${params.GIT_CURRENT_TAG}" > \
     "${output_file}"
     """
  }
@@ -4697,8 +4688,7 @@ process update_collect_seracare_annotation_tables {
     paste-col.py --header "Location" -v "${workflow.projectDir}" | \
     paste-col.py --header "System" -v "${localhostname}" | \
     paste-col.py --header "GitBranch" -v "${params.GIT_CURRENT_BRANCH}" | \
-    paste-col.py --header "GitCommit" -v "${params.GIT_CURRENT_COMMIT}" | \
-    paste-col.py --header "GitTag" -v "${params.GIT_RECENT_TAG}" > \
+    paste-col.py --header "GitTag" -v "${params.GIT_CURRENT_TAG}" > \
     "${output_file}"
     """
 }
