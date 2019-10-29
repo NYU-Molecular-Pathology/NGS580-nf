@@ -2813,9 +2813,10 @@ process filter_vcf_pairs {
         # > "${filtered_vcf}"
 
         # get the header
-        grep '^#' "${vcf}" > "${filtered_vcf}"
+        # grep '^#' "${vcf}" > "${filtered_vcf}"
         # get the 'PASS' entries
-        grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
+        # grep -v '^#' "${vcf}" | grep 'PASS' >> "${filtered_vcf}" || :
+        cp "${vcf}" "${filtered_vcf}"
         """
         // ##FILTER=<ID=PASS,Description="All filters passed">
         // ##INFO=<ID=QSS,Number=1,Type=Integer,Description="Quality score for any somatic snv, ie. for the ALT allele to be present at a significantly different frequency in the tumor and normal">
@@ -2990,6 +2991,7 @@ process vcf_to_tsv_pairs {
             # convert to tsv format
             # NOTE: automatically filters for only PASS entries
             gatk.sh -T VariantsToTable \
+            -raw \
             -R "${ref_fasta}" \
             -V "${vcf}" \
             -F CHROM \
@@ -3067,6 +3069,7 @@ process vcf_to_tsv_pairs {
             # convert to tsv format
             # NOTE: automatically filters for only PASS entries
             gatk.sh -T VariantsToTable \
+            -raw \
             -R "${ref_fasta}" \
             -V "${vcf}" \
             -F CHROM \
