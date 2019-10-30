@@ -259,7 +259,10 @@ def StrelkaSomaticIndel(fin, fout):
         tier1RefCounts = int(tumor_TAR_values[0])
         tumor_TIR_values = row['TUMOR.TIR'].split(',')
         tier1AltCounts = int(tumor_TIR_values[0])
-        tumor_AF = tier1AltCounts / (( tier1AltCounts + tier1RefCounts ) * 1.0) # coerce to float
+        try:
+            tumor_AF = tier1AltCounts / (( tier1AltCounts + tier1RefCounts ) * 1.0) # coerce to float
+        except:
+            tumor_AF = 0
         row['AF'] = tumor_AF
         row['FREQ'] = tumor_AF
         row['TUMOR.AF'] = tumor_AF
@@ -268,7 +271,10 @@ def StrelkaSomaticIndel(fin, fout):
         normal_tier1RefCounts = int(normal_TAR_values[0])
         normal_TIR_values = row['NORMAL.TIR'].split(',')
         normal_tier1AltCounts = int(normal_TIR_values[0])
-        normal_AF = normal_tier1AltCounts / (( normal_tier1AltCounts + normal_tier1RefCounts ) * 1.0) # coerce to float
+        try:
+            normal_AF = normal_tier1AltCounts / (( normal_tier1AltCounts + normal_tier1RefCounts ) * 1.0) # coerce to float
+        except:
+            normal_AF = 0
         row['NORMAL.AF'] = normal_AF
 
         row['DP'] = row['TUMOR.DP']
