@@ -259,7 +259,12 @@ def StrelkaSomaticIndel(fin, fout):
         tier1RefCounts = int(tumor_TAR_values[0])
         tumor_TIR_values = row['TUMOR.TIR'].split(',')
         tier1AltCounts = int(tumor_TIR_values[0])
-        tumor_AF = tier1AltCounts / (( tier1AltCounts + tier1RefCounts ) * 1.0) # coerce to float
+        #to avoid division by zero errors when TAR/TIR values are 0
+        tumor_depth = ((tier1AltCounts + tier1RefCounts) * 1.0) #coerce to float
+        if tumor_depth > 0.0:
+            tumor_AF = tier1AltCounts / (( tier1AltCounts + tier1RefCounts ) * 1.0) #to float
+        else:
+            tumor_AF = 0.0 # mark as 0 and remove later with post-filter
         row['AF'] = tumor_AF
         row['FREQ'] = tumor_AF
         row['TUMOR.AF'] = tumor_AF
@@ -268,9 +273,13 @@ def StrelkaSomaticIndel(fin, fout):
         normal_tier1RefCounts = int(normal_TAR_values[0])
         normal_TIR_values = row['NORMAL.TIR'].split(',')
         normal_tier1AltCounts = int(normal_TIR_values[0])
-        normal_AF = normal_tier1AltCounts / (( normal_tier1AltCounts + normal_tier1RefCounts ) * 1.0) # coerce to float
+        #to avoid division by zero errors when TAR/TIR values are 0
+        normal_depth = ((normal_tier1AltCounts + normal_tier1RefCounts) * 1.0) #coerce to float
+        if normal_depth > 0.0:
+            normal_AF = normal_tier1AltCounts / (( normal_tier1AltCounts + normal_tier1RefCounts ) * 1.0) # coerce to float
+        else:
+            normal_AF = 0.0
         row['NORMAL.AF'] = normal_AF
-
         row['DP'] = row['TUMOR.DP']
         row['QUAL'] = row['QSI']
         writer.writerow(row)
