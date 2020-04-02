@@ -145,6 +145,8 @@ params.cosmic_ref_vcf = "${params.ref_dir}/hg19/CosmicCodingMuts_v73.hg19.vcf"
 params.cosmic_ref_vcf_idx = "${params.ref_dir}/hg19/CosmicCodingMuts_v73.hg19.vcf.idx"
 params.common_snp_vcf = "${params.ref_dir}/hg19/common_all_20170710.vcf.gz"
 params.common_snp_vcf_tbi = "${params.ref_dir}/hg19/common_all_20170710.vcf.gz.tbi"
+params.germline_resource_gz = "/gpfs/data/molecpathlab/ref/gatk-bundle/af-only-gnomad.raw.sites.hg19.vcf.gz" // added for gatk4
+params.germline_resource_gz_tbi = "/gpfs/data/molecpathlab/ref/gatk-bundle/af-only-gnomad.raw.sites.hg19.vcf.gz.tbi" // added for gatk4
 
 // ~~~~~~~~~~ VALIDATION ~~~~~~~~~~ //
 // make sure reference data directory exists
@@ -206,7 +208,9 @@ Channel.fromPath( file(targetsBed) ).into { targets_bed;
     targets_bed11;
     targets_bed12;
     targets_bed13;
-    targets_bed14 }
+    targets_bed14;
+    targets_bed15
+  }
 
 Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
     ref_fasta2;
@@ -228,7 +232,9 @@ Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
     ref_fasta18;
     ref_fasta19;
     ref_fasta20;
-    ref_fasta21 }
+    ref_fasta21;
+    ref_fasta22
+  }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai2;
     ref_fai3;
@@ -249,7 +255,9 @@ Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai18;
     ref_fai19;
     ref_fai20;
-    ref_fai21 }
+    ref_fai21;
+    ref_fai22
+  }
 Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
     ref_dict2;
     ref_dict3;
@@ -270,7 +278,9 @@ Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
     ref_dict18;
     ref_dict19;
     ref_dict20;
-    ref_dict21 }
+    ref_dict21;
+    ref_dict22
+  }
 
 Channel.fromPath( file(params.ref_chrom_sizes) ).set{ ref_chrom_sizes }
 Channel.fromPath( file(params.trimmomatic_contaminant_fa) ).set{ trimmomatic_contaminant_fa }
@@ -312,6 +322,9 @@ Channel.fromPath( file(params.dbsnp_ref_vcf_idx) ).into{ dbsnp_ref_vcf_idx;
     dbsnp_ref_vcf_idx8 }
 Channel.fromPath( file(params.dbsnp_ref_vcf_gz) ).set { dbsnp_ref_vcf_gz }
 Channel.fromPath( file(params.dbsnp_ref_vcf_gz_tbi) ).set { dbsnp_ref_vcf_gz_tbi }
+
+Channel.fromPath( file(params.germline_resource_gz) ).set { germline_resource_gz } //added for gatk4
+Channel.fromPath( file(params.germline_resource_gz_tbi) ).set { germline_resource_gz_tbi }//added for gatk4
 
 Channel.fromPath( file(params.cosmic_ref_vcf) ).into{ cosmic_ref_vcf; cosmic_ref_vcf2 }
 Channel.fromPath( file(params.cosmic_ref_vcf_idx) ).into{ cosmic_ref_vcf_idx; cosmic_ref_vcf_idx2 }
@@ -2150,7 +2163,7 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
                         def comparisonID = "${tumorID}_${normalID}"
                         return [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai ]
                     }
-                    .tap { samples_dd_ra_rc_bam_noHapMap_pairs }
+                    .tap { samples_dd_ra_rc_bam_noHapMap_pairs; samples_dd_ra_rc_bam_noHapMap_pairs2 }// added for gatk4
                     .mix(hapmap_samples_pool)
                     .tap { samples_dd_ra_rc_bam_pairs } // make a channel for just this set of data
                     .combine(ref_fasta3) // add reference genome and targets
@@ -2162,7 +2175,9 @@ samples_dd_ra_rc_bam2.combine(samples_pairs) // [ sampleID, sampleBam, sampleBai
                     .tap {  samples_dd_ra_rc_bam_pairs_ref; // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) ]
                             samples_dd_ra_rc_bam_pairs2;
                             samples_dd_ra_rc_bam_pairs_ref3;
-                            samples_dd_ra_rc_bam_pairs_ref4 }
+                            samples_dd_ra_rc_bam_pairs_ref4;
+                            samples_dd_ra_rc_bam_pairs_ref5 // added for gatk4
+                          }
                     .combine(microsatellites) // add MSI ref
                     .set { samples_dd_ra_rc_bam_pairs_ref_msi }
 
@@ -2217,7 +2232,9 @@ samples_dd_bam3.combine(samples_pairs4) // [ sampleID, sampleBam, sampleBai, tum
     .combine(ref_fai19)
     .combine(ref_dict19)
     .tap { samples_dd_bam_noHapMap_pairs_ref;
-        samples_dd_bam_noHapMap_pairs_ref2 }
+        samples_dd_bam_noHapMap_pairs_ref2;
+        samples_dd_bam_noHapMap_pairs_ref3
+      }
         // [ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict ]
 
 // get the unique chromosomes in the targets bed file
@@ -2356,6 +2373,53 @@ process mutect2 {
     """
     // # subset the target regions for the given chromosome
     // # subset_bed.py "${chunkLabel}" "${targets_bed}" > "${bed_subset}"
+}
+
+// samples_dd_ra_rc_bam_pairs_ref5.combine(germline_resource_gz) //[ comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) ]
+//                                .combine(germline_resource_gz_tbi)
+//                                .set { samples_dd_ra_rc_bam_pairs_ref_target_germlinevcf }
+
+samples_dd_ra_rc_bam_noHapMap_pairs2.combine(ref_fasta22) // add reference genome and targets //added for gatk4
+                                    .combine(ref_fai22)
+                                    .combine(ref_dict22)
+                                    .combine(targets_bed15)
+                                    .combine(germline_resource_gz)
+                                    .combine(germline_resource_gz_tbi)
+                                    .set { samples_dd_ra_rc_bam_pairs_ref_target_germlinevcf }
+
+process mutect2_gatk4 { //added for gatk4
+  // paired tumor-normal variant calling
+  // NOTE: all '@RG' read groups in .bam file headers should have the same 'SM:' sample ID value!
+  publishDir "${params.outputDir}/variants/MuTect2_GATK4/raw", mode: 'copy', pattern: "*${vcf_file}"
+
+  input:
+  set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(germline_resource_gz), file(germline_resource_gz_tbi)from samples_dd_ra_rc_bam_pairs_ref_target_germlinevcf
+
+  output:
+  set val(caller), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), file("${vcf_file}") into vcfs_mutect2_gatk4
+  file("${vcf_file}")
+
+  script:
+  caller = "MuTect2_GATK4"
+  prefix = "${comparisonID}.${caller}"
+  vcf_file = "${prefix}.vcf"
+
+  """
+    gatk --java-options \"-Xms8G -Xmx8G\" Mutect2 \
+    --seconds-between-progress-updates 600 \
+    --native-pair-hmm-threads 4 \
+    --reference "${ref_fasta}" \
+    --germline-resource "${germline_resource_gz}" \
+    --dont-use-soft-clipped-bases \
+    --max-reads-per-alignment-start 100 \
+    --intervals "${targets_bed}" \
+    --interval-padding 10 \
+    --input "${tumorBam}" \
+    --input "${normalBam}" \
+    --tumor-sample "${tumorID}" \
+    --normal-sample "${normalID}" \
+    --output "${vcf_file}"
+    """
 }
 
 
