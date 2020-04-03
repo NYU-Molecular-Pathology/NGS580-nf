@@ -102,7 +102,7 @@ disable_msisensor = true // breaks on very small demo datasets
 disable_delly2 = true
 disable_eval_pair_vcf = true
 disable_pindel = true
-disable_varscan2 = true
+//disable_varscan2 = true
 
 // load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
 String filemapJSON = new File("filemap.json").text
@@ -131,7 +131,7 @@ params.ref_dict = "${params.ref_dir}/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/Wh
 params.ref_chrom_sizes = "${params.ref_dir}/Illumina/hg19/chrom.sizes"
 params.microsatellites = "${params.ref_dir}/msisensor/hg19/microsatellites.list"
 params.trimmomatic_contaminant_fa = "${params.ref_dir}/contaminants/trimmomatic.fa"
-
+params.gnomAD_sites = "${params.gnomAD_dir}/gnomad.exomes.r2.0.2.sites.vcf.gz"
 params.gatk_bundle_dir = "${params.ref_dir}/gatk-bundle"
 params.gatk_1000G_phase1_indels_hg19_vcf = "${params.gatk_bundle_dir}/1000G_phase1.indels.hg19.vcf"
 params.gatk_1000G_phase1_indels_hg19_vcf_idx = "${params.gatk_bundle_dir}/1000G_phase1.indels.hg19.vcf.idx"
@@ -426,6 +426,10 @@ sampleIDs3.filter {
 Channel.fromPath( "${SeraCareSelectedTsv}").into { seracare_selected_tsv; seracare_selected_tsv2 }
 Channel.fromPath("${CNVPool}").set { cnv_pool_ch }
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
+
+// reference file for VEP calling
+Channel.fromPath( file(params.gnomAD_sites) ).set{ gnomad_exomes_sites }
+Channel.fromPath( file(params.vep_cache_dir) ).set{ vep_cache }
 
 // logging channels
 Channel.from("Sample\tProgram\tType\tNote\tFiles").set { failed_samples }
@@ -2396,7 +2400,7 @@ process mutect2_gatk4 { //added for gatk4
   set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed), file(germline_resource_gz), file(germline_resource_gz_tbi)from samples_dd_ra_rc_bam_pairs_ref_target_germlinevcf
 
   output:
-  set val(caller), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), file("${vcf_file}") into vcfs_mutect2_gatk4
+  set val(caller), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), file("${vcf_file}"), file(ref_fasta) into vcfs_mutect2_gatk4
   file("${vcf_file}")
 
   script:
@@ -2422,6 +2426,49 @@ process mutect2_gatk4 { //added for gatk4
     """
 }
 
+vcfs_mutect2_gatk4.combine(gnomad_exomes_sites)
+                  .combine(vep_cache)
+                  .set { vcfs_mutect2_for_vep }
+
+process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
+  // paired tumor-normal vep calling
+  publishDir "${params.outputDir}/variants/MuTect2_GATK4/raw/vep", mode: 'copy', pattern: "*${vep_vcf_file}"
+
+  input:
+  set val(caller), val(comparisonID), val(tumorID), val(normalID), file(vcf_file),
+   file(gnomad_exomes_sites), file(vep_cache), file(ref_fasta) from vcfs_mutect2_for_vep
+
+  output:
+  set val(caller), val(comparisonID), val(tumorID), val(normalID), file("${vep_vcf_file}") into vep_vcfs_mutect2
+  file("${vep_vcf_file}")
+
+  script:
+  caller = "vep"
+  prefix = "${comparisonID}.${caller}"
+  vep_vcf_file = "${prefix}.vep.vcf"
+
+  """
+      vep \
+          --fork 4\
+          --species homo_sapiens\
+          --offline\
+          --everything\
+          --shift_hgvs 1\
+          --check_existing\
+          --total_length\
+          --allele_number\
+          --no_escape\
+          --refseq\
+          --buffer_size 256\
+          --dir "${vep_cache}"\
+          --fasta "${ref_fasta}"\
+          --input_file "${vcf_file}"\
+          --force_overwrite\
+          --custom "${gnomad_exomes_sites}",gnomAD,vcf,exact,0,AF_POPMAX,AF_AFR,AF_AMR,AF_ASJ,AF_EAS,AF_FIN,AF_NFE,AF_OTH,AF_SAS\
+          --vcf\
+          --output_file "${vep_vcf_file}"
+  """
+}
 
 samples_dd_ra_rc_bam_pairs_refFasta.combine(dbsnp_ref_vcf_gz)
 .combine(dbsnp_ref_vcf_gz_tbi)
