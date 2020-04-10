@@ -131,7 +131,9 @@ params.ref_dict = "${params.ref_dir}/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/Wh
 params.ref_chrom_sizes = "${params.ref_dir}/Illumina/hg19/chrom.sizes"
 params.microsatellites = "${params.ref_dir}/msisensor/hg19/microsatellites.list"
 params.trimmomatic_contaminant_fa = "${params.ref_dir}/contaminants/trimmomatic.fa"
-params.gnomAD_sites = "${params.gnomAD_dir}/gnomad.exomes.r2.0.2.sites.vcf.gz"
+params.gnomAD_sites = "/gpfs/data/molecpathlab/ref/gnomAD_v2/gnomad.exomes.r2.0.2.sites.vcf.gz"
+params.vep_cache_dir = "/gpfs/data/molecpathlab/ref/vep"
+params.ExAC_dir = "/gpfs/data/molecpathlab/ref/ExAC"
 params.gatk_bundle_dir = "${params.ref_dir}/gatk-bundle"
 params.gatk_1000G_phase1_indels_hg19_vcf = "${params.gatk_bundle_dir}/1000G_phase1.indels.hg19.vcf"
 params.gatk_1000G_phase1_indels_hg19_vcf_idx = "${params.gatk_bundle_dir}/1000G_phase1.indels.hg19.vcf.idx"
@@ -428,7 +430,7 @@ Channel.fromPath("${CNVPool}").set { cnv_pool_ch }
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
 // reference file for VEP calling
-Channel.fromPath( file(params.gnomAD_sites) ).set{ gnomad_exomes_sites }
+Channel.fromPath( file(params.gnomAD_sites) ).set{ exomes_sites }
 Channel.fromPath( file(params.vep_cache_dir) ).set{ vep_cache }
 
 // logging channels
@@ -2426,20 +2428,17 @@ process mutect2_gatk4 { //added for gatk4
     """
 }
 
-vcfs_mutect2_gatk4.combine(gnomad_exomes_sites)
-                  .combine(vep_cache)
-                  .set { vcfs_mutect2_for_vep }
-
 process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
   // paired tumor-normal vep calling
   publishDir "${params.outputDir}/variants/MuTect2_GATK4/raw", mode: 'copy', pattern: "*${vep_vcf_file}"
 
   input:
   set val(caller), val(comparisonID), val(tumorID), val(normalID), file(vcf_file),
-   file(gnomad_exomes_sites), file(vep_cache), file(ref_fasta) from vcfs_mutect2_for_vep
+   file(gnomad_exomes_sites), file(vep_cache), file(ref_fasta) from vcfs_mutect2_gatk4.combine(exomes_sites)
+                                                                                      .combine(vep_cache)
 
   output:
-  set val(caller), val(comparisonID), val(tumorID), val(normalID), file("${vep_vcf_file}") into vep_vcfs_mutect2
+  set val(caller), val(comparisonID), val(tumorID), val(normalID), file(ref_fasta), file("${vep_vcf_file}") into vep_vcfs_mutect2
   file("${vep_vcf_file}")
 
   script:
