@@ -430,8 +430,8 @@ Channel.fromPath("${CNVPool}").set { cnv_pool_ch }
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
 // reference file for VEP calling
-Channel.fromPath( file(params.gnomAD_sites) ).set{ exomes_sites }
-Channel.fromPath( file(params.vep_cache_dir) ).set{ vep_cache }
+Channel.fromPath( file(params.gnomAD_sites) ).set{ gnomAD_sites }
+Channel.fromPath( file(params.vep_cache_dir) ).set{ vep_cache_dir }
 
 // logging channels
 Channel.from("Sample\tProgram\tType\tNote\tFiles").set { failed_samples }
@@ -2434,8 +2434,8 @@ process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
 
   input:
   set val(caller), val(comparisonID), val(tumorID), val(normalID), file(vcf_file),
-   file(gnomad_exomes_sites), file(vep_cache), file(ref_fasta) from vcfs_mutect2_gatk4.combine(exomes_sites)
-                                                                                      .combine(vep_cache)
+   file(gnomad_exomes_sites), file(vep_cache_dir), file(ref_fasta) from vcfs_mutect2_gatk4.combine(gnomAD_sites)
+                                                                                      .combine(vep_cache_dir)
 
   output:
   set val(caller), val(comparisonID), val(tumorID), val(normalID), file(ref_fasta), file("${vep_vcf_file}") into vep_vcfs_mutect2
@@ -2448,23 +2448,23 @@ process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
 
   """
       vep \
-          --fork 4\
-          --species homo_sapiens\
-          --offline\
-          --everything\
-          --shift_hgvs 1\
-          --check_existing\
-          --total_length\
-          --allele_number\
-          --no_escape\
-          --refseq\
-          --buffer_size 256\
-          --dir "${vep_cache}"\
-          --fasta "${ref_fasta}"\
-          --input_file "${vcf_file}"\
-          --force_overwrite\
-          --custom "${gnomad_exomes_sites}",gnomAD,vcf,exact,0,AF_POPMAX,AF_AFR,AF_AMR,AF_ASJ,AF_EAS,AF_FIN,AF_NFE,AF_OTH,AF_SAS\
-          --vcf\
+          --fork 4 \
+          --species homo_sapiens \
+          --offline \
+          --everything \
+          --shift_hgvs 1 \
+          --check_existing \
+          --total_length \
+          --allele_number \
+          --no_escape \
+          --refseq \
+          --buffer_size 256 \
+          --dir "${vep_cache_dir}" \
+          --fasta "${ref_fasta}" \
+          --input_file "${vcf_file}" \
+          --force_overwrite \
+          --custom "${gnomad_exomes_sites},gnomAD,vcf,exact,0,AF_POPMAX,AF_AFR,AF_AMR,AF_ASJ,AF_EAS,AF_FIN,AF_NFE,AF_OTH,AF_SAS" \
+          --vcf \
           --output_file "${vep_vcf_file}"
   """
 }
