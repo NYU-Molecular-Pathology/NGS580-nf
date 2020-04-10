@@ -2433,8 +2433,8 @@ process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
   publishDir "${params.outputDir}/variants/MuTect2_GATK4/raw", mode: 'copy', pattern: "*${vep_vcf_file}"
 
   input:
-  set val(caller), val(comparisonID), val(tumorID), val(normalID), file(vcf_file),
-   file(gnomad_exomes_sites), file(vep_cache_dir), file(ref_fasta) from vcfs_mutect2_gatk4.combine(gnomAD_sites)
+  set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(vcf_file), file(ref_fasta),
+   file(gnomad_exomes_sites), file(vep_cache_dir) from vcfs_mutect2_gatk4.combine(gnomAD_sites)
                                                                                       .combine(vep_cache_dir)
 
   output:
