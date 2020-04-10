@@ -2432,7 +2432,7 @@ vcfs_mutect2_gatk4.combine(gnomad_exomes_sites)
 
 process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
   // paired tumor-normal vep calling
-  publishDir "${params.outputDir}/variants/MuTect2_GATK4/raw/vep", mode: 'copy', pattern: "*${vep_vcf_file}"
+  publishDir "${params.outputDir}/variants/MuTect2_GATK4/raw", mode: 'copy', pattern: "*${vep_vcf_file}"
 
   input:
   set val(caller), val(comparisonID), val(tumorID), val(normalID), file(vcf_file),
