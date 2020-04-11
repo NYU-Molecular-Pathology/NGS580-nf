@@ -131,7 +131,7 @@ params.ref_dict = "${params.ref_dir}/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/Wh
 params.ref_chrom_sizes = "${params.ref_dir}/Illumina/hg19/chrom.sizes"
 params.microsatellites = "${params.ref_dir}/msisensor/hg19/microsatellites.list"
 params.trimmomatic_contaminant_fa = "${params.ref_dir}/contaminants/trimmomatic.fa"
-params.gnomAD_sites = "/gpfs/data/molecpathlab/ref/gnomAD_v2/gnomad.exomes.r2.0.2.sites.vcf.gz"
+params.gnomAD_dir = "/gpfs/data/molecpathlab/ref/gnomAD_v2"
 params.vep_cache_dir = "/gpfs/data/molecpathlab/ref/vep"
 params.ExAC_dir = "/gpfs/data/molecpathlab/ref/ExAC"
 params.gatk_bundle_dir = "${params.ref_dir}/gatk-bundle"
@@ -430,7 +430,7 @@ Channel.fromPath("${CNVPool}").set { cnv_pool_ch }
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
 // reference file for VEP calling
-Channel.fromPath( file(params.gnomAD_sites) ).set{ gnomAD_sites }
+Channel.fromPath( file(params.gnomAD_dir) ).set{ gnomAD_vcf,  gnomAD_vcf_tbi}
 Channel.fromPath( file(params.vep_cache_dir) ).set{ vep_cache_dir }
 
 // logging channels
@@ -2434,8 +2434,9 @@ process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
 
   input:
   set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(vcf_file), file(ref_fasta),
-   file(gnomad_exomes_sites), file(vep_cache_dir) from vcfs_mutect2_gatk4.combine(gnomAD_sites)
-                                                                                      .combine(vep_cache_dir)
+   file(gnomAD_vcf),file(gnomAD_vcf_tbi), file(vep_cache_dir) from vcfs_mutect2_gatk4.combine(gnomAD_vcf)
+                                                                         .combin(gnomAD_vcf_tbi)
+                                                                         .combine(vep_cache_dir)
 
   output:
   set val(caller), val(comparisonID), val(tumorID), val(normalID), file(ref_fasta), file("${vep_vcf_file}") into vep_vcfs_mutect2
@@ -2463,7 +2464,7 @@ process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
           --fasta "${ref_fasta}" \
           --input_file "${vcf_file}" \
           --force_overwrite \
-          --custom "${gnomad_exomes_sites},gnomAD,vcf,exact,0,AF_POPMAX,AF_AFR,AF_AMR,AF_ASJ,AF_EAS,AF_FIN,AF_NFE,AF_OTH,AF_SAS" \
+          --custom "${gnomAD_vcf},gnomAD,vcf,exact,0,AF_POPMAX,AF_AFR,AF_AMR,AF_ASJ,AF_EAS,AF_FIN,AF_NFE,AF_OTH,AF_SAS" \
           --vcf \
           --output_file "${vep_vcf_file}"
   """
