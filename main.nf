@@ -237,7 +237,7 @@ Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
     ref_fasta20;
     ref_fasta21;
     ref_fasta22;
-    ref_fasta23;
+    ref_fasta23
   }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai2;
@@ -2439,7 +2439,7 @@ process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
   input:
   set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(vcf_file),
    file(gnomAD_vcf),file(gnomAD_tbi), file(vep_cache_dir),file(ref_fasta),file(ref_fai) from vcfs_mutect2_gatk4.combine(gnomAD_sites_vcf)
-                                                                         .combin(gnomAD_sites_tbi)
+                                                                         .combine(gnomAD_sites_tbi)
                                                                          .combine(vep_cache_dir)
                                                                          .combine(ref_fasta23)
                                                                          .combine(ref_fai23)
@@ -2449,7 +2449,7 @@ process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
   file("${vep_vcf_file}")
 
   script:
-  caller = "vep"
+  caller = "MuTect2_GATK4"
   prefix = "${comparisonID}.${caller}"
   vep_vcf_file = "${prefix}.vep.vcf"
 
