@@ -131,7 +131,8 @@ params.ref_dict = "${params.ref_dir}/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/Wh
 params.ref_chrom_sizes = "${params.ref_dir}/Illumina/hg19/chrom.sizes"
 params.microsatellites = "${params.ref_dir}/msisensor/hg19/microsatellites.list"
 params.trimmomatic_contaminant_fa = "${params.ref_dir}/contaminants/trimmomatic.fa"
-params.gnomAD_dir = "/gpfs/data/molecpathlab/ref/gnomAD_v2"
+params.gnomAD_sites_vcf = "${params.gnomAD_dir}/gnomad.exomes.r2.0.2.sites.vcf.gz"
+params.gnomAD_sites_tbi = "${params.gnomAD_dir}/gnomad.exomes.r2.0.2.sites.vcf.gz.tbi"
 params.vep_cache_dir = "/gpfs/data/molecpathlab/ref/vep"
 params.ExAC_dir = "/gpfs/data/molecpathlab/ref/ExAC"
 params.gatk_bundle_dir = "${params.ref_dir}/gatk-bundle"
@@ -430,7 +431,8 @@ Channel.fromPath("${CNVPool}").set { cnv_pool_ch }
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
 // reference file for VEP calling
-Channel.fromPath( file(params.gnomAD_dir) ).set{ gnomAD_vcf,  gnomAD_vcf_tbi}
+Channel.fromPath( file(params.gnomAD_sites_vcf) ).set{ gnomAD_sites_vcf}
+Channel.fromPath( file(params.gnomAD_sites_tbi) ).set{ gnomAD_sites_tbi}
 Channel.fromPath( file(params.vep_cache_dir) ).set{ vep_cache_dir }
 
 // logging channels
@@ -2434,8 +2436,8 @@ process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
 
   input:
   set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(vcf_file), file(ref_fasta),
-   file(gnomAD_vcf),file(gnomAD_vcf_tbi), file(vep_cache_dir) from vcfs_mutect2_gatk4.combine(gnomAD_vcf)
-                                                                         .combin(gnomAD_vcf_tbi)
+   file(gnomAD_vcf),file(gnomAD_tbi), file(vep_cache_dir) from vcfs_mutect2_gatk4.combine(gnomAD_sites_vcf)
+                                                                         .combin(gnomAD_sites_tbi)
                                                                          .combine(vep_cache_dir)
 
   output:
