@@ -1,0 +1,6 @@
+Bootstrap: docker
+Namespace:
+From: kzhupm/vcf2maf:v1.6.17
+
+%labels
+MAINTAINER khzhu

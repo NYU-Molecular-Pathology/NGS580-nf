@@ -1,0 +1,27 @@
+FROM ubuntu:bionic
+
+RUN apt update && apt install -y build-essential git cpanminus curl wget unzip automake samtools tabix
+RUN apt install -y libmysqlclient-dev libncurses5-dev zlib1g-dev libgsl0-dev libexpat1-dev libgd-dev
+
+RUN cpanm --notest LWP::Simple DBI DBD::mysql Archive::Zip Archive::Extract HTTP::Tiny Test::Simple
+RUN cpanm --notest File::Copy::Recursive Perl::OSType Module::Metadata version TAP::Harness CGI Encode
+RUN cpanm --notest CPAN::Meta JSON DBD::SQLite Set::IntervalTree Archive::Tar Time::HiRes Module::Build
+RUN cpanm --notest Bio::Root::Version
+
+WORKDIR /opt
+RUN mkdir -p variant_effect_predictor_96/cache
+RUN wget -q https://github.com/Ensembl/ensembl-vep/archive/release/96.3.tar.gz
+RUN tar -zxf 96.3.tar.gz -C variant_effect_predictor_96 && rm 96.3.tar.gz
+
+WORKDIR /opt/variant_effect_predictor_96
+RUN perl ensembl-vep-release-96.3/INSTALL.pl --NO_TEST --NO_UPDATE --AUTO ap --PLUGINS LoF --DESTDIR ensembl-vep-release-96.3 --CACHEDIR cache
+
+WORKDIR /opt/variant_effect_predictor_96/cache/Plugins
+RUN wget -q https://raw.githubusercontent.com/konradjk/loftee/v0.3-beta/splice_module.pl
+
+WORKDIR /opt
+ADD . /opt/vcf2maf
+COPY Dockerfile /opt/
+RUN chmod -R +x /opt/vcf2maf
+
+MAINTAINER Michele Mattioni, Seven Bridges, <michele.mattioni@sbgenomics.com>
