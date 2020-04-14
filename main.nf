@@ -440,7 +440,7 @@ Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 Channel.fromPath( file(params.gnomAD_sites_vcf) ).set{ gnomAD_sites_vcf}
 Channel.fromPath( file(params.gnomAD_sites_tbi) ).set{ gnomAD_sites_tbi}
 Channel.fromPath( file(params.ExAC_sites_vcf) ).set{ ExAC_sites_vcf}
-Channel.fromPath( file(params.ExAC_sites_tbi) ).set{ ExAc_sites_tbi}
+Channel.fromPath( file(params.ExAC_sites_tbi) ).set{ ExAC_sites_tbi}
 Channel.fromPath( file(params.vep_cache_dir) ).set{ vep_cache_dir }
 
 // logging channels
@@ -2515,11 +2515,11 @@ process vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
         --tumor-id "${tumorID}" \
         --normal-id "${normalID}" \
         --vcf-tumor-id "${tumorID}" \
-        --vcf-normal-id ${normalID}" \
+        --vcf-normal-id "${normalID}" \
         --vep-path "{$vepPath}" \
         --vep-data "${vep_cache_dir}" \
         --ref-fasta "${ref_fasta}" \
-        --filter-vcf "${ExAC_vcf} \
+        --filter-vcf "${ExAC_vcf}" \
         --buffer-size 265 \
         --max-filter-ac 10 \
         --retain-info "${retainInfo}" \
