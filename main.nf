@@ -439,6 +439,8 @@ Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 // reference file for VEP calling
 Channel.fromPath( file(params.gnomAD_sites_vcf) ).set{ gnomAD_sites_vcf}
 Channel.fromPath( file(params.gnomAD_sites_tbi) ).set{ gnomAD_sites_tbi}
+Channel.fromPath( file(params.ExAC_sites_vcf) ).set{ ExAC_sites_vcf}
+Channel.fromPath( file(params.ExAC_sites_tbi) ).set{ ExAc_sites_tbi}
 Channel.fromPath( file(params.vep_cache_dir) ).set{ vep_cache_dir }
 
 // logging channels
