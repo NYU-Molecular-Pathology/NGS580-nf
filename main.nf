@@ -2487,8 +2487,8 @@ process vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
   publishDir "${params.outputDir}/variants/MuTect2_GATK4/raw", mode: 'copy', pattern: "*${maf_file}"
 
   input:
-  set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(vcf_file),
-   file(ExAC_vcf),file(ExAC_tbi), file(vep_cache_dir),file(ref_fasta),file(ref_fai) from vcfs_mutect2_gatk4.combine(ExAC_sites_vcf)
+  set val(caller), val(comparisonID), val(tumorID), val(normalID), file(vep_vcf_file),
+   file(ExAC_vcf),file(ExAC_tbi), file(vep_cache_dir),file(ref_fasta),file(ref_fai) from vep_vcfs_mutect2.combine(ExAC_sites_vcf)
                                                                          .combine(ExAC_sites_tbi)
                                                                          .combine(vep_cache_dir)
                                                                          .combine(ref_fasta24)
@@ -2509,7 +2509,7 @@ process vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
       perl /opt/vcf2maf/vcf2maf.pl \
         --species "homo_sapiens" \
         --ncbi-build "GRCh37" \
-        --input-vcf "${vcf_file}" \
+        --input-vcf "${vep_vcf_file}".replaceFirst(/.vep.vcf$/, ".vcf") \
         --output-maf "${maf_file}" \
         --maf-center "MuTect2" \
         --tumor-id "${tumorID}" \
