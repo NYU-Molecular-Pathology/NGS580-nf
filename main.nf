@@ -102,7 +102,7 @@ disable_msisensor = true // breaks on very small demo datasets
 disable_delly2 = true
 disable_eval_pair_vcf = true
 disable_pindel = true
-//disable_varscan2 = true
+disable_varscan2 = true
 
 // load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
 String filemapJSON = new File("filemap.json").text
@@ -441,7 +441,7 @@ Channel.fromPath( file(params.gnomAD_sites_vcf) ).set{ gnomAD_sites_vcf}
 Channel.fromPath( file(params.gnomAD_sites_tbi) ).set{ gnomAD_sites_tbi}
 Channel.fromPath( file(params.ExAC_sites_vcf) ).set{ ExAC_sites_vcf}
 Channel.fromPath( file(params.ExAC_sites_tbi) ).set{ ExAC_sites_tbi}
-Channel.fromPath( file(params.vep_cache_dir) ).set{ vep_cache_dir }
+Channel.fromPath( file(params.vep_cache_dir) ).into { vep_cache_dir, vep_cache_dir1 }
 
 // logging channels
 Channel.from("Sample\tProgram\tType\tNote\tFiles").set { failed_samples }
@@ -2490,7 +2490,7 @@ process vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
   set val(caller), val(comparisonID), val(tumorID), val(normalID), file(vcf_file), file(vep_vcf_file),
    file(ExAC_vcf),file(ExAC_tbi), file(vep_cache_dir),file(ref_fasta),file(ref_fai) from vep_vcfs_mutect2.combine(ExAC_sites_vcf)
                                                                          .combine(ExAC_sites_tbi)
-                                                                         .combine(vep_cache_dir)
+                                                                         .combine(vep_cache_dir1)
                                                                          .combine(ref_fasta24)
                                                                          .combine(ref_fai24)
 
