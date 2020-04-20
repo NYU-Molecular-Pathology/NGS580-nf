@@ -2776,8 +2776,8 @@ process strelka_vep { //added for Variant Effect Predictor on strelka indel vcf 
   publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vep_vcf_file}"
 
   input:
-  set val(caller), val(indel), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(somatic_indels),
-   file(gnomAD_vcf),file(gnomAD_tbi), file(vep_cache_dir),file(ref_fasta),file(ref_fai) from strelka_indels.combine(gnomAD_sites_vcf1)
+  set val(caller), val(indel), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(vcf_file),
+   file(gnomAD_vcf),file(gnomAD_tbi), file(vep_cache_dir),file(ref_fasta),file(ref_fai) from raw_vcfs_pairs1.combine(gnomAD_sites_vcf1)
                                                                          .combine(gnomAD_sites_tbi1)
                                                                          .combine(vep_cache_dir2)
                                                                          .combine(ref_fasta25)
@@ -2791,28 +2791,28 @@ process strelka_vep { //added for Variant Effect Predictor on strelka indel vcf 
   caller = "Strelka"
   prefix = "${comparisonID}.${caller}"
   vep_vcf_file = "${prefix}.vep.vcf"
-
-  """
-      vep \
-          --fork 4 \
-          --species homo_sapiens \
-          --offline \
-          --everything \
-          --shift_hgvs 1 \
-          --check_existing \
-          --total_length \
-          --allele_number \
-          --no_escape \
-          --refseq \
-          --buffer_size 256 \
-          --dir "${vep_cache_dir}" \
-          --fasta "${ref_fasta}" \
-          --input_file "${vcf_file}" \
-          --force_overwrite \
-          --custom "${gnomAD_vcf},gnomAD,vcf,exact,0,AF_POPMAX,AF_AFR,AF_AMR,AF_ASJ,AF_EAS,AF_FIN,AF_NFE,AF_OTH,AF_SAS" \
-          --vcf \
-          --output_file "${vep_vcf_file}"
-  """
+  if (caller == "Strelka")
+      """
+          vep \
+              --fork 4 \
+              --species homo_sapiens \
+              --offline \
+              --everything \
+              --shift_hgvs 1 \
+              --check_existing \
+              --total_length \
+              --allele_number \
+              --no_escape \
+              --refseq \
+              --buffer_size 256 \
+              --dir "${vep_cache_dir}" \
+              --fasta "${ref_fasta}" \
+              --input_file "${vcf_file}" \
+              --force_overwrite \
+              --custom "${gnomAD_vcf},gnomAD,vcf,exact,0,AF_POPMAX,AF_AFR,AF_AMR,AF_ASJ,AF_EAS,AF_FIN,AF_NFE,AF_OTH,AF_SAS" \
+              --vcf \
+              --output_file "${vep_vcf_file}"
+      """
 }
 
 process strelka_vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
@@ -2925,7 +2925,7 @@ process pindel {
 }
 
 
-strelka_snvs.mix(strelka_indels, pindel_vcfs).set{ raw_vcfs_pairs }
+strelka_snvs.mix(strelka_indels, pindel_vcfs).into { raw_vcfs_pairs; raw_vcfs_pairs1 }
 process normalize_vcfs_pairs {
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy'
 
