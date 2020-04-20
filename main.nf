@@ -441,7 +441,7 @@ Channel.fromPath( file(params.gnomAD_sites_vcf) ).set{ gnomAD_sites_vcf}
 Channel.fromPath( file(params.gnomAD_sites_tbi) ).set{ gnomAD_sites_tbi}
 Channel.fromPath( file(params.ExAC_sites_vcf) ).set{ ExAC_sites_vcf}
 Channel.fromPath( file(params.ExAC_sites_tbi) ).set{ ExAC_sites_tbi}
-Channel.fromPath( file(params.vep_cache_dir) ).into { vep_cache_dir, vep_cache_dir1 }
+Channel.fromPath( file(params.vep_cache_dir) ).into { vep_cache_dir; vep_cache_dir1 }
 
 // logging channels
 Channel.from("Sample\tProgram\tType\tNote\tFiles").set { failed_samples }
