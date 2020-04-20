@@ -240,7 +240,9 @@ Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
     ref_fasta21;
     ref_fasta22;
     ref_fasta23;
-    ref_fasta24
+    ref_fasta24;
+    ref_fasta25;
+    ref_fasta26
   }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai2;
@@ -265,7 +267,9 @@ Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai21;
     ref_fai22;
     ref_fai23;
-    ref_fai24
+    ref_fai24;
+    ref_fai25;
+    ref_fai26
   }
 Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
     ref_dict2;
@@ -437,11 +441,11 @@ Channel.fromPath("${CNVPool}").set { cnv_pool_ch }
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
 // reference file for VEP calling
-Channel.fromPath( file(params.gnomAD_sites_vcf) ).set{ gnomAD_sites_vcf}
-Channel.fromPath( file(params.gnomAD_sites_tbi) ).set{ gnomAD_sites_tbi}
-Channel.fromPath( file(params.ExAC_sites_vcf) ).set{ ExAC_sites_vcf}
-Channel.fromPath( file(params.ExAC_sites_tbi) ).set{ ExAC_sites_tbi}
-Channel.fromPath( file(params.vep_cache_dir) ).into { vep_cache_dir; vep_cache_dir1 }
+Channel.fromPath( file(params.gnomAD_sites_vcf) ).into { gnomAD_sites_vcf; gnomAD_sites_vcf1 }
+Channel.fromPath( file(params.gnomAD_sites_tbi) ).into { gnomAD_sites_tbi; gnomAD_sites_tbi1 }
+Channel.fromPath( file(params.ExAC_sites_vcf) ).into { ExAC_sites_vcf; ExAC_sites_vcf1 }
+Channel.fromPath( file(params.ExAC_sites_tbi) ).into { ExAC_sites_tbi; ExAC_sites_tbi1 }
+Channel.fromPath( file(params.vep_cache_dir) ).into { vep_cache_dir; vep_cache_dir1; vep_cache_dir2; vep_cache_dir3 }
 
 // logging channels
 Channel.from("Sample\tProgram\tType\tNote\tFiles").set { failed_samples }
@@ -2482,7 +2486,7 @@ process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
   """
 }
 
-process vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
+process mutect2_vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
   // variants are annotated to all possible gene isoforms
   publishDir "${params.outputDir}/variants/MuTect2_GATK4/raw", mode: 'copy', pattern: "*${maf_file}"
 
@@ -2767,7 +2771,94 @@ process strelka {
     """
 }
 
+process strelka_vep { //added for Variant Effect Predictor on strelka indel vcf files
+  // paired tumor-normal vep calling
+  publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vep_vcf_file}"
 
+  input:
+  set val(caller), val(indel), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(somatic_indels),
+   file(gnomAD_vcf),file(gnomAD_tbi), file(vep_cache_dir),file(ref_fasta),file(ref_fai) from strelka_indels.combine(gnomAD_sites_vcf1)
+                                                                         .combine(gnomAD_sites_tbi1)
+                                                                         .combine(vep_cache_dir2)
+                                                                         .combine(ref_fasta25)
+                                                                         .combine(ref_fai25)
+
+  output:
+  set val(caller), val(comparisonID), val(tumorID), val(normalID), file(somatic_indels), file("${vep_vcf_file}") into vep_vcfs_strelka
+  file("${vep_vcf_file}")
+
+  script:
+  caller = "Strelka"
+  prefix = "${comparisonID}.${caller}"
+  vep_vcf_file = "${prefix}.vep.vcf"
+
+  """
+      vep \
+          --fork 4 \
+          --species homo_sapiens \
+          --offline \
+          --everything \
+          --shift_hgvs 1 \
+          --check_existing \
+          --total_length \
+          --allele_number \
+          --no_escape \
+          --refseq \
+          --buffer_size 256 \
+          --dir "${vep_cache_dir}" \
+          --fasta "${ref_fasta}" \
+          --input_file "${vcf_file}" \
+          --force_overwrite \
+          --custom "${gnomAD_vcf},gnomAD,vcf,exact,0,AF_POPMAX,AF_AFR,AF_AMR,AF_ASJ,AF_EAS,AF_FIN,AF_NFE,AF_OTH,AF_SAS" \
+          --vcf \
+          --output_file "${vep_vcf_file}"
+  """
+}
+
+process strelka_vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
+  // variants are annotated to all possible gene isoforms
+  publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${maf_file}"
+
+  input:
+  set val(caller), val(comparisonID), val(tumorID), val(normalID), file(vcf_file), file(vep_vcf_file),
+   file(ExAC_vcf),file(ExAC_tbi), file(vep_cache_dir),file(ref_fasta),file(ref_fai) from vep_vcfs_strelka.combine(ExAC_sites_vcf1)
+                                                                         .combine(ExAC_sites_tbi1)
+                                                                         .combine(vep_cache_dir3)
+                                                                         .combine(ref_fasta26)
+                                                                         .combine(ref_fai26)
+
+  output:
+  set val(caller), val(comparisonID), val(tumorID), val(normalID), file("${maf_file}") into mafs_strelka
+  file("${maf_file}")
+
+  script:
+  caller = "Strelka"
+  vepPath = "/opt/variant_effect_predictor_96/ensembl-vep-release-96.3/vep"
+  retainInfo = "gnomAD_AF_POPMAX,gnomAD_AF_AFR,gnomAD_AF_AMR,gnomAD_AF_ASJ,gnomAD_AF_EAS,gnomAD_AF_FIN,gnomAD_AF_NFE,gnomAD_AF_OTH,gnomAD_AF_SAS"
+  prefix = "${comparisonID}.${caller}"
+  maf_file = "${prefix}.maf"
+
+  """
+      perl /opt/vcf2maf/vcf2maf.pl \
+        --species "homo_sapiens" \
+        --ncbi-build "GRCh37" \
+        --input-vcf "${vcf_file}" \
+        --output-maf "${maf_file}" \
+        --maf-center "Strelka" \
+        --tumor-id "${tumorID}" \
+        --normal-id "${normalID}" \
+        --vcf-tumor-id "${tumorID}" \
+        --vcf-normal-id "${normalID}" \
+        --vep-path "{$vepPath}" \
+        --vep-data "${vep_cache_dir}" \
+        --ref-fasta "${ref_fasta}" \
+        --filter-vcf "${ExAC_vcf}" \
+        --buffer-size 265 \
+        --max-filter-ac 10 \
+        --retain-info "${retainInfo}" \
+        --min-hom-vaf 0.7
+  """
+}
 
 // add the split targets bed files
 samples_dd_bam_noHapMap_pairs_ref2.combine(line_chunk_ch3)
