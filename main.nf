@@ -2444,7 +2444,7 @@ process mutect2_gatk4 { //added for gatk4
 
 process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
   // paired tumor-normal vep calling
-  publishDir "${params.outputDir}/variants/MuTect2_GATK4/raw", mode: 'copy', pattern: "*${vep_vcf_file}"
+  publishDir "${params.outputDir}/variants/{caller}/raw", mode: 'copy', pattern: "*${vep_vcf_file}"
 
   input:
   set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(vcf_file),
@@ -2488,7 +2488,7 @@ process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
 
 process mutect2_vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
   // variants are annotated to all possible gene isoforms
-  publishDir "${params.outputDir}/variants/MuTect2_GATK4/raw", mode: 'copy', pattern: "*${maf_file}"
+  publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${maf_file}"
 
   input:
   set val(caller), val(comparisonID), val(tumorID), val(normalID), file(vcf_file), file(vep_vcf_file),
@@ -2504,8 +2504,6 @@ process mutect2_vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF
 
   script:
   caller = "MuTect2_GATK4"
-  vepPath = "/opt/variant_effect_predictor_96/ensembl-vep-release-96.3/vep"
-  retainInfo = "gnomAD_AF_POPMAX,gnomAD_AF_AFR,gnomAD_AF_AMR,gnomAD_AF_ASJ,gnomAD_AF_EAS,gnomAD_AF_FIN,gnomAD_AF_NFE,gnomAD_AF_OTH,gnomAD_AF_SAS"
   prefix = "${comparisonID}.${caller}"
   maf_file = "${prefix}.maf"
 
@@ -2520,13 +2518,13 @@ process mutect2_vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF
         --normal-id "${normalID}" \
         --vcf-tumor-id "${tumorID}" \
         --vcf-normal-id "${normalID}" \
-        --vep-path "{$vepPath}" \
+        --vep-path "/opt/variant_effect_predictor_96/ensembl-vep-release-96.3/vep" \
         --vep-data "${vep_cache_dir}" \
         --ref-fasta "${ref_fasta}" \
         --filter-vcf "${ExAC_vcf}" \
         --buffer-size 265 \
         --max-filter-ac 10 \
-        --retain-info "${retainInfo}" \
+        --retain-info "gnomAD_AF_POPMAX,gnomAD_AF_AFR,gnomAD_AF_AMR,gnomAD_AF_ASJ,gnomAD_AF_EAS,gnomAD_AF_FIN,gnomAD_AF_NFE,gnomAD_AF_OTH,gnomAD_AF_SAS" \
         --min-hom-vaf 0.7
   """
 }
@@ -2733,7 +2731,7 @@ process strelka {
 
     output:
     set val("${caller}"), val("snvs"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${somatic_snvs}") into strelka_snvs
-    set val("${caller}"), val("indel"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${somatic_indels}") into strelka_indels
+    set val("${caller}"), val("indel"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${somatic_indels}") into strelka_indels, strelka_indels2
 
     script:
     caller = "Strelka"
@@ -2833,7 +2831,6 @@ process strelka_vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF
 
   script:
   caller = "Strelka"
-  vepPath = "/opt/variant_effect_predictor_96/ensembl-vep-release-96.3/vep"
   retainInfo = "gnomAD_AF_POPMAX,gnomAD_AF_AFR,gnomAD_AF_AMR,gnomAD_AF_ASJ,gnomAD_AF_EAS,gnomAD_AF_FIN,gnomAD_AF_NFE,gnomAD_AF_OTH,gnomAD_AF_SAS"
   prefix = "${comparisonID}.${caller}"
   maf_file = "${prefix}.maf"
@@ -2847,9 +2844,9 @@ process strelka_vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF
         --maf-center "Strelka" \
         --tumor-id "${tumorID}" \
         --normal-id "${normalID}" \
-        --vcf-tumor-id "${tumorID}" \
-        --vcf-normal-id "${normalID}" \
-        --vep-path "{$vepPath}" \
+        --vcf-tumor-id "TUMOR" \
+        --vcf-normal-id "NORMAL" \
+        --vep-path /opt/variant_effect_predictor_96/ensembl-vep-release-96.3/vep \
         --vep-data "${vep_cache_dir}" \
         --ref-fasta "${ref_fasta}" \
         --filter-vcf "${ExAC_vcf}" \
@@ -2924,8 +2921,7 @@ process pindel {
     // BP = unassigned breakpoints
 }
 
-strelka_indels.into { strelka_indels1; strelka_indels2 }
-strelka_snvs.mix(strelka_indels1, pindel_vcfs).set{ raw_vcfs_pairs }
+strelka_snvs.mix(strelka_indels, pindel_vcfs).set{ raw_vcfs_pairs }
 process normalize_vcfs_pairs {
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy'
 
