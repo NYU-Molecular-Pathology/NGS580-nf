@@ -12,6 +12,7 @@ output_pdf_file <- args[3] # file to save Plotly PDF to
 cns <- read.table(cns_file,header = T,sep = "\t")
 
 save.image("loaded.Rdata")
+#load("loaded.Rdata")
 
 # # create ordered factor level for chroms
 chrom_order <- c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7",
@@ -27,7 +28,7 @@ cns[["chromosome"]] <- factor(x = cns[["chromosome"]],
                                 levels = chrom_order)
 cns[["gain_loss"]] <- factor(ifelse(cns[["log2"]] > 0, "gain", "loss"))
 
-
+filename_pdf <- strsplit(output_pdf_file, ".cnvkit.plotly.pdf")
 
 cnvplot <- ggplot(data = cns,
                   aes(x = start,
@@ -41,6 +42,7 @@ cnvplot <- ggplot(data = cns,
     # geom_segment(size = 2, lineend = "round") + # does not work right in ggplotly
     geom_hline(yintercept = 0) +
     facet_grid(.~chromosome, scales = "free_x", drop = FALSE) +
+    labs(title=filename_pdf) +
     theme_bw() +
     theme(axis.title.x=element_blank(),
           axis.text.x=element_blank(),
@@ -55,7 +57,7 @@ cnvplotly <- ggplotly(cnvplot, tooltip = "gene")
 
 htmlwidgets::saveWidget(as_widget(cnvplotly), file = output_html_file, selfcontained = TRUE)
 
-pdf(file = output_pdf_file, width = 15, height = 8)
+pdf(file = output_pdf_file, width = 15, height = 10)
 print(cnvplot)
 dev.off()
 

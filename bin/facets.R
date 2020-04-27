@@ -29,11 +29,13 @@ save.image("loaded.Rdata")
 #fit$ploidy ## estimated sample ploidy
 
 save.image("loaded.Rdata")
-write.csv(fit$cncf,file=output_seg_file,quote = F,row.names = F)
+write.table(fit$cncf,file=output_seg_file,sep="\t",quote = F,row.names = F)
 
-pdf(output_pdf_file,width = 10, height = 10)
+pdf(output_pdf_file,width = 15, height = 10)
+filename = strsplit(output_pdf_file, ".FACETS.cnv.plot.pdf")
 sname<- sprintf('ploidy= %.2f; purity= %.2f', fit$ploidy, fit$purity)
-plotSample(x=oo,emfit=fit,sname=sname)
+final_sname <- paste(filename, sname, sep=":  ")
+plotSample(x=oo,emfit=fit,sname=final_sname)
 dev.off()
 
 ## The top panel of the figure displays logR with chromosomes alternating in blue and gray. The green line indicates the median logR in the sample. The purple line indicates the logR of the diploid state. The second panel displays logOR. Segment means are ploted in red lines. The third panel plots the total (black) and minor (red) copy number for each segment. The bottom bar shows the associated cellular fraction (cf). Dark blue indicates high cf. Light blue indicates low cf. Beige indicates a normal segment (total=2,minor=1) ##
