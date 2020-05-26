@@ -2787,8 +2787,8 @@ process strelka_vep { //added for Variant Effect Predictor on strelka indel vcf 
 
   script:
   caller = "Strelka"
-  prefix = "${comparisonID}.${caller}"
-  vep_vcf_file = "${prefix}.vep.vcf"
+  prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
+  vep_vcf_file = "${prefix}.somatic.indels.vep.vcf"
 
   """
       vep \
