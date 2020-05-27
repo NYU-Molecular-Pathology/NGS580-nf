@@ -15,13 +15,14 @@ RUN tar -zxf 96.3.tar.gz -C variant_effect_predictor_96 && rm 96.3.tar.gz
 
 WORKDIR /opt/variant_effect_predictor_96
 RUN perl ensembl-vep-release-96.3/INSTALL.pl --NO_TEST --NO_UPDATE --AUTO ap --PLUGINS LoF --DESTDIR ensembl-vep-release-96.3 --CACHEDIR cache
+ENV PATH="/opt/variant_effect_predictor_96/ensembl-vep-release-96.3:${PATH}"
 
 WORKDIR /opt/variant_effect_predictor_96/cache/Plugins
 RUN wget -q https://raw.githubusercontent.com/konradjk/loftee/v0.3-beta/splice_module.pl
 
 WORKDIR /opt
 ADD . /opt/vcf2maf
-COPY Dockerfile /opt/
+#COPY Dockerfile /opt/
 RUN chmod -R +x /opt/vcf2maf
 
 MAINTAINER Michele Mattioni, Seven Bridges, <michele.mattioni@sbgenomics.com>
