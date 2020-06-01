@@ -23,13 +23,17 @@ save.image("loaded.Rdata")
 ## Call allele-specific copy number and associated cellular fraction, estimate tumor purity and ploidy
 
 fit=emcncf(oo)
+segment = fit$cncf
+segment$purity = fit$purity
+segment$ploidy = fit$ploidy
+
 save.image("loaded.Rdata")
 #head(fit$cncf) ## The segmentation result and the EM fit output looks like this
 #fit$purity ## estimated sample purity
 #fit$ploidy ## estimated sample ploidy
 
 save.image("loaded.Rdata")
-write.table(fit$cncf,file=output_seg_file,sep="\t",quote = F,row.names = F)
+write.table(segment,file=output_seg_file,sep="\t",quote = F,row.names = F)
 
 pdf(output_pdf_file,width = 15, height = 10)
 filename = strsplit(output_pdf_file, ".FACETS.cnv.plot.pdf")
