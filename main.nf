@@ -4399,7 +4399,7 @@ process update_cnvkit_extract_trusted_genes_collected {
 
 process cnvkit_plotly {
 
-    publishDir "${params.outputDir}/cnv", mode: 'copy'
+    publishDir "${params.outputDir}/cnv/cnvkit_plot", mode: 'copy'
 
     input:
     set val(comparisonID), val(tumorID), val(normalID), file(cns) from cnvs_cns3
@@ -4413,12 +4413,11 @@ process cnvkit_plotly {
     output_pdf = "${comparisonID}.cnvkit.plotly.pdf"
     """
     cnvplot.R "${cns}" "${output_html}" "${output_pdf}"
-
     """
 }
 
 process snp_pileup {
-    publishDir "${params.outputDir}/cnv", mode: 'copy'
+    publishDir "${params.outputDir}/cnv/FACETS", mode: 'copy' //added for facets summary
 
     input:
     set val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(snp_vcf), file(snp_vcf_tbi) from samples_dd_bam_noHapMap_pairs2.combine(common_snp_vcf).combine(common_snp_vcf_tbi)
@@ -4528,26 +4527,71 @@ snp_pileup_variance_bad.map { caller, callerType, comparisonID, tumorID, normalI
 }.set { snp_pileup_variance_bad_logs }
 
 process facets {
-    publishDir "${params.outputDir}/cnv", mode: 'copy'
+    publishDir "${params.outputDir}/cnv/FACETS", mode: 'copy'
 
     input:
     set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(snp_pileup_txt), file(snp_pileup_variance) from snp_pileup_variance_good
 
     output:
-    file("${output_segment}")
+      //added for facets summary
+    set val(comparisonID), val(tumorID), val(normalID), file("${output_segment}") into (facets_segment_files,facets_segment_files2)
     file("${output_pdf}")
 
     script:
     prefix = "${comparisonID}.${caller}.${callerType}"
-    output_segment = "${prefix}.segment.csv"
+    output_segment = "${prefix}.segment.tsv"
     output_pdf = "${prefix}.plot.pdf"
     """
     facets.R "${snp_pileup_txt}" "${output_pdf}" "${output_segment}"
     """
 }
 
+//added for facets summary
+process segment_files_updated {
+  publishDir "${params.outputDir}/cnv/FACETS", mode: 'copy'
 
+  input:
+  set val(comparisonID), val(tumorID), val(normalID), file(output_segment) from facets_segment_files
 
+  output:
+  file("${segment_output_file}") into facets_segment_files_updated
+
+  script:
+  prefix = "${comparisonID}"
+  segment_output_file = "${prefix}.segment.tsv"
+  """
+    paste-col.py -i "${output_segment}" --header "Tumor" -v "${tumorID}" | \
+    paste-col.py --header "Normal" -v "${normalID}" | \
+    paste-col.py --header "Comparison" -v "${comparisonID}" > \
+    "${segment_output_file}"
+    """
+}
+
+facets_segment_files_updated.collectFile(name: ".segment.tsv", keepHeader: true).set { facets_segment_files_collected }
+
+process facets_summary {
+  publishDir "${params.outputDir}", mode: 'copy'
+
+    input:
+    file(table) from facets_segment_files_collected
+
+    output:
+    file("${output_file}")
+
+    script:
+    output_file = "FACETS.tsv"
+    """
+    paste-col.py -i "${table}" --header "Run" -v "${runID}" | \
+    paste-col.py --header "Time" -v "${workflowTimestamp}" | \
+    paste-col.py --header "Session" -v "${workflow.sessionId}" | \
+    paste-col.py --header "Workflow" -v "${workflow.runName}" | \
+    paste-col.py --header "Location" -v "${workflow.projectDir}" | \
+    paste-col.py --header "System" -v "${localhostname}" | \
+    paste-col.py --header "GitBranch" -v "${params.GIT_CURRENT_BRANCH}" | \
+    paste-col.py --header "GitTag" -v "${params.GIT_CURRENT_TAG}" > \
+    "${output_file}"
+    """
+ }
 
 
 // ~~~~~~~ QC: Homozygous SNP Comparison ~~~~~~ //
