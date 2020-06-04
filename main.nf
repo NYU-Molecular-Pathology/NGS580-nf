@@ -99,10 +99,8 @@ def projectDir = params.runID
 // Enable or disable some pipeline steps here TODO: better config management for this
 disable_multiqc = true // for faster testing of the rest of the pipeline
 disable_msisensor = true // breaks on very small demo datasets
-disable_delly2 = true
 disable_eval_pair_vcf = true
-disable_pindel = true
-//disable_varscan2 = true
+disable_varscan2 = true
 
 // load a mapping dict to use for keeping track of the names and suffixes for some files throughout the pipeline
 String filemapJSON = new File("filemap.json").text
@@ -240,7 +238,9 @@ Channel.fromPath( file(params.ref_fa) ).into { ref_fasta;
     ref_fasta21;
     ref_fasta22;
     ref_fasta23;
-    ref_fasta24
+    ref_fasta24;
+    ref_fasta25;
+    ref_fasta26
   }
 Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai2;
@@ -265,7 +265,9 @@ Channel.fromPath( file(params.ref_fai) ).into { ref_fai;
     ref_fai21;
     ref_fai22;
     ref_fai23;
-    ref_fai24
+    ref_fai24;
+    ref_fai25;
+    ref_fai26
   }
 Channel.fromPath( file(params.ref_dict) ).into { ref_dict;
     ref_dict2;
@@ -437,11 +439,11 @@ Channel.fromPath("${CNVPool}").set { cnv_pool_ch }
 Channel.fromPath( file(samplesheet) ).set { samples_analysis_sheet }
 
 // reference file for VEP calling
-Channel.fromPath( file(params.gnomAD_sites_vcf) ).set{ gnomAD_sites_vcf}
-Channel.fromPath( file(params.gnomAD_sites_tbi) ).set{ gnomAD_sites_tbi}
-Channel.fromPath( file(params.ExAC_sites_vcf) ).set{ ExAC_sites_vcf}
-Channel.fromPath( file(params.ExAC_sites_tbi) ).set{ ExAC_sites_tbi}
-Channel.fromPath( file(params.vep_cache_dir) ).set{ vep_cache_dir }
+Channel.fromPath( file(params.gnomAD_sites_vcf) ).into { gnomAD_sites_vcf; gnomAD_sites_vcf1 }
+Channel.fromPath( file(params.gnomAD_sites_tbi) ).into { gnomAD_sites_tbi; gnomAD_sites_tbi1 }
+Channel.fromPath( file(params.ExAC_sites_vcf) ).into { ExAC_sites_vcf; ExAC_sites_vcf1 }
+Channel.fromPath( file(params.ExAC_sites_tbi) ).into { ExAC_sites_tbi; ExAC_sites_tbi1 }
+Channel.fromPath( file(params.vep_cache_dir) ).into { vep_cache_dir; vep_cache_dir1; vep_cache_dir2; vep_cache_dir3 }
 
 // logging channels
 Channel.from("Sample\tProgram\tType\tNote\tFiles").set { failed_samples }
@@ -2027,93 +2029,6 @@ process eval_sample_vcf {
     """
 }
 
-
-// DOWNSTREAM TASKS
-//
-// DELLY2 SNV STEPS
-delly2_modes = [
-['deletions', 'DEL'],
-['duplications', 'DUP'],
-['inversions', 'INV'],
-['translocations', 'BND'],
-['insertions', 'INS']
-]
-process delly2 {
-    // large structural nucleotide variant calling
-    publishDir "${params.outputDir}/snv/${mode}", mode: 'copy'
-
-    input:
-    set val(sampleID), file(sample_bam), file(sample_bai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed_file) from samples_dd_ra_rc_bam_ref4
-    each mode from delly2_modes
-
-    output:
-    file "${vcf_file}"
-    val(sampleID) into done_delly2
-
-    when:
-    disable_delly2 == false
-
-    script:
-    type = mode[0]
-    arg = mode[1]
-    caller = "Delly2"
-    prefix = "${sampleID}.${caller}.${type}"
-    bcf_file = "${prefix}.bcf"
-    vcf_file = "${prefix}.vcf"
-    """
-    delly call -t "${arg}" -g "${ref_fasta}" -o "${bcf_file}" "${sample_bam}"
-    bcftools view "${bcf_file}" > "${vcf_file}"
-    """
-}
-
-
-// // REQUIRES ANNOTATIONS FOR DBSNP FILTERING
-// TODO: set this back up again
-// process vaf_distribution_plot {
-//     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-//     errorStrategy 'ignore'
-//     publishDir "${params.outputDir}/vaf-distribution-hc", mode: 'copy', overwrite: true
-//
-//     input:
-//     set val(sampleID), file(sample_vcf_annot) from gatk_hc_annotations2
-//
-//     output:
-//     file "${sampleID}_vaf_dist.pdf" into vaf_distribution_plots
-//
-//     script:
-//     """
-//     VAF-distribution-plot.R "${sampleID}" "${sample_vcf_annot}"
-//     """
-// }
-
-// process merge_VAF_plots {
-//     executor "local"
-//     validExitStatus 0,11 // allow '11' failure triggered by few/no variants
-//     errorStrategy 'ignore'
-//     publishDir "${params.outputDir}/", mode: 'copy', overwrite: true
-//
-//     input:
-//     file '*' from vaf_distribution_plots.toList()
-//
-//     output:
-//     file "vaf_distributions.pdf"
-//
-//     script:
-//     """
-//     if [ "\$(ls -1 * | wc -l)" -gt 0 ]; then
-//         gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=vaf_distributions.pdf *
-//     else
-//         exit 11
-//     fi
-//     """
-// }
-
-
-
-
-
-
-
 // SETUP CHANNELS FOR PAIRED TUMOR-NORMAL STEPS
 
 // ~~~~~~~ HAPMAP POOL ANALYSIS ~~~~~~~ //
@@ -2440,7 +2355,7 @@ process mutect2_gatk4 { //added for gatk4
 
 process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
   // paired tumor-normal vep calling
-  publishDir "${params.outputDir}/variants/MuTect2_GATK4/raw", mode: 'copy', pattern: "*${vep_vcf_file}"
+  publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vep_vcf_file}"
 
   input:
   set val(caller), val(callerType), val(comparisonID), val(tumorID), val(normalID), file(vcf_file),
@@ -2482,15 +2397,15 @@ process mutect2_vep { //added for Variant Effect Predictor on mutect2 vcf files
   """
 }
 
-process vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
+process mutect2_vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
   // variants are annotated to all possible gene isoforms
-  publishDir "${params.outputDir}/variants/MuTect2_GATK4/raw", mode: 'copy', pattern: "*${maf_file}"
+  publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${maf_file}"
 
   input:
   set val(caller), val(comparisonID), val(tumorID), val(normalID), file(vcf_file), file(vep_vcf_file),
    file(ExAC_vcf),file(ExAC_tbi), file(vep_cache_dir),file(ref_fasta),file(ref_fai) from vep_vcfs_mutect2.combine(ExAC_sites_vcf)
                                                                          .combine(ExAC_sites_tbi)
-                                                                         .combine(vep_cache_dir)
+                                                                         .combine(vep_cache_dir1)
                                                                          .combine(ref_fasta24)
                                                                          .combine(ref_fai24)
 
@@ -2500,8 +2415,6 @@ process vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
 
   script:
   caller = "MuTect2_GATK4"
-  vepPath = "/opt/variant_effect_predictor_96/ensembl-vep-release-96.3/vep"
-  retainInfo = "gnomAD_AF_POPMAX,gnomAD_AF_AFR,gnomAD_AF_AMR,gnomAD_AF_ASJ,gnomAD_AF_EAS,gnomAD_AF_FIN,gnomAD_AF_NFE,gnomAD_AF_OTH,gnomAD_AF_SAS"
   prefix = "${comparisonID}.${caller}"
   maf_file = "${prefix}.maf"
 
@@ -2516,13 +2429,13 @@ process vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
         --normal-id "${normalID}" \
         --vcf-tumor-id "${tumorID}" \
         --vcf-normal-id "${normalID}" \
-        --vep-path "{$vepPath}" \
+        --vep-path "/opt/variant_effect_predictor_96/ensembl-vep-release-96.3/vep" \
         --vep-data "${vep_cache_dir}" \
         --ref-fasta "${ref_fasta}" \
         --filter-vcf "${ExAC_vcf}" \
         --buffer-size 265 \
         --max-filter-ac 10 \
-        --retain-info "${retainInfo}" \
+        --retain-info "gnomAD_AF_POPMAX,gnomAD_AF_AFR,gnomAD_AF_AMR,gnomAD_AF_ASJ,gnomAD_AF_EAS,gnomAD_AF_FIN,gnomAD_AF_NFE,gnomAD_AF_OTH,gnomAD_AF_SAS" \
         --min-hom-vaf 0.7
   """
 }
@@ -2729,7 +2642,7 @@ process strelka {
 
     output:
     set val("${caller}"), val("snvs"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${somatic_snvs}") into strelka_snvs
-    set val("${caller}"), val("indel"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${somatic_indels}") into strelka_indels
+    set val("${caller}"), val("indel"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${somatic_indels}") into strelka_indels, strelka_indels2
 
     script:
     caller = "Strelka"
@@ -2767,74 +2680,97 @@ process strelka {
     """
 }
 
+process strelka_vep { //added for Variant Effect Predictor on strelka indel vcf files
+  // paired tumor-normal vep calling
+  publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${vep_vcf_file}"
 
+  input:
+  set val(caller), val(indel), val(comparisonID), val(tumorID), val(normalID), val(chunkLabel), file(somatic_indels),
+   file(gnomAD_vcf),file(gnomAD_tbi), file(vep_cache_dir),file(ref_fasta),file(ref_fai) from strelka_indels2.combine(gnomAD_sites_vcf1)
+                                                                         .combine(gnomAD_sites_tbi1)
+                                                                         .combine(vep_cache_dir2)
+                                                                         .combine(ref_fasta25)
+                                                                         .combine(ref_fai25)
 
-// add the split targets bed files
-samples_dd_bam_noHapMap_pairs_ref2.combine(line_chunk_ch3)
-.map { comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict, targets_bed ->
-    // get number at the end of the file basename to denote the chunk Label
-    def chunkLabel = "${targets_bed.name}".findAll(/\d*$/)[0]
+  output:
+  set val(caller), val(comparisonID), val(tumorID), val(normalID), file(somatic_indels), file("${vep_vcf_file}") into vep_vcfs_strelka
+  file("${vep_vcf_file}")
 
-    return([ chunkLabel, comparisonID, tumorID, tumorBam, tumorBai, normalID, normalBam, normalBai, ref_fasta, ref_fai, ref_dict, targets_bed ])
-}.set { samples_dd_bam_noHapMap_pairs_targets }
+  script:
+  caller = "Strelka"
+  chunkLabel = "NA"
+  callerType = "NA"
+  prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
+  vep_vcf_file = "${prefix}.somatic.indels.vep.vcf"
 
-process pindel {
-    publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy'
-
-    input:
-    set val(chunkLabel), val(comparisonID), val(tumorID), file(tumorBam), file(tumorBai), val(normalID), file(normalBam), file(normalBai), file(ref_fasta), file(ref_fai), file(ref_dict), file(targets_bed) from samples_dd_bam_noHapMap_pairs_targets
-
-    when:
-    disable_pindel != true
-
-    output:
-    set val("${caller}"), val("${callerType}"), val(comparisonID), val(tumorID), val(normalID), val("${chunkLabel}"), file("${output_vcf}") into pindel_vcfs
-    file("${output_dir}")
-
-
-    script:
-    caller = "Pindel"
-    callerType = "indel"
-    prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
-    config_file = "pindel_config.txt"
-    output_dir = "${prefix}.pindel_output"
-    output_vcf = "${prefix}.vcf"
-    insert_size = 500 // 500bp reported by wet lab for sequencing
-    """
-    # make config file for Pindel
-    # labels must be `TUMOR` and `NORMAL` for downstream scripts
-    printf "${tumorBam}\t${insert_size}\tTUMOR\n" > "${config_file}"
-    printf "${normalBam}\t${insert_size}\tNORMAL\n" >> "${config_file}"
-
-    mkdir "${output_dir}"
-
-    pindel \
-    --fasta "${ref_fasta}" \
-    --config-file "${config_file}" \
-    --output-prefix "${output_dir}/" \
-    --number_of_threads \${NSLOTS:-\${NTHREADS:-1}} \
-    --max_range_index 2 \
-    --include "${targets_bed}"
-
-    pindel2vcf \
-    --pindel_output_root "${output_dir}/" \
-    --reference "${ref_fasta}" \
-    --reference_name hg19 \
-    --reference_date 2012_03_15 \
-    --gatk_compatible \
-    --vcf "${output_vcf}"
-    """
-    // Variant types reported by Pindel
-    // D = deletion
-    // SI = short insertion
-    // INV = inversion
-    // TD = tandem duplication
-    // LI = large insertion
-    // BP = unassigned breakpoints
+  """
+      vep \
+          --fork 4 \
+          --species homo_sapiens \
+          --offline \
+          --everything \
+          --shift_hgvs 1 \
+          --check_existing \
+          --total_length \
+          --allele_number \
+          --no_escape \
+          --refseq \
+          --buffer_size 256 \
+          --dir "${vep_cache_dir}" \
+          --fasta "${ref_fasta}" \
+          --input_file "${somatic_indels}" \
+          --force_overwrite \
+          --custom "${gnomAD_vcf},gnomAD,vcf,exact,0,AF_POPMAX,AF_AFR,AF_AMR,AF_ASJ,AF_EAS,AF_FIN,AF_NFE,AF_OTH,AF_SAS" \
+          --vcf \
+          --output_file "${vep_vcf_file}"
+  """
 }
 
+process strelka_vcf2maf { //convert a VCF into a Mutation Annotation Format (MAF)
+  // variants are annotated to all possible gene isoforms
+  publishDir "${params.outputDir}/variants/${caller}/raw", mode: 'copy', pattern: "*${maf_file}"
 
-strelka_snvs.mix(strelka_indels, pindel_vcfs).set{ raw_vcfs_pairs }
+  input:
+  set val(caller), val(comparisonID), val(tumorID), val(normalID), file(vcf_file), file(vep_vcf_file),
+   file(ExAC_vcf),file(ExAC_tbi), file(vep_cache_dir),file(ref_fasta),file(ref_fai) from vep_vcfs_strelka.combine(ExAC_sites_vcf1)
+                                                                         .combine(ExAC_sites_tbi1)
+                                                                         .combine(vep_cache_dir3)
+                                                                         .combine(ref_fasta26)
+                                                                         .combine(ref_fai26)
+
+  output:
+  set val(caller), val(comparisonID), val(tumorID), val(normalID), file("${maf_file}") into mafs_strelka
+  file("${maf_file}")
+
+  script:
+  caller = "Strelka"
+  retainInfo = "gnomAD_AF_POPMAX,gnomAD_AF_AFR,gnomAD_AF_AMR,gnomAD_AF_ASJ,gnomAD_AF_EAS,gnomAD_AF_FIN,gnomAD_AF_NFE,gnomAD_AF_OTH,gnomAD_AF_SAS"
+  prefix = "${comparisonID}.${caller}"
+  maf_file = "${prefix}.maf"
+
+  """
+      perl /opt/vcf2maf/vcf2maf.pl \
+        --species "homo_sapiens" \
+        --ncbi-build "GRCh37" \
+        --input-vcf "${vcf_file}" \
+        --output-maf "${maf_file}" \
+        --maf-center "Strelka" \
+        --tumor-id "${tumorID}" \
+        --normal-id "${normalID}" \
+        --vcf-tumor-id "TUMOR" \
+        --vcf-normal-id "NORMAL" \
+        --vep-path /opt/variant_effect_predictor_96/ensembl-vep-release-96.3/vep \
+        --vep-data "${vep_cache_dir}" \
+        --ref-fasta "${ref_fasta}" \
+        --filter-vcf "${ExAC_vcf}" \
+        --buffer-size 265 \
+        --max-filter-ac 10 \
+        --retain-info "${retainInfo}" \
+        --min-hom-vaf 0.7
+  """
+}
+
+strelka_snvs.mix(strelka_indels).set{ raw_vcfs_pairs }
 process normalize_vcfs_pairs {
     publishDir "${params.outputDir}/variants/${caller}/normalized", mode: 'copy'
 
@@ -2847,18 +2783,7 @@ process normalize_vcfs_pairs {
     script:
     prefix = "${comparisonID}.${caller}.${callerType}.${chunkLabel}"
     norm_vcf = "${prefix}.norm.vcf"
-    if( caller == 'Pindel' )
-        // using fasta-ref with Pindel causes lowercase nucleotides to be embedded in the vcf which breaks annotation downstream
-        // Pindel outputs some exact duplicate entries that need to be removed
-        """
-        # normalize and split vcf entries, remove duplicates
-        cat ${vcf} | \
-        bcftools norm --multiallelics -both --output-type v - | \
-        bcftools norm --rm-dup both --output-type v - | \
-        cat -n | sort -k2 -k1n | uniq -f1 | sort -nk1,1 | cut -f2- > \
-        "${norm_vcf}"
-        """
-    else
+
         """
         cat ${vcf} | \
         bcftools norm --multiallelics -both --output-type v - | \
@@ -3011,28 +2936,6 @@ process filter_vcf_pairs {
         // ##FORMAT=<ID=TU,Number=2,Type=Integer,Description="Number of 'T' alleles used in tiers 1,2">
         // ##FILTER=<ID=LowEVS,Description="Somatic Empirical Variant Score (SomaticEVS) is below threshold">
         // ##FILTER=<ID=LowDepth,Description="Tumor or normal sample read depth at this locus is below 2">
-    else if( caller == 'Pindel' )
-        """
-        # only keep 'PASS' entries
-        # only keep SNV less than 500bp long
-        # variant must have:
-        # Tumor Alt >= 5 reads
-        # Tumor Ref >= 100 reads
-        # Normal Alt < 2 reads
-        # Normal Ref >= 100 reads
-
-        # gatk.sh -T SelectVariants \
-        # -R "${ref_fasta}" \
-        # -V "${vcf}" \
-        # -select 'SVLEN < 500' \
-        # -select 'vc.getGenotype("TUMOR").getAD().1 > 4' \
-        # -select 'vc.getGenotype("TUMOR").getAD().0 > 99' \
-        # -select 'vc.getGenotype("NORMAL").getAD().1 < 2' \
-        # -select 'vc.getGenotype("NORMAL").getAD().0 > 99' \
-        # > "${filtered_vcf}"
-
-        cp "${vcf}" "${filtered_vcf}"
-        """
         // ##FILTER=<ID=PASS,Description="All filters passed">
         // ##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
         // ##INFO=<ID=HOMLEN,Number=1,Type=Integer,Description="Length of base pair identical micro-homology at event breakpoints">
@@ -3300,56 +3203,6 @@ process vcf_to_tsv_pairs {
             """
         else
             error "Invalid Strelka callerType: ${callerType}"
-    else if( caller == 'Pindel' )
-        """
-        # convert VCF to TSV
-        # NOTE: automatically filters for only PASS entries
-        gatk.sh -T VariantsToTable \
-        -R "${ref_fasta}" \
-        -V "${vcf}" \
-        -F CHROM \
-        -F POS \
-        -F ID \
-        -F REF \
-        -F ALT \
-        -F FILTER \
-        -F QUAL \
-        -F END \
-        -F HOMLEN \
-        -F SVLEN \
-        -F SVTYPE \
-        -GF AD \
-        -o "${tsv_file}"
-
-        ##FILTER=<ID=PASS,Description="All filters passed">
-        ##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">
-        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-        ##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods for genotypes as defined in the VCF specification">
-        ##FORMAT=<ID=RD,Number=1,Type=Integer,Description="Reference depth, how many reads support the reference">
-        ##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count in genotypes, for each ALT allele, in the same order as listed">
-        ##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency, for each ALT allele, in the same order as listed">
-        ##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
-        ##INFO=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth; some reads may have been filtered">
-        ##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
-        ##INFO=<ID=HOMLEN,Number=1,Type=Integer,Description="Length of base pair identical micro-homology at event breakpoints">
-        ##INFO=<ID=HOMSEQ,Number=.,Type=String,Description="Sequence of base pair identical micro-homology at event breakpoints">
-        ##INFO=<ID=NTLEN,Number=.,Type=Integer,Description="Number of bases inserted in place of deleted code">
-        ##INFO=<ID=PF,Number=1,Type=Integer,Description="The number of samples carry the variant">
-        ##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Difference in length between REF and ALT alleles">
-        ##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
-
-        # reformat and adjust the TSV table for consistency downstream
-        # add extra columns to the VCF TSV file for downstream
-        reformat-vcf-table.py -c Pindel -s "${tumorID}" -i "${tsv_file}" | \
-        paste-col.py --header "Sample" -v "${tumorID}"  | \
-        paste-col.py --header "Tumor" -v "${tumorID}"  | \
-        paste-col.py --header "Normal" -v "${normalID}"  | \
-        paste-col.py --header "VariantCaller" -v "${caller}" > \
-        "${reformat_tsv}"
-
-        # make sure that the input and output tables have the same number of rows
-        if [ "\$(wc -l < "${tsv_file}" )" -ne "\$( wc -l < "${reformat_tsv}" )" ]; then echo "ERROR: reformat table has different number of rows!"; exit 1; fi
-        """
     else
         error "Invalid caller: ${caller}"
 }
@@ -3609,39 +3462,6 @@ process annotate_pairs {
 
         # merge the tables together
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tsv}"
-        """
-    else if( caller == "Pindel" )
-        """
-        # Pindel produces a lot of near-duplicate entries, need to take extra steps to merge tables successfully
-        # merge errors should be detected by mismatched number of table rows after merge, in R script
-
-        # convert to ANNOVAR format
-        convert2annovar.pl \
-        -includeinfo \
-        -format vcf4old \
-        "${sample_vcf}" > \
-        "${avinput_file}"
-
-        # Annotate
-        table_annovar.pl "${avinput_file}" "${annovar_db_dir}" \
-        --buildver "${params.ANNOVAR_BUILD_VERSION}" \
-        --remove \
-        --protocol "${params.ANNOVAR_PROTOCOL}" \
-        --operation "${params.ANNOVAR_OPERATION}" \
-        --nastring . \
-        --outfile "${prefix}"
-
-        # need to re-associate the original vcf columns with the vcf tsv for merge
-        grep -v '^##' "${sample_vcf}" | cut -f8-11 | paste "${sample_tsv}" /dev/stdin > tmp.tsv
-        grep -v '^##' "${sample_vcf}" | cut -f8-11 | paste ${annovar_output_txt} /dev/stdin > tmp.hg19_multianno.txt
-
-        # merge the tables together
-        merge-vcf-tables-Pindel.R \
-        "${sample_vcf}" \
-        "tmp.tsv" \
-        "tmp.hg19_multianno.txt" \
-        "${avinput_file}" \
-        "${annotations_tsv}"
         """
     else
         error "Invalid caller: ${caller}"
@@ -4128,20 +3948,6 @@ process merge_signatures_pie_plots {
     gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile="${output_file}" ${input_files}
     """
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // SETUP CHANNELS FOR PAIRED TUMOR-NORMAL STEPS FOR CNV analysis
 // get all the combinations of samples & pairs
@@ -5109,7 +4915,6 @@ done_copy_samplesheet.concat(
     done_gatk_PrintReads,
     done_lofreq,
     done_gatk_hc,
-    done_delly2,
     done_deconstructSigs_signatures,
     done_merge_signatures_plots,
     done_merge_signatures_pie_plots,
