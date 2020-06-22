@@ -26,12 +26,12 @@ Additional criteria:
 For both matched and unmatched we will apply the following criteria:
 1- VAF >5%
 2- coverage > 200X.
-3- include SNV only including synonymous ans Non Synonymous.
+3- include SNV only including synonymous and Non Synonymous.
 4- exclude Cosmic HS
-5- include only exonic and 5’ UTR.
+5- include only exonic and TERT only in 5’ UTR.
 
 For Unmatched. Add condition below;
-6- Frequency of <1% in exAc.
+6- Frequency of <0.4% in exAc.
 
 """
 import csv
@@ -46,10 +46,11 @@ https://stackoverflow.com/questions/14207708/ioerror-errno-32-broken-pipe-python
 
 NA_strs = ['.'] # strings used as "NA" values in the table
 Func_refGene_allowed = ['exonic'] # , 'splicing' 'exonic;splicing', , 'UTR5'
+ExonicFunc_refGene_allowed = ['synonymous SNV','nonsynonymous SNV']
 coverage_min = 500.0 # should correspond to GATK CallableLoci depth cutoff
 frequency_min = 0.05 # 5%
-ExAC_allowed = ['.', '0'] # only allow NA or 0 values
-
+#ExAC_allowed = ['.', '0'] # only allow NA or 0 values
+ExAC_all_min = 0.004
 def unpaired_filter(row):
     """
     Return True or False if the row passes all the filter criteria
@@ -59,16 +60,28 @@ def unpaired_filter(row):
     COSMIC = row['cosmic70']
     Func_refGene = row['Func.refGene']
     ExAC_value = row['ExAC_ALL']
+    ExonicFunc_refGene = row['ExonicFunc.refGene']
 
     frequency_pass = frequency > frequency_min
     coverage_pass = coverage > coverage_min
     not_in_COSMIC = COSMIC in NA_strs
     in_Func_refGene_allowed = Func_refGene in Func_refGene_allowed
-    in_ExAC_allowed = ExAC_value in ExAC_allowed
-    return(all([in_Func_refGene_allowed, not_in_COSMIC, coverage_pass, frequency_pass, in_ExAC_allowed]))
+    #in_ExAC_allowed = ExAC_value in ExAC_allowed
+    in_ExAC_allowed = ExAC_value > ExAC_all_min
+    in_ExonicFunc_refGene_allowed = ExonicFunc_refGene in ExonicFunc_refGene_allowed
+    return(all([in_Func_refGene_allowed, not_in_COSMIC, coverage_pass, frequency_pass, in_ExAC_allowed, in_ExonicFunc_refGene_allowed]))
     # print(frequency, frequency_pass, coverage, coverage_pass, COSMIC, not_in_COSMIC, Func_refGene, in_Func_refGene_allowed)
 
 def LoFreq(fin, fout):
+    reader = csv.DictReader(fin, delimiter = '\t')
+    fieldnames = reader.fieldnames
+    writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
+    writer.writeheader()
+    for row in reader:
+        if unpaired_filter(row):
+            writer.writerow(row)
+
+def MuTect2(fin, fout):
     reader = csv.DictReader(fin, delimiter = '\t')
     fieldnames = reader.fieldnames
     writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
