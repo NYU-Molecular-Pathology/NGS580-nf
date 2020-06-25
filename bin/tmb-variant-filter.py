@@ -48,7 +48,9 @@ NA_strs = ['.'] # strings used as "NA" values in the table
 Func_refGene_allowed = ['exonic'] # , 'splicing' 'exonic;splicing', , 'UTR5'
 coverage_min = 500.0 # should correspond to GATK CallableLoci depth cutoff
 frequency_min = 0.05 # 5%
-ExAC_allowed = ['.', '0'] # only allow NA or 0 values
+#ExAC_allowed = ['.', '0'] # only allow NA or 0 values
+ExAC_max = 0.004
+ExonicFunc_refGene_allowed = ['synonymous SNV','nonsynonymous SNV']
 
 def unpaired_filter(row):
     """
@@ -58,13 +60,14 @@ def unpaired_filter(row):
     coverage = float(row['DP'])
     COSMIC = row['cosmic70']
     Func_refGene = row['Func.refGene']
+    ExonicFunc_refGene = row['ExonicFunc.refGene']
     ExAC_value = row['ExAC_ALL']
 
     frequency_pass = frequency > frequency_min
     coverage_pass = coverage > coverage_min
     not_in_COSMIC = COSMIC in NA_strs
-    in_Func_refGene_allowed = Func_refGene in Func_refGene_allowed
-    in_ExAC_allowed = ExAC_value in ExAC_allowed
+    in_Func_refGene_allowed = (Func_refGene in Func_refGene_allowed and ExonicFunc_refGene in ExonicFunc_refGene_allowed)
+    in_ExAC_allowed = ExAC_value <= ExAC_max
     return(all([in_Func_refGene_allowed, not_in_COSMIC, coverage_pass, frequency_pass, in_ExAC_allowed]))
     # print(frequency, frequency_pass, coverage, coverage_pass, COSMIC, not_in_COSMIC, Func_refGene, in_Func_refGene_allowed)
 
