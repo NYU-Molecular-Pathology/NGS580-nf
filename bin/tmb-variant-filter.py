@@ -57,14 +57,16 @@ def filter_rules(row, type="unpaired"):
     Return True or False if the row passes all the filter criteria
     """
     frequency = float(row['AF']) if type == "unpaired" else float(row['TUMOR.AF'])
-    coverage = float(row['DP']) if type == "unparied" else float(row['TUMOR.DP'])
+    coverage = float(row['DP'])
     COSMIC = row['cosmic70']
     Func_refGene = row['Func.refGene']
     ExonicFunc_refGene = row['ExonicFunc.refGene']
     ExAC_value = row['ExAC_ALL']
 
     frequency_pass = frequency > frequency_min
-    coverage_pass = coverage > coverage_min
+    coverage_pass = True
+    if type=="unpaired":
+        coverage_pass = coverage > coverage_min
     not_in_COSMIC = COSMIC in NA_strs
     in_Func_refGene_allowed = Func_refGene in Func_refGene_allowed
     in_Func_ExonicFunc_refGene = ExonicFunc_refGene in ExonicFunc_refGene_allowed
@@ -135,7 +137,7 @@ def main(**kwargs):
         fout.close()
         fin.close()
     elif caller == "VarScan2":
-        VarScan2(fin, fout) # TODO: create this function & filter methods for paired calling
+        VarScan2(fin, fout)
         fout.close()
         fin.close()
     elif caller == "MuTect2":
