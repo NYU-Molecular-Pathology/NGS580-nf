@@ -56,14 +56,14 @@ def filter_rules(row, type="unpaired"):
     """
     Return True or False if the row passes all the filter criteria
     """
-    frequency = float(row['AF'])
-    coverage = float(row['DP'])
+    frequency = float(row['AF']) if type == "unpaired" else float(row['TUMOR.AF'])
+    coverage = float(row['DP']) if type == "unparied" else float(row['TUMOR.DP'])
     COSMIC = row['cosmic70']
     Func_refGene = row['Func.refGene']
     ExonicFunc_refGene = row['ExonicFunc.refGene']
     ExAC_value = row['ExAC_ALL']
 
-    frequency_pass = frequency > frequency_min[0] if type == "unpaired" else frequency_min[1]
+    frequency_pass = frequency > frequency_min[1] if type == "unpaired" else frequency_min[0]
     coverage_pass = coverage > coverage_min
     not_in_COSMIC = COSMIC in NA_strs
     in_Func_refGene_allowed = Func_refGene in Func_refGene_allowed
@@ -90,7 +90,16 @@ def HaplotypeCaller(fin, fout):
         if filter_rules(row):
             writer.writerow(row)
 
-def SomaticCaller(fin, fout):
+def VarScan2(fin, fout):
+    reader = csv.DictReader(fin, delimiter = '\t')
+    fieldnames = reader.fieldnames
+    writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
+    writer.writeheader()
+    for row in reader:
+        if filter_rules(row):
+            writer.writerow(row)
+
+def MuTect2(fin, fout):
     reader = csv.DictReader(fin, delimiter = '\t')
     fieldnames = reader.fieldnames
     writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
@@ -125,8 +134,12 @@ def main(**kwargs):
         LoFreq(fin, fout)
         fout.close()
         fin.close()
-    elif caller in ["MuTect2", "VarScan2"]:
-        SomaticCaller(fin, fout) # TODO: create this function & filter methods for paired calling
+    elif caller == "VarScan2":
+        VarScan2(fin, fout) # TODO: create this function & filter methods for paired calling
+        fout.close()
+        fin.close()
+    elif caller == "MuTect2":
+        MuTect2(fin, fout) # TODO: create this function & filter methods for paired calling
         fout.close()
         fin.close()
     else:
