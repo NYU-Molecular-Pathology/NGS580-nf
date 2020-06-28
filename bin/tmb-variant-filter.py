@@ -47,7 +47,7 @@ https://stackoverflow.com/questions/14207708/ioerror-errno-32-broken-pipe-python
 NA_strs = ['.'] # strings used as "NA" values in the table
 Func_refGene_allowed = ['exonic'] # , 'splicing' 'exonic;splicing', , 'UTR5'
 coverage_min = 500.0 # should correspond to GATK CallableLoci depth cutoff
-frequency_min = [0.05,0.10] # 5%, 10%
+frequency_min = 0.05
 ExAC_allowed = ['.', '0'] # only allow NA or 0 values
 ExAC_max = 0.004
 ExonicFunc_refGene_allowed = ['synonymous SNV','nonsynonymous SNV']
@@ -63,7 +63,7 @@ def filter_rules(row, type="unpaired"):
     ExonicFunc_refGene = row['ExonicFunc.refGene']
     ExAC_value = row['ExAC_ALL']
 
-    frequency_pass = frequency > frequency_min[1] if type == "unpaired" else frequency_min[0]
+    frequency_pass = frequency > frequency_min
     coverage_pass = coverage > coverage_min
     not_in_COSMIC = COSMIC in NA_strs
     in_Func_refGene_allowed = Func_refGene in Func_refGene_allowed
