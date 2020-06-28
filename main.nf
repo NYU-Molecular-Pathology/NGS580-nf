@@ -3120,6 +3120,28 @@ process annotate {
 
         merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tsv}"
         """
+    else if( caller == 'MuTect2' )
+        """
+        # convert to ANNOVAR format
+        convert2annovar.pl \
+        -includeinfo \
+        -format vcf4 \
+        "${sample_vcf}" > \
+        "${avinput_file}"
+
+        table_annovar.pl "${avinput_file}" "${annovar_db_dir}" \
+        --buildver "${params.ANNOVAR_BUILD_VERSION}" \
+        --remove \
+        --protocol "${params.ANNOVAR_PROTOCOL}" \
+        --operation "${params.ANNOVAR_OPERATION}" \
+        --nastring . \
+        --outfile "${prefix}"
+
+        printf "Chr\tStart\tEnd\tRef\tAlt\tCHROM\tPOS\tID\tREF\tALT\n" > "${avinput_tsv}"
+        cut -f1-10 ${avinput_file} >>  "${avinput_tsv}"
+
+        merge-vcf-tables.R "${sample_tsv}" "${annovar_output_txt}" "${avinput_tsv}" "${annotations_tsv}"
+        """
     else
         error "Invalid caller: ${caller}"
 }

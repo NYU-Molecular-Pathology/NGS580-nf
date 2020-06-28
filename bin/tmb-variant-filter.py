@@ -47,12 +47,12 @@ https://stackoverflow.com/questions/14207708/ioerror-errno-32-broken-pipe-python
 NA_strs = ['.'] # strings used as "NA" values in the table
 Func_refGene_allowed = ['exonic'] # , 'splicing' 'exonic;splicing', , 'UTR5'
 coverage_min = 500.0 # should correspond to GATK CallableLoci depth cutoff
-frequency_min = 0.05 # 5%
-#ExAC_allowed = ['.', '0'] # only allow NA or 0 values
+frequency_min = [0.05,0.10] # 5%, 10%
+ExAC_allowed = ['.', '0'] # only allow NA or 0 values
 ExAC_max = 0.004
 ExonicFunc_refGene_allowed = ['synonymous SNV','nonsynonymous SNV']
 
-def unpaired_filter(row):
+def filter_rules(row, type="unpaired"):
     """
     Return True or False if the row passes all the filter criteria
     """
@@ -63,12 +63,13 @@ def unpaired_filter(row):
     ExonicFunc_refGene = row['ExonicFunc.refGene']
     ExAC_value = row['ExAC_ALL']
 
-    frequency_pass = frequency > frequency_min
+    frequency_pass = frequency > frequency_min[0] if type == "unpaired" else frequency_min[1]
     coverage_pass = coverage > coverage_min
     not_in_COSMIC = COSMIC in NA_strs
-    in_Func_refGene_allowed = (Func_refGene in Func_refGene_allowed and ExonicFunc_refGene in ExonicFunc_refGene_allowed)
-    in_ExAC_allowed = ExAC_value <= ExAC_max
-    return(all([in_Func_refGene_allowed, not_in_COSMIC, coverage_pass, frequency_pass, in_ExAC_allowed]))
+    in_Func_refGene_allowed = Func_refGene in Func_refGene_allowed
+    in_Func_ExonicFunc_refGene = ExonicFunc_refGene in ExonicFunc_refGene_allowed
+    in_ExAC_allowed = ExAC_value in NA_strs or float(ExAC_value) <= ExAC_max
+    return(all([in_Func_refGene_allowed, not_in_COSMIC, coverage_pass, frequency_pass, in_ExAC_allowed, in_Func_ExonicFunc_refGene]))
     # print(frequency, frequency_pass, coverage, coverage_pass, COSMIC, not_in_COSMIC, Func_refGene, in_Func_refGene_allowed)
 
 def LoFreq(fin, fout):
@@ -77,7 +78,7 @@ def LoFreq(fin, fout):
     writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
     writer.writeheader()
     for row in reader:
-        if unpaired_filter(row):
+        if filter_rules(row):
             writer.writerow(row)
 
 def HaplotypeCaller(fin, fout):
@@ -86,16 +87,16 @@ def HaplotypeCaller(fin, fout):
     writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
     writer.writeheader()
     for row in reader:
-        if unpaired_filter(row):
+        if filter_rules(row):
             writer.writerow(row)
 
-def VarScan2(fin, fout):
+def SomaticCaller(fin, fout):
     reader = csv.DictReader(fin, delimiter = '\t')
     fieldnames = reader.fieldnames
     writer = csv.DictWriter(fout, delimiter = '\t', fieldnames = fieldnames)
     writer.writeheader()
     for row in reader:
-        if unpaired_filter(row):
+        if filter_rules(row,"paired"):
             writer.writerow(row)
 
 def main(**kwargs):
@@ -124,12 +125,8 @@ def main(**kwargs):
         LoFreq(fin, fout)
         fout.close()
         fin.close()
-    elif caller == "MuTect2":
-        MuTect2(fin, fout) # TODO: create this function & filter methods for paired calling
-        fout.close()
-        fin.close()
-    elif caller == "VarScan2":
-        VarScan2(fin, fout)
+    elif caller in ["MuTect2", "VarScan2"]:
+        SomaticCaller(fin, fout) # TODO: create this function & filter methods for paired calling
         fout.close()
         fin.close()
     else:
