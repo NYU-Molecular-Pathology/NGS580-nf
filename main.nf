@@ -116,6 +116,7 @@ def interval_coverage_file = filemap.files.interval_coverage_file
 def signatures_weights_file = filemap.files.signatures_weights_file
 def targets_annotations_file = filemap.files.targets_annotations_file
 def tmb_file = filemap.files.tmb_file
+def callable_loci_file = filemap.files.callable_loci_file
 def git_json = filemap.files.git_json
 def snp_overlap_file = filemap.files.snp_overlap_file
 def outputDirPath = new File(params.outputDir).getCanonicalPath()
@@ -3381,19 +3382,24 @@ process callable_loci_table {
 
     output:
     file("${output_summary}") into loci_tables
+    file("${output_loci_txt}") into callable_locations
     set val(sampleID), file("${output_summary}"), file("${output_txt}") into loci_tables2
+
 
     script:
     prefix = "${sampleID}"
     output_summary = "${prefix}.CallableLoci.summary.tsv"
     output_txt = "${prefix}.CallableLoci.txt"
+    output_loci_txt = "${prefix}.CallableSampleLoci.txt"
     tmpFile = "tmp"
     """
     callable-loci-table.py "${summary}" "${tmpFile}"
     paste-col.py -i "${tmpFile}" --header "Sample" -v "${sampleID}" > "${output_summary}"
     grep 'CALLABLE' "${tmpFile}" | cut -f2 > "${output_txt}"
+    grep 'CALLABLE' "${output_summary}" | cut -f2,3 > "${output_loci_txt}"
     """
 }
+callable_locations.collectFile(name: "${callable_loci_file}", keepHeader: true, storeDir: "${params.outputDir}")
 
 // only keep files with at least 1 variant for TMB analysis
 annotations_annovar_tables.filter { sampleID, caller, type, anno_tsv ->

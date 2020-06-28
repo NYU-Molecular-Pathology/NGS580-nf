@@ -21,6 +21,7 @@
         "signatures_weights_file" : "signatures.weights.tsv",
         "targets_annotations_file" : "targets.annotations.tsv",
         "tmb_file" : "tmb.tsv",
+        "callable_loci_file" : "callable_loci.tsv",
         "git_json" : "git.json",
         "snp_overlap_file" : "snp-overlap.tsv"
     }
