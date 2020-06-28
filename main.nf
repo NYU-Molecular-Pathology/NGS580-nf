@@ -3273,7 +3273,7 @@ process split_annotation_table_caller {
     file(".annotations.tsv") from all_annotations_file_ch2
 
     output:
-    file("*")
+    file("*") into anno_tab_by_caller
 
     script:
     """

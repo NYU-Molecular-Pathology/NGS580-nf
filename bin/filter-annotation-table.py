@@ -16,94 +16,35 @@ somatic_frequency_min_normal = 0.02 # 2% normal AF
 Func_refGene_exclude = [
 'ncRNA_intronic',
 'intronic',
-'UTR3'
+'UTR3',
+'UTR5'
 ]
 
 def HaplotypeCaller(row):
-    return(True)
-    funcRefGene = row['Func.refGene']
-    passFuncRefGene = True
-    if funcRefGene in Func_refGene_exclude:
-        passFuncRefGene = False
-
-    if passFuncRefGene:
-        return(True)
-    else:
-        return(False)
+    return not row['Func.refGene'] in Func_refGene_exclude
 
 def LoFreq(row):
-    return(True)
-    # depth = float(row['DP'])
-    # alleleFrequency = float(row['AF'])
-    #
-    # passMinAF = True
-    # passMaxAF = True
-    # if alleleFrequency < lofreq_min_frequency:
-    #     passMinAF = False
-    # if alleleFrequency > lofreq_max_frequency:
-    #     passMaxAF = False
-    #
-    # depthPass = True
-    # if depth < depth_min:
-    #     depthPass = False
+    return all([float(row['DP']) > depth_min,
+                float(row['AF']) > lofreq_min_frequency,
+                float(row['AF']) < lofreq_max_frequency ,
+                row['Func.refGene'] not in Func_refGene_exclude])
 
-    funcRefGene = row['Func.refGene']
-    passFuncRefGene = True
-    if funcRefGene in Func_refGene_exclude:
-        passFuncRefGene = False
-
-    if passFuncRefGene: # passMinAF and passMaxAF and depthPass and
-        return(True)
-    else:
-        return(False)
 
 def MuTect2(row):
-    # tumorAlleleFrequency = float(row['AF'])
-    # if tumorAlleleFrequency > somatic_frequency_min_tumor:
-    #     return(True)
-    # else:
-    #     return(False)
-    return(True)
+    return all([float(row['AF']) > somatic_frequency_min_tumor,
+                row['Func.refGene'] not in Func_refGene_exclude])
 
 def VarScan2(row):
-    return(True)
-    # do not include VarScan2 output right now
-    return(False)
+    return(row['Func.refGene'] not in Func_refGene_exclude)
+
 
 def StrelkaSomaticIndel(row):
-    return(True)
-    # AF not encoded in .vcf
-    tumorAlleleFrequency = float(row['AF'])
-    passAF = True
-    if tumorAlleleFrequency < somatic_frequency_min_tumor:
-        passAF = False
-
-    funcRefGene = row['Func.refGene']
-    passFuncRefGene = True
-    if funcRefGene in Func_refGene_exclude:
-        passFuncRefGene = False
-
-    if passFuncRefGene and passAF:
-        return(True)
-    else:
-        return(False)
+    return all([float(row['AF']) > somatic_frequency_min_tumor,
+                row['Func.refGene'] not in Func_refGene_exclude])
 
 def StrelkaSomaticSNV(row):
-    return(True)
-    tumorAlleleFrequency = float(row['AF'])
-    passAF = True
-    if tumorAlleleFrequency < somatic_frequency_min_tumor:
-        passAF = False
-
-    funcRefGene = row['Func.refGene']
-    passFuncRefGene = True
-    if funcRefGene in Func_refGene_exclude:
-        passFuncRefGene = False
-
-    if passFuncRefGene and passAF:
-        return(True)
-    else:
-        return(False)
+    return all([float(row['AF']) > somatic_frequency_min_tumor,
+                row['Func.refGene'] not in Func_refGene_exclude])
 
 def Pindel(row):
     return(True)
@@ -130,24 +71,10 @@ def Pindel(row):
         return(False)
 
 def LoFreqSomatic(row):
-    return(True)
-    # tumorAlleleFrequency = float(row['AF'])
-    # passMinAF = True
-    # passMaxAF = True
-    # if tumorAlleleFrequency < lofreq_min_frequency:
-    #     passMinAF = False
-    # if tumorAlleleFrequency > lofreq_max_frequency:
-    #     passMaxAF = False
-
-    funcRefGene = row['Func.refGene']
-    passFuncRefGene = True
-    if funcRefGene in Func_refGene_exclude:
-        passFuncRefGene = False
-
-    if passFuncRefGene: # and passMinAF and passMaxAF
-        return(True)
-    else:
-        return(False)
+    return all([float(row['DP']) > depth_min,
+                float(row['AF']) > lofreq_min_frequency,
+                float(row['AF']) < lofreq_max_frequency ,
+                row['Func.refGene'] not in Func_refGene_exclude])
 
 
 def main(**kwargs):
