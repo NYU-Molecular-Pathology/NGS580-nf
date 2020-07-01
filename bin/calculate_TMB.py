@@ -24,29 +24,32 @@ For Unmatched. Add condition below;
 NA_strs = ['.'] # strings used as "NA" values in the table
 Func_refGene_allowed = ['exonic'] # , 'splicing' 'exonic;splicing', , 'UTR5'
 coverage_min = 200.0 # should correspond to GATK CallableLoci depth cutoff
-frequency_min = 0.05
+frequency_min = [0.05, 0.10]
 ExAC_max = 0.004
 ExonicFunc_refGene_allowed = ['synonymous SNV','nonsynonymous SNV']
 
-def filter_rules(row):
+def filter_rules(row, type="paired"):
     """
     Return True or False if the row passes all the filter criteria
     """
     frequency = float(row['AF'])
     coverage = float(row['DP'])
-    #COSMIC = row['cosmic70']
+    COSMIC = row['cosmic70']
     Func_refGene = row['Func.refGene']
     ExonicFunc_refGene = row['ExonicFunc.refGene']
-    ExAC_value = row['ExAC_ALL']
-
-    frequency_pass = frequency > frequency_min
+    if type == "unpaired":
+        ExAC_value = row['ExAC_ALL']
+    frequency_pass = frequency > frequency_min[0] if type == "paired" else frequency_min[1]
     coverage_pass = coverage >= coverage_min
-    #not_in_COSMIC = COSMIC in NA_strs
     not_in_COSMIC = True
+    if type == "unpaired":
+        not_in_COSMIC = COSMIC in NA_strs
     in_Func_refGene_allowed = Func_refGene in Func_refGene_allowed
     in_Func_ExonicFunc_refGene = ExonicFunc_refGene in ExonicFunc_refGene_allowed
-    in_ExAC_allowed = ExAC_value in NA_strs or float(ExAC_value) <= ExAC_max
     in_ExAC_allowed = True
+    if type == "unpaired":
+        in_ExAC_allowed = ExAC_value in NA_strs or float(ExAC_value) <= ExAC_max
+
     return(all([in_Func_refGene_allowed, not_in_COSMIC, coverage_pass,
                 frequency_pass, in_ExAC_allowed, in_Func_ExonicFunc_refGene]))
 
@@ -59,6 +62,8 @@ def get_options():
                         help="Path to input variant annotation including file name")
     parser.add_argument("-o", "--output", type=str, required=True,
                         help="Path to output TMB file including file name")
+    parser.add_argument("-t", "--type", type=str, required=False,
+                        help="tumor sample type, paired not unpaired", default="paired")
     return parser.parse_args()
 
 def main():
@@ -79,7 +84,7 @@ def main():
                 caller = row['VariantCaller']
                 if caller not in tmb_dict.keys():
                     tmb_dict[caller] = {}
-                sample = row['Tumor']
+                sample = row['Tumor'] if args.type == "paired" else row['Sample']
                 if sample not in tmb_dict[caller].keys():
                     tmb_dict[caller][sample] = {"variants":0}
                 tmb_dict[caller][sample]['variants'] += 1

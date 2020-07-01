@@ -3312,7 +3312,7 @@ process split_annotation_table_paired {
 
     output:
     file("${output_paired}") into anno_tab_by_caller
-    file("${output_unpaired}")
+    file("${output_unpaired}") into anno_tab_by_caller_unpaired
 
     script:
     output_paired = "annotations.paired.tsv"
@@ -3399,7 +3399,9 @@ process callable_loci_table {
     grep 'CALLABLE' "${output_summary}" | cut -f2,3 > "${output_loci_txt}"
     """
 }
-callable_locations.collectFile(name: "${callable_loci_file}", storeDir: "${params.outputDir}").set { sample_loci_collected }
+callable_locations.collectFile(name: "${callable_loci_file}", storeDir: "${params.outputDir}")
+.set { sample_loci_collected}
+Channel.fromPath("${params.outputDir}/${callable_loci_file}").set { sample_loci_collected2 }
 
 process caller_variants_tmb {
     publishDir "${params.outputDir}/", mode: 'copy'
@@ -3416,6 +3418,25 @@ process caller_variants_tmb {
     tmb_tsv = "annotations.paired.tmb.tsv"
     """
     calculate_TMB.py -l "${sample_loci}" -i "${anno_tsv}" -o "${tmb_tsv}"
+    """
+}
+
+process caller_variants_tmb_unpaired {
+    publishDir "${params.outputDir}/", mode: 'copy'
+
+    input:
+    set file(anno_tsv) from anno_tab_by_caller_unpaired
+    set file(sample_loci) from sample_loci_collected2
+
+    output:
+    file("${tmb_tsv}")
+
+    script:
+    //annotations.MuTect2.tsv
+    tmb_tsv = "annotations.unpaired.tmb.tsv"
+    sample_type = "unpaired"
+    """
+    calculate_TMB.py -l "${sample_loci}" -i "${anno_tsv}" -o "${tmb_tsv}" -t "${sample_type}"
     """
 }
 

@@ -14,7 +14,6 @@ def main(input_file, output_paired, output_unpaired):
     paired_callers = [
     'LoFreqSomatic',
     'MuTect2',
-    'Pindel',
     'Strelka'
     ]
     fin = open(input_file)
