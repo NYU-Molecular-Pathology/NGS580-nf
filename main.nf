@@ -3274,7 +3274,7 @@ process split_annotation_table_caller {
     file(".annotations.tsv") from all_annotations_file_ch2
 
     output:
-    file("*") into anno_tab_by_caller
+    file("*")
 
     script:
     """
@@ -3311,7 +3311,7 @@ process split_annotation_table_paired {
     file("annotations.tsv") from all_annotations_file_ch4
 
     output:
-    file("${output_paired}")
+    file("${output_paired}") into anno_tab_by_caller
     file("${output_unpaired}")
 
     script:
@@ -3399,7 +3399,25 @@ process callable_loci_table {
     grep 'CALLABLE' "${output_summary}" | cut -f2,3 > "${output_loci_txt}"
     """
 }
-callable_locations.collectFile(name: "${callable_loci_file}", keepHeader: true, storeDir: "${params.outputDir}")
+callable_locations.collectFile(name: "${callable_loci_file}", storeDir: "${params.outputDir}").set { sample_loci_collected }
+
+process caller_variants_tmb {
+    publishDir "${params.outputDir}/", mode: 'copy'
+
+    input:
+    set file(anno_tsv) from anno_tab_by_caller
+    set file(sample_loci) from sample_loci_collected
+
+    output:
+    file("${tmb_tsv}")
+
+    script:
+    //annotations.MuTect2.tsv
+    tmb_tsv = "${anno_tsv.basename.replaceFirst(/tsv/, "tmb")}.tsv"
+    """
+    calculate_TMB.py -l "${sample_loci}" -i "${anno_tsv}" -o "${tmb_tsv}"
+    """
+}
 
 // only keep files with at least 1 variant for TMB analysis
 annotations_annovar_tables.filter { sampleID, caller, type, anno_tsv ->
@@ -3473,12 +3491,6 @@ process calculate_tmb {
     """
 }
 tmbs.collectFile(name: "${tmb_file}", keepHeader: true, storeDir: "${params.outputDir}").set { tmbs_collected }
-
-
-
-
-
-
 
 
 // Genomic Signatures
