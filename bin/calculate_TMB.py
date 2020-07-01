@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Calcalate the tumor mutation burden in variants/Megabase
+"""
 import os
 import csv
 import argparse
@@ -66,7 +71,7 @@ def main():
             items = line.strip().split()
             loci_dict[items[1]] = items[0]
     with open(args.input) as fin, open(args.output, 'w') as fout:
-        fout.write("Sample\tSNV.Count\tTMB\tCaller\n")
+        fout.write("SampleID\tVariantCaller\tnBases\tnVariants\tTMB\n")
         reader = csv.DictReader(fin, delimiter = '\t')
         print(reader.fieldnames)
         for row in reader:
@@ -84,7 +89,8 @@ def main():
             for sample in tmb_dict[caller].keys():
                 val = tmb_dict[caller][sample]
                 tmb = round(float(val['variants'])/float(loci_dict[sample])*1000000,2)
-                fout.write("%s\t%s\t%s\t%s\n"%(sample,str(val['variants']),str(tmb), caller))
+                fout.write("%s\t%s\t%s\t%s\t%s\t%s\n"%(sample,caller,str(loci_dict[sample]),
+                                                    str(val['variants']),str(tmb), caller))
 
 if __name__ == "__main__":
     main()

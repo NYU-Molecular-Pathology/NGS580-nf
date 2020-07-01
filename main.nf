@@ -3413,7 +3413,7 @@ process caller_variants_tmb {
 
     script:
     //annotations.MuTect2.tsv
-    tmb_tsv = "${anno_tsv.basename.replaceFirst(/tsv/, "tmb")}.tsv"
+    tmb_tsv = "annotations.paired.tmb.tsv"
     """
     calculate_TMB.py -l "${sample_loci}" -i "${anno_tsv}" -o "${tmb_tsv}"
     """
