@@ -62,6 +62,7 @@ def get_options():
                         help="Path to input variant annotation including file name")
     parser.add_argument("-o", "--output", type=str, required=True,
                         help="Path to output TMB file including file name")
+    parser.add_argument("-s", "--sample_sheet", type=str, required=True, help="sample sheet")
     parser.add_argument("-t", "--type", type=str, required=False,
                         help="tumor sample type, paired not unpaired", default="paired")
     return parser.parse_args()
@@ -71,12 +72,17 @@ def main():
     print(args)
     loci_dict = dict()
     tmb_dict = dict()
+    sample_dict = dict()
     with open (args.loci) as fl:
         for line in fl:
             items = line.strip().split()
             loci_dict[items[1]] = items[0]
+    with open(args.sample_sheet) as fs:
+        for line in fs.readlines()[1:]:
+            items = line.strip().split("\t")
+            sample_dict[items[1]] = items[-1]
     with open(args.input) as fin, open(args.output, 'w') as fout:
-        fout.write("SampleID\tVariantCaller\tnBases\tnVariants\tTMB\n")
+        fout.write("SampleID\tVariantCaller\tnBases\tnVariants\tTMB\tTumorType\n")
         reader = csv.DictReader(fin, delimiter = '\t')
         print(reader.fieldnames)
         for row in reader:
@@ -94,8 +100,8 @@ def main():
             for sample in tmb_dict[caller].keys():
                 val = tmb_dict[caller][sample]
                 tmb = round(float(val['variants'])/float(loci_dict[sample])*1000000,2)
-                fout.write("%s\t%s\t%s\t%s\t%s\t%s\n"%(sample,caller,str(loci_dict[sample]),
-                                                    str(val['variants']),str(tmb), caller))
+                fout.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n"%(sample,caller,str(loci_dict[sample]),
+                                                           str(val['variants']),str(tmb), caller, sample_dict[sample]))
 
 if __name__ == "__main__":
     main()

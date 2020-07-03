@@ -3402,6 +3402,7 @@ process callable_loci_table {
 callable_locations.collectFile(name: "${callable_loci_file}", storeDir: "${params.outputDir}")
 .set { sample_loci_collected}
 Channel.fromPath("${params.outputDir}/${callable_loci_file}").set { sample_loci_collected2 }
+Channel.fromPath(file(samplesheet)).set { sample_analysis_sheet }
 
 process caller_variants_tmb {
     publishDir "${params.outputDir}/", mode: 'copy'
@@ -3409,6 +3410,7 @@ process caller_variants_tmb {
     input:
     set file(anno_tsv) from anno_tab_by_caller
     set file(sample_loci) from sample_loci_collected
+    set file(sample_sheet) from sample_analysis_sheet
 
     output:
     file("${tmb_tsv}")
@@ -3417,26 +3419,7 @@ process caller_variants_tmb {
     //annotations.MuTect2.tsv
     tmb_tsv = "annotations.paired.tmb.tsv"
     """
-    calculate_TMB.py -l "${sample_loci}" -i "${anno_tsv}" -o "${tmb_tsv}"
-    """
-}
-
-process caller_variants_tmb_unpaired {
-    publishDir "${params.outputDir}/", mode: 'copy'
-
-    input:
-    set file(anno_tsv) from anno_tab_by_caller_unpaired
-    set file(sample_loci) from sample_loci_collected2
-
-    output:
-    file("${tmb_tsv}")
-
-    script:
-    //annotations.MuTect2.tsv
-    tmb_tsv = "annotations.unpaired.tmb.tsv"
-    sample_type = "unpaired"
-    """
-    calculate_TMB.py -l "${sample_loci}" -i "${anno_tsv}" -o "${tmb_tsv}" -t "${sample_type}"
+    calculate_TMB.py -l "${sample_loci}" -i "${anno_tsv}" -o "${tmb_tsv}" -s "${sample_sheet}"
     """
 }
 
