@@ -73,16 +73,19 @@ def main():
     loci_dict = dict()
     tmb_dict = dict()
     sample_dict = dict()
+    excl_list = ["SC-SERACARE","NC-HAPMAP","SC_SERACARE","NC_HAPMAP"]
     with open (args.loci) as fl:
         for line in fl:
             items = line.strip().split()
             loci_dict[items[1]] = items[0]
     with open(args.sample_sheet) as fs:
         for line in fs.readlines()[1:]:
-            items = line.strip().split("\t")
-            sample_dict[items[1]] = items[-1]
+            items = line.split("\t")
+            if items[0].endswith(tuple(excl_list)) or items[2] == "NA": continue
+            sample_dict[items[0]] = items[-1].strip()
+            print(items[0], items[-1].strip())
     with open(args.input) as fin, open(args.output, 'w') as fout:
-        fout.write("SampleID\tVariantCaller\tnBases\tnVariants\tTMB\tTumorType\n")
+        fout.write("SampleID\tVariantCaller\tnBases\tnVariants\tTMB\tOncoCode\n")
         reader = csv.DictReader(fin, delimiter = '\t')
         print(reader.fieldnames)
         for row in reader:
@@ -91,6 +94,7 @@ def main():
                 if caller not in tmb_dict.keys():
                     tmb_dict[caller] = {}
                 sample = row['Tumor'] if args.type == "paired" else row['Sample']
+                if sample.endswith(tuple(excl_list)) : continue
                 if sample not in tmb_dict[caller].keys():
                     tmb_dict[caller][sample] = {"variants":0}
                 tmb_dict[caller][sample]['variants'] += 1
@@ -100,8 +104,8 @@ def main():
             for sample in tmb_dict[caller].keys():
                 val = tmb_dict[caller][sample]
                 tmb = round(float(val['variants'])/float(loci_dict[sample])*1000000,2)
-                fout.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n"%(sample,caller,str(loci_dict[sample]),
-                                                           str(val['variants']),str(tmb), caller, sample_dict[sample]))
+                fout.write("%s\t%s\t%s\t%s\t%s\t%s\n"%(sample,caller,str(loci_dict[sample]),
+                                                       str(val['variants']),str(tmb), sample_dict[sample]))
 
 if __name__ == "__main__":
     main()
