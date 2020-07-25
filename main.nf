@@ -41,16 +41,16 @@ params.GIT_RECENT_TAG = "none"
 
 // default config values
 def defaultParams = [:]
-defaultParams.runID = "NGS580_run"
-defaultParams.workflowLabel = "NGS580"
+defaultParams.runID = "NGS607_run"
+defaultParams.workflowLabel = "NGS607"
 defaultParams.numTargetSplitLines = 50
-defaultParams.targetsBed = "targets/targets.580.bed"
-defaultParams.targetsAnnotatedBed = "targets/targets.annotated.580.bed"
+defaultParams.targetsBed = "targets/targets.629.bed"
+defaultParams.targetsAnnotatedBed = "targets/targets.annotated.629.bed"
 defaultParams.projectDir = "${workflow.projectDir}"
 defaultParams.samplesheet = "samples.analysis.tsv"
 defaultParams.SeraCareSelectedTsv = "data/SeraCare-selected-variants.tsv"
 defaultParams.SeraCareErrorRate = 0.02
-defaultParams.CNVPool = "ref/CNV-Pool/CNV-Pool.580.cnn"
+defaultParams.CNVPool = "ref/CNV-Pool/PACT-reference.cnn"
 defaultParams.HapMapBam = "ref/HapMap-Pool/HapMap-pool.bam"
 defaultParams.HapMapBai = "ref/HapMap-Pool/HapMap-pool.bam.bai"
 
