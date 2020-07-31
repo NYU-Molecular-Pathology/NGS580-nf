@@ -35,7 +35,11 @@ def MuTect2(row):
                 row['Func.refGene'] not in Func_refGene_exclude])
 
 def VarScan2(row):
-    return(row['Func.refGene'] not in Func_refGene_exclude)
+    return all([float(row['DP']) > depth_min,
+                float(row['AF']) > lofreq_min_frequency,
+                float(row['AF']) < lofreq_max_frequency ,
+                row['Func.refGene'] not in Func_refGene_exclude])
+    #return(row['Func.refGene'] not in Func_refGene_exclude)
 
 
 def StrelkaSomaticIndel(row):
