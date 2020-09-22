@@ -50,9 +50,9 @@ defaultParams.projectDir = "${workflow.projectDir}"
 defaultParams.samplesheet = "samples.analysis.tsv"
 defaultParams.SeraCareSelectedTsv = "data/SeraCare-selected-variants.tsv"
 defaultParams.SeraCareErrorRate = 0.02
-defaultParams.CNVPool = "ref/CNV-Pool/PACT-reference.cnn"
-defaultParams.HapMapBam = "ref/HapMap-Pool/HapMap-pool.bam"
-defaultParams.HapMapBai = "ref/HapMap-Pool/HapMap-pool.bam.bai"
+defaultParams.CNVPool = "ref/CNV-Pool/CNV-Pool.629.cnn"
+defaultParams.HapMapBam = "ref/HapMap-Pool/NGS607/HapMap-pool.bam"
+defaultParams.HapMapBai = "ref/HapMap-Pool/NGS607/HapMap-pool.bam.bai"
 
 // load the JSON config, if present
 def externalConfig
