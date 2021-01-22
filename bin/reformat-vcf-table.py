@@ -268,9 +268,14 @@ def StrelkaSomaticIndel(fin, fout):
         normal_tier1RefCounts = int(normal_TAR_values[0])
         normal_TIR_values = row['NORMAL.TIR'].split(',')
         normal_tier1AltCounts = int(normal_TIR_values[0])
-        normal_AF = normal_tier1AltCounts / (( normal_tier1AltCounts + normal_tier1RefCounts ) * 1.0) # coerce to float
+        # normal_AF = normal_tier1AltCounts / (( normal_tier1AltCounts + normal_tier1RefCounts ) * 1.0) # coerce to float
+        # row['NORMAL.AF'] = normal_AF
+        normal_depth = float(normal_tier1AltCounts + normal_tier1RefCounts)
+        if normal_depth > 0.0:
+            normal_AF = normal_tier1AltCounts / normal_depth  # coerce to float
+        else:
+            normal_AF = 0.0 # mark as 0 and remove later with post-filter
         row['NORMAL.AF'] = normal_AF
-
         row['DP'] = row['TUMOR.DP']
         row['QUAL'] = row['QSI']
         writer.writerow(row)
